@@ -25,9 +25,9 @@ import (
 	"go.infratographer.com/x/otelx"
 	"go.infratographer.com/x/versionx"
 
-	"go.infratographer.com/permissionapi/internal/api"
-	"go.infratographer.com/permissionapi/internal/config"
-	"go.infratographer.com/permissionapi/internal/spicedbx"
+	"go.infratographer.com/permissions-api/internal/api"
+	"go.infratographer.com/permissions-api/internal/config"
+	"go.infratographer.com/permissions-api/internal/spicedbx"
 )
 
 var (

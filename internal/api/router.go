@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var tracer = otel.Tracer("go.infratographer.com/permissionapi/internal/api")
+var tracer = otel.Tracer("go.infratographer.com/permissions-api/internal/api")
 
 // Router provides a router for the API
 type Router struct {

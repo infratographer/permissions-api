@@ -23,10 +23,10 @@ import (
 	"github.com/spf13/viper"
 	"go.infratographer.com/x/otelx"
 
-	"go.infratographer.com/permissionapi/internal/config"
-	"go.infratographer.com/permissionapi/internal/query"
-	"go.infratographer.com/permissionapi/internal/spicedbx"
-	"go.infratographer.com/permissionapi/pkg/pubsubx"
+	"go.infratographer.com/permissions-api/internal/config"
+	"go.infratographer.com/permissions-api/internal/query"
+	"go.infratographer.com/permissions-api/internal/spicedbx"
+	"go.infratographer.com/permissions-api/pkg/pubsubx"
 )
 
 var workerCmd = &cobra.Command{

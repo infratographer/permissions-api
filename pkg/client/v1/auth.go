@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	tracer = otel.Tracer("go.infratographer.com/permissionapi/pkg/permissions/v1")
+	tracer = otel.Tracer("go.infratographer.com/permissions-api/pkg/permissions/v1")
 
 	apiVersion = "/api/v1"
 )

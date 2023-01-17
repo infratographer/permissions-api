@@ -28,7 +28,7 @@ import (
 	"go.infratographer.com/x/viperx"
 	"go.uber.org/zap"
 
-	"go.infratographer.com/permissionapi/internal/config"
+	"go.infratographer.com/permissions-api/internal/config"
 )
 
 var (

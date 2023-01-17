@@ -5,7 +5,7 @@ import (
 	"go.infratographer.com/x/loggingx"
 	"go.infratographer.com/x/otelx"
 
-	"go.infratographer.com/permissionapi/internal/spicedbx"
+	"go.infratographer.com/permissions-api/internal/spicedbx"
 )
 
 var AppConfig struct {

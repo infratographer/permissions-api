@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
-	"go.infratographer.com/permissionapi/internal/query"
+	"go.infratographer.com/permissions-api/internal/query"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 	"gocloud.dev/pubsub"

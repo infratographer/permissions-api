@@ -22,8 +22,8 @@ import (
 	"github.com/spf13/cobra"
 	"go.infratographer.com/x/otelx"
 
-	"go.infratographer.com/permissionapi/internal/config"
-	"go.infratographer.com/permissionapi/internal/spicedbx"
+	"go.infratographer.com/permissions-api/internal/config"
+	"go.infratographer.com/permissions-api/internal/spicedbx"
 )
 
 var schemaCmd = &cobra.Command{

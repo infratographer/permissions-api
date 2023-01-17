@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"go.infratographer.com/permissionapi/internal/query"
+	"go.infratographer.com/permissions-api/internal/query"
 )
 
 func (r *Router) checkGlobalScope(c *gin.Context) {
