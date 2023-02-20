@@ -45,10 +45,10 @@ definition PREFIX/tenant {
 	permission edit = editor + parent_tenant->edit_child_tenants
 	permission delete = deleter + parent_tenant->delete_child_tenants
 
-	relation tenant_viewer: role#actor
-	relation tenant_editor: role#actor
-	relation tenant_creator: role#actor
-	relation tenant_deleter: role#actor
+	relation tenant_viewer: PREFIX/role#actor
+	relation tenant_editor: PREFIX/role#actor
+	relation tenant_creator: PREFIX/role#actor
+	relation tenant_deleter: PREFIX/role#actor
 	permission view_tenant = tenant_viewer + edit_tenant + create_tenant + delete_tenant + parent_tenant->view_tenant
 	permission edit_tenant = tenant_editor + parent_tenant->edit_tenant
 	permission create_tenant = tenant_creator + parent_tenant->create_tenant
