@@ -55,7 +55,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is /etc/infratographer/permission-api.yaml)")
-	loggingx.MustViperFlags(rootCmd.PersistentFlags())
+	loggingx.MustViperFlags(viper.GetViper(), rootCmd.PersistentFlags())
 
 	// Add version command
 	versionx.RegisterCobraCommand(rootCmd, func() { versionx.PrintVersion(logger) })
