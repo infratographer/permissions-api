@@ -30,7 +30,7 @@ var schemaCmd = &cobra.Command{
 	Use:   "schema",
 	Short: "write the schema into SpiceDB",
 	Run: func(cmd *cobra.Command, args []string) {
-		writeSchema(cmd.Context())
+		writeSchema(cmd.Context(), globalCfg)
 	},
 }
 
@@ -38,18 +38,18 @@ func init() {
 	rootCmd.AddCommand(schemaCmd)
 }
 
-func writeSchema(ctx context.Context) {
-	err := otelx.InitTracer(config.AppConfig.Tracing, appName, logger)
+func writeSchema(ctx context.Context, cfg *config.AppConfig) {
+	err := otelx.InitTracer(cfg.Tracing, appName, logger)
 	if err != nil {
 		logger.Fatalw("unable to initialize tracing system", "error", err)
 	}
 
-	client, err := spicedbx.NewClient(config.AppConfig.SpiceDB, config.AppConfig.Tracing.Enabled)
+	client, err := spicedbx.NewClient(cfg.SpiceDB, cfg.Tracing.Enabled)
 	if err != nil {
 		logger.Fatalw("unable to initialize spicedb client", "error", err)
 	}
 
-	schema := spicedbx.GeneratedSchema(config.AppConfig.SpiceDB.Prefix)
+	schema := spicedbx.GeneratedSchema(cfg.SpiceDB.Prefix)
 
 	logger.Debugw("Writing schema to DB", "schema", schema)
 

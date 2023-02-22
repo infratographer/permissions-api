@@ -33,7 +33,7 @@ var workerCmd = &cobra.Command{
 	Use:   "worker",
 	Short: "starts a permission api queue working",
 	Run: func(cmd *cobra.Command, args []string) {
-		worker(cmd.Context())
+		worker(cmd.Context(), globalCfg)
 	},
 }
 
@@ -43,13 +43,13 @@ func init() {
 	otelx.MustViperFlags(viper.GetViper(), workerCmd.Flags())
 }
 
-func worker(ctx context.Context) {
-	err := otelx.InitTracer(config.AppConfig.Tracing, appName, logger)
+func worker(ctx context.Context, cfg *config.AppConfig) {
+	err := otelx.InitTracer(cfg.Tracing, appName, logger)
 	if err != nil {
 		logger.Fatalw("unable to initialize tracing system", "error", err)
 	}
 
-	spiceClient, err := spicedbx.NewClient(config.AppConfig.SpiceDB, config.AppConfig.Tracing.Enabled)
+	spiceClient, err := spicedbx.NewClient(cfg.SpiceDB, cfg.Tracing.Enabled)
 	if err != nil {
 		logger.Fatalw("unable to initialize spicedb client", "error", err)
 	}
