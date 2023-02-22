@@ -32,9 +32,10 @@ import (
 )
 
 var (
-	appName = "permissionapi"
-	cfgFile string
-	logger  *zap.SugaredLogger
+	appName   = "permissionapi"
+	cfgFile   string
+	logger    *zap.SugaredLogger
+	globalCfg *config.AppConfig
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -90,7 +91,7 @@ func initConfig() {
 	// If a config file is found, read it in.
 	err := viper.ReadInConfig()
 
-	var settings config.Settings
+	var settings config.AppConfig
 
 	if err := viper.Unmarshal(&settings); err != nil {
 		log.Fatalf("unable to process app config, error: %s", err.Error())
@@ -105,5 +106,5 @@ func initConfig() {
 		)
 	}
 
-	config.AppConfig = settings
+	globalCfg = &settings
 }

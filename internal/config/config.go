@@ -8,7 +8,7 @@ import (
 	"go.infratographer.com/permissions-api/internal/spicedbx"
 )
 
-var AppConfig struct {
+type AppConfig struct {
 	Logging loggingx.Config
 	Server  ginx.Config
 	SpiceDB spicedbx.Config

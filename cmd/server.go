@@ -38,7 +38,7 @@ var serverCmd = &cobra.Command{
 	Use:   "server",
 	Short: "starts the permission api server",
 	Run: func(cmd *cobra.Command, args []string) {
-		serve(cmd.Context())
+		serve(cmd.Context(), globalCfg)
 	},
 }
 
@@ -49,18 +49,18 @@ func init() {
 	otelx.MustViperFlags(viper.GetViper(), serverCmd.Flags())
 }
 
-func serve(ctx context.Context) {
-	err := otelx.InitTracer(config.AppConfig.Tracing, appName, logger)
+func serve(ctx context.Context, cfg *config.AppConfig) {
+	err := otelx.InitTracer(cfg.Tracing, appName, logger)
 	if err != nil {
 		logger.Fatalw("unable to initialize tracing system", "error", err)
 	}
 
-	spiceClient, err := spicedbx.NewClient(config.AppConfig.SpiceDB, config.AppConfig.Tracing.Enabled)
+	spiceClient, err := spicedbx.NewClient(cfg.SpiceDB, cfg.Tracing.Enabled)
 	if err != nil {
 		logger.Fatalw("unable to initialize spicedb client", "error", err)
 	}
 
-	s := ginx.NewServer(logger.Desugar(), config.AppConfig.Server, versionx.BuildDetails())
+	s := ginx.NewServer(logger.Desugar(), cfg.Server, versionx.BuildDetails())
 	r := api.NewRouter(spiceClient, logger)
 
 	s = s.AddHandler(r).
