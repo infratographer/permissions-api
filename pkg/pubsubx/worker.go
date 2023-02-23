@@ -46,10 +46,10 @@ type SubscriptionOptions struct {
 	Queue string
 }
 
-type Publisher struct {
-	topic  *pubsub.Topic
-	logger *zap.SugaredLogger
-}
+// type Publisher struct {
+// 	topic *pubsub.Topic
+// 	logger *zap.SugaredLogger
+// }
 
 func NewSubscription(ctx context.Context, psURL string, logger *zap.SugaredLogger, opts ...SubscriptionOption) (*Subscription, error) {
 	u, err := url.Parse(psURL)
@@ -90,6 +90,7 @@ func (s *Subscription) StartListening(ctx context.Context, st *query.Stores) err
 	// if err != nil {
 	// 	return fmt.Errorf("could not open topic subscription: %v", err)
 	// }
+	//nolint:errcheck // TODO: figure out how to handle this error
 	defer s.sub.Shutdown(ctx)
 
 	fmt.Println("Starting to listen for a messages")
@@ -147,6 +148,8 @@ func HackySendMsg(ctx context.Context, t string, msg *Message) error {
 	if err != nil {
 		return err
 	}
+
+	// nolint:errcheck // TODO: figure out how to handle this error
 	defer topic.Shutdown(ctx)
 
 	return SendMsg(topic, msg)
@@ -171,7 +174,7 @@ func (s *Subscription) Receive(ctx context.Context, st *query.Stores) error {
 	if err != nil {
 		// Errors from Receive indicate that Receive will no longer succeed.
 		log.Printf("Receiving message: %v", err)
-		return err
+		return fmt.Errorf("failed to receive message: %w", err)
 	}
 	// Do work based on the message, for example:
 	// fmt.Printf("Got message: %q\n", msg.Body)
@@ -180,10 +183,13 @@ func (s *Subscription) Receive(ctx context.Context, st *query.Stores) error {
 
 	err = json.Unmarshal(msg.Body, &em)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to unmarshal message: %w", err)
 	}
 
-	s.ProcessMessage(ctx, st, em)
+	err = s.ProcessMessage(ctx, st, em)
+	if err != nil {
+		return fmt.Errorf("failed to process message: %w", err)
+	}
 
 	// Messages must always be acknowledged with Ack.
 	msg.Ack()

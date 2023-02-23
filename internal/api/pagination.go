@@ -77,14 +77,14 @@ func parseLimit(l int) int {
 	return limit
 }
 
-func (p *Pagination) offset() int {
-	page := p.Page
-	if page == 0 {
-		page = 1
-	}
-
-	return (page - 1) * p.Limit
-}
+// func (p *Pagination) offset() int {
+// 	page := p.Page
+// 	if page == 0 {
+// 		page = 1
+// 	}
+//
+// 	return (page - 1) * p.Limit
+// }
 
 func (p *Pagination) SetHeaders(c *gin.Context, count int) {
 	c.Header("Pagination-Count", strconv.Itoa(count))
