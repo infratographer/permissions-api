@@ -2,7 +2,7 @@ BIN?=permissions-api
 
 # Utility settings
 TOOLS_DIR := .tools
-GOLANGCI_LINT_VERSION = v1.50.1
+GOLANGCI_LINT_VERSION = v1.51.2
 
 # Container build settings
 CONTAINER_BUILD_CMD?=docker build
