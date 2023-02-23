@@ -1,0 +1,87 @@
+version: '3.8'
+
+networks:
+  infradev:
+
+volumes:
+  crdb:
+    null
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VARIANT: 1.19-bullseye
+        NODE_VERSION: "none"
+    command: sleep infinity
+    env_file:
+      - .env
+    volumes:
+      - ..:/workspace:cached
+    networks:
+      - infradev
+    # Use "forwardPorts" in **devcontainer.json** to forward a port locally.
+    # (Adding the "ports" property to this file will not forward from a Codespace.)
+
+
+  # Environment setup
+  create_databases:
+    image: cockroachdb/cockroach:latest-v22.1
+    restart: on-failure:5
+    command: "sql --insecure -e 'CREATE DATABASE IF NOT EXISTS spicedb;'"
+    env_file:
+      - .env
+    depends_on:
+      - crdb
+    networks:
+      - infradev
+
+  migrate_spicedb:
+    image: authzed/spicedb:v1.13.0
+    command: migrate head
+    restart: on-failure:5
+    env_file:
+      - .env
+    depends_on:
+      - "create_databases"
+    networks:
+      - infradev
+
+  # Required services (databases, etc)
+  crdb:
+    image: cockroachdb/cockroach:latest-v22.1
+    command: start-single-node --insecure
+    restart: unless-stopped
+    volumes:
+      - crdb:/cockroach/cockroach-data
+    env_file:
+      - .env
+    healthcheck:
+      test: "curl --fail http://localhost:8080/health?ready=1 || exit 1"
+      interval: "2s"
+      retries: 3
+      start_period: "15s"
+      timeout: "5s"
+    networks:
+      - infradev
+
+  spicedb:
+    image: authzed/spicedb:v1.13.0
+    command: serve
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - migrate_spicedb
+    networks:
+      - infradev
+
+  nats:
+    image: 'nats:2'
+    network_mode: service:app
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.38.0
+    network_mode: service:app
