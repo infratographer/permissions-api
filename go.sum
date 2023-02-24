@@ -1529,6 +1529,7 @@ github.com/nats-io/nats.go v1.13.1-0.20220121202836-972a071d373d/go.mod h1:BPko4
 github.com/nats-io/nats.go v1.16.0/go.mod h1:BPko4oXsySz4aSWeFgOHLZs3G4Jq4ZAyE6/zMCxRT6w=
 github.com/nats-io/nats.go v1.19.0 h1:H6j8aBnTQFoVrTGB6Xjd903UMdE7jz6DS4YkmAqgZ9Q=
 github.com/nats-io/nats.go v1.19.0/go.mod h1:tLqubohF7t4z3du1QDPYJIQQyhb4wl6DhjxEajSI7UA=
+github.com/nats-io/nats.go v1.20.0/go.mod h1:tLqubohF7t4z3du1QDPYJIQQyhb4wl6DhjxEajSI7UA=
 github.com/nats-io/nats.go v1.23.0 h1:lR28r7IX44WjYgdiKz9GmUeW0uh/m33uD3yEjLZ2cOE=
 github.com/nats-io/nats.go v1.23.0/go.mod h1:ki/Scsa23edbh8IRZbCuNXR9TDcbvfaSijKtaqQgw+Q=
 github.com/nats-io/nats.go v1.24.0 h1:CRiD8L5GOQu/DcfkmgBcTTIQORMwizF+rPk6T0RaHVQ=
@@ -2059,6 +2060,8 @@ gocloud.dev v0.28.0 h1:PjL1f9zu8epY1pFCIHdrQnJRZzRcDyAr18hNTkXIKlQ=
 gocloud.dev v0.28.0/go.mod h1:nzSs01FpRYyIb/OqXLNNa+NMPZG9CdTUY/pGLgSpIN0=
 gocloud.dev/pubsub/natspubsub v0.27.0 h1:67CpqtGNKaUzhdtDKPrxy27qJq9sqz4TP1ejwPAut9w=
 gocloud.dev/pubsub/natspubsub v0.27.0/go.mod h1:NhnGDMXowllCRR+HojvlJ8Q7OTGxYvDPH64KtKQAJBE=
+gocloud.dev/pubsub/natspubsub v0.28.0 h1:lbGSzp/7JvjrH1Dy08sKe4X4xMQV92i7qBlaZ/iS+lg=
+gocloud.dev/pubsub/natspubsub v0.28.0/go.mod h1:+J484VYToq+UwV3dETa/mYaIKJyMeWiZusnCdZAgcFw=
 golang.org/x/arch v0.0.0-20210923205945-b76863e36670 h1:18EFjUmQOcUvxNYSkA6jO9VAiXCnxFY6NyDX0bHDmkU=
 golang.org/x/arch v0.0.0-20210923205945-b76863e36670/go.mod h1:5om86z9Hs0C8fWVUuoMHwpExlXzs5Tkyp9hOrfG7pp8=
 golang.org/x/crypto v0.0.0-20171113213409-9f005a07e0d3/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=

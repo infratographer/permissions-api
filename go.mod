@@ -18,7 +18,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.14.0
 	go.uber.org/zap v1.24.0
 	gocloud.dev v0.28.0
-	gocloud.dev/pubsub/natspubsub v0.27.0
+	gocloud.dev/pubsub/natspubsub v0.28.0
 	google.golang.org/grpc v1.53.0
 )
 
