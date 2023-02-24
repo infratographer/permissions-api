@@ -34,7 +34,8 @@ services:
     env_file:
       - .env
     depends_on:
-      - crdb
+      crdb:
+        condition: service_healthy
     networks:
       - infradev
 
@@ -45,7 +46,8 @@ services:
     env_file:
       - .env
     depends_on:
-      - "create_databases"
+      create_databases:
+        condition: service_completed_successfully
     networks:
       - infradev
 
@@ -74,7 +76,8 @@ services:
     env_file:
       - .env
     depends_on:
-      - migrate_spicedb
+      migrate_spicedb:
+        condition: service_completed_successfully
     networks:
       - infradev
 
