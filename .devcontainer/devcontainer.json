@@ -1,30 +1,40 @@
-# spicedb container config
-SPICEDB_GRPC_PRESHARED_KEY=infradev
-SPICEDB_DATASTORE_CONN_URI=postgresql://root:@crdb:26257/spicedb?sslmode=disable
-SPICEDB_DATASTORE_ENGINE=cockroachdb
-SPICEDB_LOG_LEVEL=info
-SPICEDB_LOG_FORMAT=console
-SPICEDB_OTEL_PROVIDER=jaeger
-SPICEDB_OTEL_INSECURE=true
-SPICEDB_OTEL_ENDPOINT=http://app:14268/api/traces
+// Config reference, https://containers.dev/implementors/json_reference/
+{
+	"name": "permissions-api",
+	"dockerComposeFile":"docker-compose.yml",
+	"service": "app",
+	"workspaceFolder": "/workspace",
+	"shutdownAction": "stopCompose",
+	// Configure tool-specific properties.
+	"customizations": {
+		// Configure properties specific to VS Code.
+		"vscode": {
+			// Set *default* container specific settings.json values on container create.
+			"settings": {
+				"go.toolsManagement.checkForUpdates": "local",
+				"go.useLanguageServer": true,
+				"go.gopath": "/go"
+			},
 
-# zed CLI tool config
-ZED_ENDPOINT=spicedb:50051
-ZED_INSECURE=true
-ZED_TOKEN=infradev
+			// Add the IDs of extensions you want installed when the container is created.
+			"extensions": [
+				"2gua.rainbow-brackets",
+				"golang.Go",
+				"mutantdino.resourcemonitor",
+				"oderwat.indent-rainbow",
+				"ms-azuretools.vscode-docker",
+				"RemiMarche.cspell-tech",
+				"streetsidesoftware.code-spell-checker"
+			]
+		}
+	},
 
-IDENTITYAPI_TRACING_ENABLED=true
-IDENTITYAPI_TRACING_PROVIDER=jaeger
-IDENTITYAPI_TRACING_JAEGER_ENDPOINT=http://localhost:14268/api/traces
-IDENTITYAPI_CRDB_URI="postgresql://root@crdb:26257/identityapi_dev?sslmode=disable"
-
-PERMISSIONAPI_TRACING_ENABLED=true
-PERMISSIONAPI_TRACING_PROVIDER=jaeger
-PERMISSIONAPI_TRACING_JAEGER_ENDPOINT=http://localhost:14268/api/traces
-PERMISSIONAPI_SPICEDB_ENDPOINT=spicedb:50051
-PERMISSIONAPI_SPICEDB_KEY=$SPICEDB_GRPC_PRESHARED_KEY
-PERMISSIONAPI_SPICEDB_INSECURE=true
-
-# cockroachdb container config
-COCKROACH_INSECURE=true
-COCKROACH_HOST=crdb:26257
+	// Comment out to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
+	"remoteUser": "vscode",
+	"remoteEnv": {
+		"PATH": "${containerEnv:PATH}:/home/vscode/.nsccli/bin"
+	},
+	"features": {
+		"git": "latest"
+	}
+}
