@@ -65,6 +65,16 @@ gci: | gci-diff gci-write  ## Outputs and corrects all improper go import orderi
 image:  ## Builds all docker images.
 	$(CONTAINER_BUILD_CMD) -f Dockerfile . -t $(PERMISSIONS_API_CONTAINER_IMAGE_NAME):$(CONTAINER_TAG)
 
+.PHONY: dev-infra-up
+dev-infra-up:  ## Starts local services to simplify local development.
+	@echo Starting services
+	@pushd .devcontainer && docker compose up -d --wait && popd
+
+.PHONY: dev-infra-down
+dev-infra-down:  ## Stops local services used for local development.
+	@echo Stopping services
+	@pushd .devcontainer && docker compose down && popd
+
 # Tools setup
 $(TOOLS_DIR):
 	mkdir -p $(TOOLS_DIR)
