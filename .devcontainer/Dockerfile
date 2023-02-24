@@ -15,6 +15,8 @@ RUN curl https://binaries.cockroachdb.com/cockroach-v22.1.8.linux-amd64.tgz | ta
     && sudo cp -i cockroach-v22.1.8.linux-amd64/cockroach /usr/local/bin/ \
     && rm -rf cockroach-v*
 
+WORKDIR /workspace
+
 # [Optional] Uncomment the next lines to use go get to install anything else you need
 # USER vscode
 # RUN go get -x <your-dependency-or-tool>
