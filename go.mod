@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/authzed/authzed-go v0.7.0
-	github.com/authzed/grpcutil v0.0.0-20220104222419-f813f77722e5
+	github.com/authzed/grpcutil v0.0.0-20230109193425-40ce0530e048
 	github.com/gin-gonic/gin v1.8.1
 	github.com/google/uuid v1.3.0
 	github.com/nats-io/nats.go v1.19.0
