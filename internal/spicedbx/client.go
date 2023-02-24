@@ -2,6 +2,7 @@ package spicedbx
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/authzed/authzed-go/v1"
 	"github.com/authzed/grpcutil"
@@ -33,9 +34,17 @@ func NewClient(cfg Config, enableTracing bool) (*authzed.Client, error) {
 		)
 
 		if cfg.VerifyCA {
-			clientOpts = append(clientOpts, grpcutil.WithSystemCerts(grpcutil.VerifyCA))
+			opt, err := grpcutil.WithSystemCerts(grpcutil.VerifyCA)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load system certificates: %w", err)
+			}
+			clientOpts = append(clientOpts, opt)
 		} else {
-			clientOpts = append(clientOpts, grpcutil.WithSystemCerts(grpcutil.SkipVerifyCA))
+			opt, err := grpcutil.WithSystemCerts(grpcutil.SkipVerifyCA)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load system certificates: %w", err)
+			}
+			clientOpts = append(clientOpts, opt)
 		}
 	}
 
