@@ -198,6 +198,8 @@ github.com/authzed/authzed-go v0.7.0 h1:etnzHUAIyxGiEaFYJPYkHTHzxCYWEGzZQMgVLe4x
 github.com/authzed/authzed-go v0.7.0/go.mod h1:bmjzzIQ34M0+z8NO9SLjf4oA0A9Ka9gUWVzeSbD0E7c=
 github.com/authzed/grpcutil v0.0.0-20220104222419-f813f77722e5 h1:sZM7XzdyuLyxj7pC/g7uX+XAqZ7m6NMxZzuQRovgBPw=
 github.com/authzed/grpcutil v0.0.0-20220104222419-f813f77722e5/go.mod h1:rqjY3zyK/YP7NID9+B2BdIRRkvnK+cdf9/qya/zaFZE=
+github.com/authzed/grpcutil v0.0.0-20230109193425-40ce0530e048 h1:pBStde+5xTAEFP5gGkOMbnDbpCHg1hAWBv7N0VEnDMY=
+github.com/authzed/grpcutil v0.0.0-20230109193425-40ce0530e048/go.mod h1:rqjY3zyK/YP7NID9+B2BdIRRkvnK+cdf9/qya/zaFZE=
 github.com/aws/aws-lambda-go v1.13.3/go.mod h1:4UKl9IzQMoD+QF79YdCuzCwp8VbmG4VAQwij/eHl5CU=
 github.com/aws/aws-sdk-go v1.15.11/go.mod h1:mFuSZ37Z9YOHbQEwBWztmVzqXrEkub65tZoCYDt7FT0=
 github.com/aws/aws-sdk-go v1.15.27/go.mod h1:mFuSZ37Z9YOHbQEwBWztmVzqXrEkub65tZoCYDt7FT0=
