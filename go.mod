@@ -7,7 +7,7 @@ require (
 	github.com/authzed/grpcutil v0.0.0-20230109193425-40ce0530e048
 	github.com/gin-gonic/gin v1.9.0
 	github.com/google/uuid v1.3.0
-	github.com/nats-io/nats.go v1.19.0
+	github.com/nats-io/nats.go v1.23.0
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.14.0
 	github.com/stretchr/testify v1.8.1
