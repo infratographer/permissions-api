@@ -1905,6 +1905,8 @@ go.etcd.io/etcd/raft/v3 v3.5.0/go.mod h1:UFOHSIvO/nKwd4lhkwabrTD3cqW5yVyYYf/KlD0
 go.etcd.io/etcd/server/v3 v3.5.0/go.mod h1:3Ah5ruV+M+7RZr0+Y/5mNLwC+eQlni+mQmOVdCRJoS4=
 go.infratographer.com/x v0.0.2 h1:x/vjD4k8qBgHUdP92oBzPOkh54K8HTh6Rjm03rY+Txw=
 go.infratographer.com/x v0.0.2/go.mod h1:X87s1QHNKOrY2W3VowdoOK2OtXeR8o9kaJp1P5NCbDE=
+go.infratographer.com/x v0.0.3 h1:7txN1iBq1Ts4XF6Ea/9/LWK2vpTeXKnh+DjdJ1OLHVQ=
+go.infratographer.com/x v0.0.3/go.mod h1:6qJTwrxN8O3X0v/v2/O7pZkq1T8V7rNDSnzZKJeEmRQ=
 go.mongodb.org/mongo-driver v1.7.3/go.mod h1:NqaYOwnXWr5Pm7AOpO5QFxKJ503nbMse/R79oO62zWg=
 go.mongodb.org/mongo-driver v1.7.5/go.mod h1:VXEWRZ6URJIkUq2SCAyapmhH0ZLRBP+FT4xhp5Zvxng=
 go.mongodb.org/mongo-driver v1.8.3/go.mod h1:0sQWfOeY63QTntERDJJ/0SuKK0T1uVSgKCuAROlKEPY=
