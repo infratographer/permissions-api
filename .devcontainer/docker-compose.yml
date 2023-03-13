@@ -16,10 +16,17 @@ services:
         VARIANT: 1.19-bullseye
         NODE_VERSION: "none"
     command: sleep infinity
+# uncomment along with bind volume to use SSH for dev container access
+#    ports:
+#      - "127.0.0.1:2224:2222"
     env_file:
       - .env
     volumes:
       - ..:/workspace:cached
+#      - type: bind
+#        source: ~/.ssh/authorized_keys
+#        target: /home/vscode/.ssh/authorized_keys
+#        read_only: true
     networks:
       - infradev
     # Use "forwardPorts" in **devcontainer.json** to forward a port locally.
