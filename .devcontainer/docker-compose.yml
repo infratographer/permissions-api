@@ -35,7 +35,7 @@ services:
 
   # Environment setup
   create_databases:
-    image: cockroachdb/cockroach:v22.2.5
+    image: cockroachdb/cockroach:v22.2.6
     restart: on-failure:5
     command: "sql --insecure -e 'CREATE DATABASE IF NOT EXISTS spicedb;'"
     env_file:
@@ -60,7 +60,7 @@ services:
 
   # Required services (databases, etc)
   crdb:
-    image: cockroachdb/cockroach:v22.2.5
+    image: cockroachdb/cockroach:v22.2.6
     command: start-single-node --insecure
     restart: unless-stopped
     volumes:
