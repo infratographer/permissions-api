@@ -4,9 +4,10 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"go.infratographer.com/permissions-api/internal/query"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+
+	"go.infratographer.com/permissions-api/internal/query"
 )
 
 func (r *Router) resourceCreate(c *gin.Context) {

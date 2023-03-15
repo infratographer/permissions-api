@@ -4,7 +4,7 @@ import (
 	"errors"
 )
 
-// ErrorResponse represents the data that the server will return on any given call
+// ErrorResponse represents the data that the server will return on any given call.
 type ErrorResponse struct {
 	Message string `json:"message,omitempty"`
 	Error   string `json:"error,omitempty"`

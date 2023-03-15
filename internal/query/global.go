@@ -8,9 +8,7 @@ import (
 	"github.com/authzed/authzed-go/v1"
 )
 
-var (
-	ErrScopeNotAssigned = errors.New("the actor does not have permissions to complete this request")
-)
+var ErrScopeNotAssigned = errors.New("the actor does not have permissions to complete this request")
 
 type Stores struct {
 	SpiceDB       *authzed.Client
@@ -56,16 +54,4 @@ func AssignGlobalScope(ctx context.Context, db *Stores, actor *Resource, scope s
 	}
 
 	return r.WrittenAt.GetToken(), nil
-}
-
-func ActorHasGlobalScopeOld(ctx context.Context, db *authzed.Client, actor *Resource, scope, queryToken string) error {
-	req := &pb.CheckPermissionRequest{
-		Resource:   globalPermissions(),
-		Permission: scope,
-		Subject: &pb.SubjectReference{
-			Object: actor.spiceDBObjectReference(),
-		},
-	}
-
-	return checkPermission(ctx, db, req, queryToken)
 }

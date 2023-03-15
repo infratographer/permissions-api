@@ -136,5 +136,4 @@ definition PREFIX/ip_address {
 	}
 
 	return strings.ReplaceAll(schema, "PREFIX/", prefix)
-
 }

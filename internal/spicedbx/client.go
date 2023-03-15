@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-// Config values for a SpiceDB connection
+// Config values for a SpiceDB connection.
 type Config struct {
 	Endpoint string
 	Key      string

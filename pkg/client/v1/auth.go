@@ -23,7 +23,7 @@ var (
 	apiVersion = "/api/v1"
 )
 
-// Doer is an interface for an HTTP client that can make requests
+// Doer is an interface for an HTTP client that can make requests.
 type Doer interface {
 	Do(*http.Request) (*http.Response, error)
 }
@@ -34,15 +34,18 @@ type Client struct {
 	authToken  string
 }
 
-func New(url string, doerClient Doer) (*Client, error) {
-	if url == "" {
+// New returns a new Client.
+// If a Doer is not passed, the default HTTP client will be used.
+// u is the base URL of the permissions API.
+func New(u string, doerClient Doer) (*Client, error) {
+	if u == "" {
 		return nil, ErrMissingURI
 	}
 
-	url = strings.TrimSuffix(url, "/")
+	u = strings.TrimSuffix(u, "/")
 
 	c := &Client{
-		url: url,
+		url: u,
 	}
 
 	c.httpClient = doerClient
@@ -56,7 +59,7 @@ func New(url string, doerClient Doer) (*Client, error) {
 	return c, nil
 }
 
-func (c *Client) ResourcesAvailable(ctx context.Context, authToken string, resourceURNPrefix string, scope string) ([]string, error) {
+func (c *Client) ResourcesAvailable(ctx context.Context, authToken, resourceURNPrefix, scope string) ([]string, error) {
 	ctx, span := tracer.Start(ctx, "ResourcesAvailable")
 	defer span.End()
 
@@ -70,7 +73,7 @@ func (c *Client) ResourcesAvailable(ctx context.Context, authToken string, resou
 	return resp["ids"], nil
 }
 
-func (c *Client) ActorHasScope(ctx context.Context, authToken string, scope string, resourceURNPrefix string) (bool, error) {
+func (c *Client) ActorHasScope(ctx context.Context, authToken, scope, resourceURNPrefix string) (bool, error) {
 	ctx, span := tracer.Start(ctx, "ActorHasScope", trace.WithAttributes(
 		attribute.String("scope", scope),
 		attribute.String("resource", resourceURNPrefix),
@@ -89,7 +92,7 @@ func (c *Client) ActorHasScope(ctx context.Context, authToken string, scope stri
 	return true, nil
 }
 
-func (c *Client) ActorHasGlobalScope(ctx context.Context, authToken string, scope string) (bool, error) {
+func (c *Client) ActorHasGlobalScope(ctx context.Context, authToken, scope string) (bool, error) {
 	ctx, span := tracer.Start(ctx, "ActorHasGlobalScope",
 		trace.WithAttributes(attribute.String("scope", scope)),
 	)
@@ -107,7 +110,7 @@ func (c *Client) ActorHasGlobalScope(ctx context.Context, authToken string, scop
 	return true, nil
 }
 
-// ServerResponse represents the data that the server will return on any given call
+// ServerResponse represents the data that the server will return on any given call.
 type ServerResponse struct {
 	Message    string `json:"message,omitempty"`
 	Error      string `json:"error,omitempty"`
@@ -131,7 +134,7 @@ func newGetRequest(ctx context.Context, uri, endpoint string) (*http.Request, er
 
 	u.Path = path.Join(apiVersion, endpoint)
 
-	return http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	return http.NewRequestWithContext(ctx, http.MethodGet, u.String(), http.NoBody)
 }
 
 func userAgentString() string {

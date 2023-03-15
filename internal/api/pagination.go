@@ -1,26 +1,27 @@
 package api
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
 
 var (
-	// MaxPaginationSize represents the maximum number of records that can be returned per page
+	// MaxPaginationSize represents the maximum number of records that can be returned per page.
 	MaxPaginationSize = 1000
-	// DefaultPaginationSize represents the default number of records that are returned per page
+	// DefaultPaginationSize represents the default number of records that are returned per page.
 	DefaultPaginationSize = 100
 )
 
-// Pagination allow you to paginate the results
+// Pagination allow you to paginate the results.
 type Pagination struct {
 	Limit int
 	Page  int
 	Order string
 }
 
-func ParsePagination(c *gin.Context) *Pagination {
+func ParsePagination(c *gin.Context) (*Pagination, error) {
 	// Initializing default
 	limit := DefaultPaginationSize
 	page := 1
@@ -30,13 +31,18 @@ func ParsePagination(c *gin.Context) *Pagination {
 	for key, value := range query {
 		queryValue := value[len(value)-1]
 
+		var err error
 		switch key {
 		case "limit":
-			limit, _ = strconv.Atoi(queryValue)
+			limit, err = strconv.Atoi(queryValue)
 		case "page":
-			page, _ = strconv.Atoi(queryValue)
+			page, err = strconv.Atoi(queryValue)
 		case "order":
 			order = queryValue
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf("invalid pagination query: %w", err)
 		}
 	}
 
@@ -44,25 +50,8 @@ func ParsePagination(c *gin.Context) *Pagination {
 		Limit: parseLimit(limit),
 		Page:  page,
 		Order: order,
-	}
+	}, nil
 }
-
-// // queryMods converts the list params into sql conditions that can be added to sql queries
-// func (p *Pagination) QueryMods() []qm.QueryMod {
-// 	if p == nil {
-// 		p = &Pagination{}
-// 	}
-
-// 	mods := []qm.QueryMod{}
-
-// 	mods = append(mods, qm.Limit(p.Limit))
-
-// 	if p.Page != 0 {
-// 		mods = append(mods, qm.Offset(p.offset()))
-// 	}
-
-// 	return mods
-// }
 
 func parseLimit(l int) int {
 	limit := l
@@ -76,15 +65,6 @@ func parseLimit(l int) int {
 
 	return limit
 }
-
-// func (p *Pagination) offset() int {
-// 	page := p.Page
-// 	if page == 0 {
-// 		page = 1
-// 	}
-//
-// 	return (page - 1) * p.Limit
-// }
 
 func (p *Pagination) SetHeaders(c *gin.Context, count int) {
 	c.Header("Pagination-Count", strconv.Itoa(count))

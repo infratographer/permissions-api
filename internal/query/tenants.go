@@ -19,7 +19,7 @@ var (
 	BuiltInRoleViewers = "Viewers"
 )
 
-func ActorResourceList(ctx context.Context, db *authzed.Client, actorURN string, resourceURNPrefix string, scope, queryToken string) ([]string, error) {
+func ActorResourceList(ctx context.Context, db *authzed.Client, actorURN, resourceURNPrefix, scope, queryToken string) ([]string, error) {
 	rt, err := ResourceTypeByURN(resourceURNPrefix)
 	if err != nil {
 		return []string{}, err
@@ -91,7 +91,6 @@ func ActorHasPermission(ctx context.Context, db *authzed.Client, actor *Resource
 func AssignActorRole(ctx context.Context, db *authzed.Client, actor *Resource, role string, object *Resource) (string, error) {
 	request := &pb.WriteRelationshipsRequest{Updates: []*pb.RelationshipUpdate{actorRoleRel(actor, role, object)}}
 	r, err := db.WriteRelationships(ctx, request)
-
 	if err != nil {
 		return "", err
 	}
@@ -339,7 +338,7 @@ func (r *Resource) spiceDBObjectReference() *pb.ObjectReference {
 	}
 }
 
-func CreateSpiceDBRelationships(ctx context.Context, db *authzed.Client, r *Resource, actor *Resource) (string, error) {
+func CreateSpiceDBRelationships(ctx context.Context, db *authzed.Client, r, actor *Resource) (string, error) {
 	rels := []*pb.RelationshipUpdate{}
 
 	if r.ResourceType.URNPrefix == "urn:infratographer:tenant" {

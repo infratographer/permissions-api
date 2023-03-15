@@ -10,21 +10,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.infratographer.com/permissions-api/internal/query"
-	"go.infratographer.com/permissions-api/internal/spicedbx"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+
+	"go.infratographer.com/permissions-api/internal/query"
+	"go.infratographer.com/permissions-api/internal/spicedbx"
 )
 
 func dbTest(ctx context.Context, t *testing.T) *query.Stores {
-	grpcPass := "infradev"
+	t.Helper()
 
-	// client, err := authzed.NewClient(
-	// 	"grpc.authzed.com:443",
-	// 	grpcutil.WithSystemCerts(grpcutil.VerifyCA),
-	// 	grpcutil.WithBearerToken(grpcPass),
-	// )
+	grpcPass := "infradev"
 
 	client, err := authzed.NewClient(
 		"spicedb:50051",
@@ -50,6 +47,8 @@ func dbTest(ctx context.Context, t *testing.T) *query.Stores {
 }
 
 func cleanDB(ctx context.Context, t *testing.T, client *authzed.Client) {
+	t.Helper()
+
 	for _, dbType := range []string{"global_scope", "user", "service_account", "role", "tenant", "instance", "ip_block", "ip_address"} {
 		delRequest := &pb.DeleteRelationshipsRequest{RelationshipFilter: &pb.RelationshipFilter{ResourceType: dbType}}
 		_, err := client.DeleteRelationships(ctx, delRequest)
