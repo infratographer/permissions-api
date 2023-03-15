@@ -93,5 +93,5 @@ services:
     network_mode: service:app
 
   jaeger:
-    image: jaegertracing/all-in-one:1.42.0
+    image: jaegertracing/all-in-one:1.43.0
     network_mode: service:app
