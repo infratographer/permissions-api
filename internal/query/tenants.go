@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"strings"
 
 	pb "github.com/authzed/authzed-go/proto/authzed/api/v1"
@@ -18,51 +17,6 @@ var (
 	BuiltInRoleEditors = "Editors"
 	BuiltInRoleViewers = "Viewers"
 )
-
-func ActorResourceList(ctx context.Context, db *authzed.Client, actorURN string, resourceURNPrefix string, scope, queryToken string) ([]string, error) {
-	rt, err := ResourceTypeByURN(resourceURNPrefix)
-	if err != nil {
-		return []string{}, err
-	}
-
-	actor, err := NewResourceFromURN(actorURN)
-	if err != nil {
-		return []string{}, err
-	}
-
-	req := &pb.LookupResourcesRequest{
-		ResourceObjectType: rt.DBType,
-		Permission:         scope,
-		Subject: &pb.SubjectReference{
-			Object: actor.spiceDBObjectReference(),
-			// OptionalRelation: subjectRel,
-		},
-	}
-
-	if queryToken != "" {
-		req.Consistency = &pb.Consistency{Requirement: &pb.Consistency_AtLeastAsFresh{AtLeastAsFresh: &pb.ZedToken{Token: queryToken}}}
-	}
-
-	respStream, err := db.LookupResources(ctx, req)
-	if err != nil {
-		return []string{}, err
-	}
-
-	resources := []string{}
-
-	for {
-		resp, err := respStream.Recv()
-
-		switch {
-		case errors.Is(err, io.EOF):
-			return resources, nil
-		case err != nil:
-			return []string{}, err
-		default:
-			resources = append(resources, resp.ResourceObjectId)
-		}
-	}
-}
 
 func ActorHasPermission(ctx context.Context, db *authzed.Client, actor *Resource, scope string, object *Resource, queryToken string) error {
 	req := &pb.CheckPermissionRequest{
