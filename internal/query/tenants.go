@@ -64,18 +64,6 @@ func ActorResourceList(ctx context.Context, db *authzed.Client, actorURN string,
 	}
 }
 
-func ActorHasGlobalPermission(ctx context.Context, db *authzed.Client, actor *Resource, scope, queryToken string) error {
-	req := &pb.CheckPermissionRequest{
-		Resource:   globalPermissions(),
-		Permission: scope,
-		Subject: &pb.SubjectReference{
-			Object: actor.spiceDBObjectReference(),
-		},
-	}
-
-	return checkPermission(ctx, db, req, queryToken)
-}
-
 func ActorHasPermission(ctx context.Context, db *authzed.Client, actor *Resource, scope string, object *Resource, queryToken string) error {
 	req := &pb.CheckPermissionRequest{
 		Resource:   object.spiceDBObjectReference(),

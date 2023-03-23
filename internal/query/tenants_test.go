@@ -4,11 +4,59 @@ import (
 	"context"
 	"testing"
 
+	pb "github.com/authzed/authzed-go/proto/authzed/api/v1"
+	"github.com/authzed/authzed-go/v1"
+	"github.com/authzed/grpcutil"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
 	"go.infratographer.com/permissions-api/internal/query"
+	"go.infratographer.com/permissions-api/internal/spicedbx"
 )
+
+func dbTest(ctx context.Context, t *testing.T) *query.Stores {
+	grpcPass := "infradev"
+
+	// client, err := authzed.NewClient(
+	// 	"grpc.authzed.com:443",
+	// 	grpcutil.WithSystemCerts(grpcutil.VerifyCA),
+	// 	grpcutil.WithBearerToken(grpcPass),
+	// )
+
+	client, err := authzed.NewClient(
+		"spicedb:50051",
+		// NOTE: For SpiceDB behind TLS, use:
+		// grpcutil.WithBearerToken("infra"),
+		// grpcutil.WithSystemCerts(grpcutil.VerifyCA),
+		grpcutil.WithInsecureBearerToken(grpcPass),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
+		grpc.WithStreamInterceptor(otelgrpc.StreamClientInterceptor()),
+	)
+	require.NoError(t, err)
+
+	request := &pb.WriteSchemaRequest{Schema: spicedbx.GeneratedSchema("")}
+	_, err = client.WriteSchema(ctx, request)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		cleanDB(ctx, t, client)
+	})
+
+	return &query.Stores{SpiceDB: client}
+}
+
+func cleanDB(ctx context.Context, t *testing.T, client *authzed.Client) {
+	for _, dbType := range []string{"subject", "role", "tenant", "instance", "ip_block", "ip_address"} {
+		delRequest := &pb.DeleteRelationshipsRequest{RelationshipFilter: &pb.RelationshipFilter{ResourceType: dbType}}
+		_, err := client.DeleteRelationships(ctx, delRequest)
+		require.NoError(t, err, "failure deleting relationships")
+	}
+}
 
 func TestActorScopes(t *testing.T) {
 	ctx := context.Background()
