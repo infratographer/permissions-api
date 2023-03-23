@@ -47,15 +47,6 @@ func (r *Router) resourceCreate(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"token": zedToken})
 }
 
-func (r *Router) resourceUpdate(c *gin.Context) {
-	resourceURN := c.Param("urn")
-
-	_, span := tracer.Start(c.Request.Context(), "api.resourceUpdate", trace.WithAttributes(attribute.String("urn", resourceURN)))
-	defer span.End()
-
-	c.JSON(http.StatusInternalServerError, gin.H{"message": "not implemented"})
-}
-
 func (r *Router) resourceDelete(c *gin.Context) {
 	resourceURN := c.Param("urn")
 

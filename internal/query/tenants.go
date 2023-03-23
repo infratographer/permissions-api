@@ -10,7 +10,7 @@ import (
 	"github.com/authzed/authzed-go/v1"
 )
 
-var roleActorRelation = "actor"
+var roleActorRelation = "subject"
 
 var (
 	BuiltInRoleAdmins  = "Admins"
@@ -107,9 +107,9 @@ func builtInRoles(res *Resource) []*pb.RelationshipUpdate {
 		ObjectId:   dbRoleName(BuiltInRoleViewers, res),
 	}
 
-	adminAssignments := []string{"deleter", "role_editor", "permission_granter", "tenant_creator", "tenant_deleter"}
-	editorAssignments := []string{"editor", "instance_creator", "instance_deleter", "instance_editor", "tenant_editor"}
-	viewerAssignments := []string{"viewer", "instance_viewer", "tenant_viewer"}
+	adminAssignments := []string{}
+	editorAssignments := []string{"loadbalancer_create_rel", "loadbalancer_update_rel", "loadbalancer_delete_rel"}
+	viewerAssignments := []string{"loadbalancer_list_rel", "loadbalancer_get_rel"}
 
 	editorAssignments = append(editorAssignments, viewerAssignments...)
 	adminAssignments = append(adminAssignments, editorAssignments...)
@@ -158,21 +158,6 @@ func builtInRoles(res *Resource) []*pb.RelationshipUpdate {
 		})
 	}
 
-	for _, role := range []*pb.ObjectReference{adminRole, editorRole, viewerRole} {
-		for _, relation := range []string{"built_in_role", "tenant"} {
-			rels = append(rels, &pb.RelationshipUpdate{
-				Operation: pb.RelationshipUpdate_OPERATION_CREATE,
-				Relationship: &pb.Relationship{
-					Resource: role,
-					Relation: relation,
-					Subject: &pb.SubjectReference{
-						Object: res.spiceDBObjectReference(),
-					},
-				},
-			})
-		}
-	}
-
 	return rels
 }
 
@@ -207,28 +192,23 @@ func GetResourceTypes() []*ResourceType {
 			URNPrefix: "urn:infratographer:tenant",
 			Relationships: []*ResourceRelationship{
 				{
-					Name:       "Parent Tenant",
+					Name:       "Parent tenant",
 					Field:      "parent_tenant_id",
 					DBTypes:    "tenant",
-					DBRelation: "parent_tenant",
+					DBRelation: "parent",
 					Optional:   true,
 				},
 			},
 		},
 		{
-			Name:      "User",
-			DBType:    "user",
-			URNPrefix: "urn:infratographer:user",
+			Name:      "Subject",
+			DBType:    "subject",
+			URNPrefix: "urn:infratographer:subject",
 		},
 		{
-			Name:      "Token",
-			DBType:    "token",
-			URNPrefix: "urn:infratographer:token",
-		},
-		{
-			Name:      "Instance",
-			DBType:    "instance",
-			URNPrefix: "urn:infratographer:instance",
+			Name:      "Load balancer",
+			DBType:    "loadbalancer",
+			URNPrefix: "urn:infratographer:loadbalancer",
 			Relationships: []*ResourceRelationship{
 				{
 					Name:       "Tenant",
