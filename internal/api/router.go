@@ -37,8 +37,6 @@ func (r *Router) Routes(rg *gin.RouterGroup) {
 		// Check resource access
 		v1.GET("/available/:type/:scope", r.resourcesAvailable)
 		v1.GET("/has/:scope/on/:urn", r.checkScope)
-		// Check Global Scope
-		v1.GET("/global/check/:scope", r.checkGlobalScope)
 	}
 }
 
