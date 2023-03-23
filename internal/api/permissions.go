@@ -8,28 +8,6 @@ import (
 	"go.infratographer.com/permissions-api/internal/query"
 )
 
-func (r *Router) resourcesAvailable(c *gin.Context) {
-	ctx, span := tracer.Start(c.Request.Context(), "api.resourcesAvailable")
-	defer span.End()
-
-	resourceURN := c.Param("type")
-	scope := c.Param("scope")
-
-	actor, err := currentActor(c)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "message": "failed to get the actor"})
-		return
-	}
-
-	resources, err := query.ActorResourceList(ctx, r.authzedClient, actor.urn, resourceURN, scope, "")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "message": "failed to get the resources"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"ids": resources})
-}
-
 func (r *Router) checkScope(c *gin.Context) {
 	resourceURN := c.Param("urn")
 	scope := c.Param("scope")

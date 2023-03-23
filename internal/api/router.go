@@ -35,7 +35,6 @@ func (r *Router) Routes(rg *gin.RouterGroup) {
 		v1.PUT("/resources/:urn", r.resourceUpdate)
 		v1.DELETE("/resources/:urn", r.resourceDelete)
 		// Check resource access
-		v1.GET("/available/:type/:scope", r.resourcesAvailable)
 		v1.GET("/has/:scope/on/:urn", r.checkScope)
 	}
 }
