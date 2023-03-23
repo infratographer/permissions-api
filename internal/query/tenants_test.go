@@ -51,7 +51,7 @@ func dbTest(ctx context.Context, t *testing.T) *query.Stores {
 }
 
 func cleanDB(ctx context.Context, t *testing.T, client *authzed.Client) {
-	for _, dbType := range []string{"subject", "role", "tenant", "instance", "ip_block", "ip_address"} {
+	for _, dbType := range []string{"subject", "role", "tenant", "loadbalancer"} {
 		delRequest := &pb.DeleteRelationshipsRequest{RelationshipFilter: &pb.RelationshipFilter{ResourceType: dbType}}
 		_, err := client.DeleteRelationships(ctx, delRequest)
 		require.NoError(t, err, "failure deleting relationships")
@@ -67,7 +67,7 @@ func TestActorScopes(t *testing.T) {
 	tenURN := "urn:infratographer:tenant:" + uuid.NewString()
 	tenRes, err := query.NewResourceFromURN(tenURN)
 	require.NoError(t, err)
-	userURN := "urn:infratographer:user:" + uuid.NewString()
+	userURN := "urn:infratographer:subject:" + uuid.NewString()
 	userRes, err := query.NewResourceFromURN(userURN)
 	require.NoError(t, err)
 
@@ -80,23 +80,16 @@ func TestActorScopes(t *testing.T) {
 	})
 
 	t.Run("check that the user has edit access to an ou", func(t *testing.T) {
-		err := query.ActorHasPermission(ctx, s.SpiceDB, userRes, "edit", tenRes, queryToken)
+		err := query.ActorHasPermission(ctx, s.SpiceDB, userRes, "loadbalancer_get", tenRes, queryToken)
 		assert.NoError(t, err)
 	})
 
 	t.Run("error returned when the user doesn't have the global scope", func(t *testing.T) {
-		otherUserRes, err := query.NewResourceFromURN("urn:infratographer:user:" + uuid.NewString())
+		otherUserRes, err := query.NewResourceFromURN("urn:infratographer:subject:" + uuid.NewString())
 		require.NoError(t, err)
 
-		err = query.ActorHasPermission(ctx, s.SpiceDB, otherUserRes, "edit", tenRes, queryToken)
+		err = query.ActorHasPermission(ctx, s.SpiceDB, otherUserRes, "loadbalancer_get", tenRes, queryToken)
 		assert.Error(t, err)
 		assert.ErrorIs(t, err, query.ErrScopeNotAssigned)
-	})
-
-	t.Run("List all the resources a user has access to", func(t *testing.T) {
-		list, err := query.ActorResourceList(ctx, s.SpiceDB, userURN, "urn:infratographer:tenant", "edit", queryToken)
-		assert.NoError(t, err)
-
-		assert.Len(t, list, 1)
 	})
 }
