@@ -47,7 +47,7 @@ services:
       - infradev
 
   migrate_spicedb:
-    image: authzed/spicedb:v1.17.0
+    image: authzed/spicedb:v1.18.0
     command: migrate head
     restart: on-failure:5
     env_file:
@@ -77,7 +77,7 @@ services:
       - infradev
 
   spicedb:
-    image: authzed/spicedb:v1.17.0
+    image: authzed/spicedb:v1.18.0
     command: serve
     restart: unless-stopped
     env_file:
