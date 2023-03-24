@@ -28,18 +28,6 @@ definition PREFIX/tenant {
     permission loadbalancer_update = loadbalancer_update_rel + parent->loadbalancer_update
     permission loadbalancer_delete = loadbalancer_delete_rel + parent->loadbalancer_delete
 }
-
-definition PREFIX/loadbalancer {
-    relation tenant: PREFIX/tenant
-
-    relation loadbalancer_get_rel: PREFIX/role#subject
-    relation loadbalancer_update_rel: PREFIX/role#subject
-    relation loadbalancer_delete_rel: PREFIX/role#subject
-
-    permission loadbalancer_get = loadbalancer_get_rel + tenant->loadbalancer_get
-    permission loadbalancer_update = loadbalancer_update_rel + tenant->loadbalancer_update
-    permission loadbalancer_delete = loadbalancer_delete_rel + tenant->loadbalancer_delete
-}
 `
 
 	if prefix != "" && !strings.HasSuffix(prefix, "/") {
