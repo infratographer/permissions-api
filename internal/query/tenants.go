@@ -205,20 +205,6 @@ func GetResourceTypes() []*ResourceType {
 			DBType:    "subject",
 			URNPrefix: "urn:infratographer:subject",
 		},
-		{
-			Name:      "Load balancer",
-			DBType:    "loadbalancer",
-			URNPrefix: "urn:infratographer:loadbalancer",
-			Relationships: []*ResourceRelationship{
-				{
-					Name:       "Tenant",
-					Field:      "tenant_id",
-					DBTypes:    "tenant",
-					DBRelation: "tenant",
-					Optional:   false,
-				},
-			},
-		},
 	}
 }
 

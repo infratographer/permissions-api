@@ -51,7 +51,7 @@ func dbTest(ctx context.Context, t *testing.T) *query.Stores {
 }
 
 func cleanDB(ctx context.Context, t *testing.T, client *authzed.Client) {
-	for _, dbType := range []string{"subject", "role", "tenant", "loadbalancer"} {
+	for _, dbType := range []string{"subject", "role", "tenant"} {
 		delRequest := &pb.DeleteRelationshipsRequest{RelationshipFilter: &pb.RelationshipFilter{ResourceType: dbType}}
 		_, err := client.DeleteRelationships(ctx, delRequest)
 		require.NoError(t, err, "failure deleting relationships")
