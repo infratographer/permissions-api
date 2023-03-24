@@ -31,7 +31,6 @@ type Doer interface {
 type Client struct {
 	url        string
 	httpClient Doer
-	authToken  string
 }
 
 func New(url string, doerClient Doer) (*Client, error) {
@@ -56,46 +55,14 @@ func New(url string, doerClient Doer) (*Client, error) {
 	return c, nil
 }
 
-func (c *Client) ResourcesAvailable(ctx context.Context, authToken string, resourceURNPrefix string, scope string) ([]string, error) {
-	ctx, span := tracer.Start(ctx, "ResourcesAvailable")
-	defer span.End()
-
-	resp := map[string][]string{}
-
-	err := c.withToken(authToken).get(ctx, fmt.Sprintf("available/%s/%s", resourceURNPrefix, scope), &resp)
-	if err != nil {
-		return []string{}, err
-	}
-
-	return resp["ids"], nil
-}
-
-func (c *Client) ActorHasScope(ctx context.Context, authToken string, scope string, resourceURNPrefix string) (bool, error) {
+func (c *Client) Allowed(ctx context.Context, scope string, resourceURNPrefix string) (bool, error) {
 	ctx, span := tracer.Start(ctx, "ActorHasScope", trace.WithAttributes(
 		attribute.String("scope", scope),
 		attribute.String("resource", resourceURNPrefix),
 	))
 	defer span.End()
 
-	err := c.withToken(authToken).get(ctx, fmt.Sprintf("/has/%s/on/%s", scope, resourceURNPrefix), map[string]string{})
-	if err != nil {
-		if errors.Is(err, ErrPermissionDenied) {
-			return false, nil
-		}
-
-		return false, err
-	}
-
-	return true, nil
-}
-
-func (c *Client) ActorHasGlobalScope(ctx context.Context, authToken string, scope string) (bool, error) {
-	ctx, span := tracer.Start(ctx, "ActorHasGlobalScope",
-		trace.WithAttributes(attribute.String("scope", scope)),
-	)
-	defer span.End()
-
-	err := c.withToken(authToken).get(ctx, fmt.Sprintf("/global/check/%s", scope), map[string]string{})
+	err := c.get(ctx, fmt.Sprintf("/has/%s/on/%s", scope, resourceURNPrefix), map[string]string{})
 	if err != nil {
 		if errors.Is(err, ErrPermissionDenied) {
 			return false, nil
@@ -138,17 +105,7 @@ func userAgentString() string {
 	return fmt.Sprintf("%s (%s)", versionx.BuildDetails().AppName, versionx.BuildDetails().Version)
 }
 
-func (c Client) withToken(authToken string) Client {
-	c.authToken = authToken
-	return c
-}
-
 func (c Client) do(req *http.Request, result interface{}) error {
-	if c.authToken == "" {
-		return ErrNoAuthToken
-	}
-
-	req.Header.Set("Authorization", fmt.Sprintf("bearer %s", c.authToken))
 	req.Header.Set("User-Agent", userAgentString())
 
 	resp, err := c.httpClient.Do(req)
