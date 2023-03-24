@@ -16,6 +16,7 @@ import (
 
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/permissions-api/internal/spicedbx"
+	"go.infratographer.com/x/urnx"
 )
 
 func dbTest(ctx context.Context, t *testing.T) *query.Stores {
@@ -64,11 +65,13 @@ func TestActorScopes(t *testing.T) {
 
 	var err error
 
-	tenURN := "urn:infratographer:tenant:" + uuid.NewString()
+	tenURN, err := urnx.Build("infratographer", "tenant", uuid.New())
+	require.NoError(t, err)
 	tenRes, err := query.NewResourceFromURN(tenURN)
 	require.NoError(t, err)
-	userURN := "urn:infratographer:subject:" + uuid.NewString()
-	userRes, err := query.NewResourceFromURN(userURN)
+	subjURN, err := urnx.Build("infratographer", "subject", uuid.New())
+	require.NoError(t, err)
+	userRes, err := query.NewResourceFromURN(subjURN)
 	require.NoError(t, err)
 
 	queryToken, err := query.CreateBuiltInRoles(ctx, s.SpiceDB, tenRes)
@@ -85,7 +88,9 @@ func TestActorScopes(t *testing.T) {
 	})
 
 	t.Run("error returned when the user doesn't have the global scope", func(t *testing.T) {
-		otherUserRes, err := query.NewResourceFromURN("urn:infratographer:subject:" + uuid.NewString())
+		subjURN, err := urnx.Build("infratographer", "subject", uuid.New())
+		require.NoError(t, err)
+		otherUserRes, err := query.NewResourceFromURN(subjURN)
 		require.NoError(t, err)
 
 		err = query.ActorHasPermission(ctx, s.SpiceDB, otherUserRes, "loadbalancer_get", tenRes, queryToken)

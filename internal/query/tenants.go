@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	pb "github.com/authzed/authzed-go/proto/authzed/api/v1"
 	"github.com/authzed/authzed-go/v1"
+	"go.infratographer.com/x/urnx"
 )
 
 var roleActorRelation = "subject"
@@ -169,11 +169,11 @@ type Resource struct {
 }
 
 type ResourceType struct {
-	Name          string `json:"name"`
-	URNPrefix     string `json:"upn_prefix"`
-	APIURI        string `json:"api_uri"`
-	DBType        string `json:"db_type"`
-	Relationships []*ResourceRelationship
+	Name            string
+	URNNamespace    string
+	URNResourceType string
+	DBType          string
+	Relationships   []*ResourceRelationship
 }
 
 type ResourceRelationship struct {
@@ -187,9 +187,10 @@ type ResourceRelationship struct {
 func GetResourceTypes() []*ResourceType {
 	return []*ResourceType{
 		{
-			Name:      "Tenant",
-			DBType:    "tenant",
-			URNPrefix: "urn:infratographer:tenant",
+			Name:            "Tenant",
+			DBType:          "tenant",
+			URNNamespace:    "infratographer",
+			URNResourceType: "tenant",
 			Relationships: []*ResourceRelationship{
 				{
 					Name:       "Parent tenant",
@@ -201,26 +202,21 @@ func GetResourceTypes() []*ResourceType {
 			},
 		},
 		{
-			Name:      "Subject",
-			DBType:    "subject",
-			URNPrefix: "urn:infratographer:subject",
+			Name:            "Subject",
+			DBType:          "subject",
+			URNNamespace:    "infratographer",
+			URNResourceType: "subject",
 		},
 	}
 }
 
-func NewResourceFromURN(urn string) (*Resource, error) {
-	parts := strings.Split(urn, ":")
-
+func NewResourceFromURN(urn *urnx.URN) (*Resource, error) {
 	r := &Resource{
-		URN: urn,
-		ID:  parts[len(parts)-1],
+		URN: urn.String(),
+		ID:  urn.ResourceID.String(),
 	}
 
-	prefixParts := parts[:len(parts)-1]
-
-	prefix := strings.Join(prefixParts, ":")
-
-	rt, err := ResourceTypeByURN(prefix)
+	rt, err := ResourceTypeByURN(urn)
 	if err != nil {
 		return nil, err
 	}
@@ -230,9 +226,10 @@ func NewResourceFromURN(urn string) (*Resource, error) {
 	return r, nil
 }
 
-func ResourceTypeByURN(urn string) (*ResourceType, error) {
+func ResourceTypeByURN(urn *urnx.URN) (*ResourceType, error) {
 	for _, resType := range GetResourceTypes() {
-		if resType.URNPrefix == urn {
+		if resType.URNNamespace == urn.Namespace &&
+			resType.URNResourceType == urn.ResourceType {
 			return resType, nil
 		}
 	}
@@ -250,7 +247,7 @@ func (r *Resource) spiceDBObjectReference() *pb.ObjectReference {
 func CreateSpiceDBRelationships(ctx context.Context, db *authzed.Client, r *Resource, actor *Resource) (string, error) {
 	rels := []*pb.RelationshipUpdate{}
 
-	if r.ResourceType.URNPrefix == "urn:infratographer:tenant" {
+	if r.ResourceType.URNResourceType == "tenant" {
 		rels = append(rels, builtInRoles(r)...)
 
 		rels = append(rels, actorRoleRel(actor, BuiltInRoleAdmins, r))
