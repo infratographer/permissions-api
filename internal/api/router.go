@@ -1,10 +1,10 @@
 package api
 
 import (
-	"strings"
-
 	"github.com/authzed/authzed-go/v1"
 	"github.com/gin-gonic/gin"
+	"go.hollow.sh/toolbox/ginjwt"
+	"go.infratographer.com/x/urnx"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 )
@@ -13,22 +13,30 @@ var tracer = otel.Tracer("go.infratographer.com/permissions-api/internal/api")
 
 // Router provides a router for the API
 type Router struct {
-	// db            *sqlx.DB
+	authMW        func(*gin.Context)
 	authzedClient *authzed.Client
 	logger        *zap.SugaredLogger
 }
 
-func NewRouter(authzedClient *authzed.Client, l *zap.SugaredLogger) *Router {
-	return &Router{
+func NewRouter(authCfg ginjwt.AuthConfig, authzedClient *authzed.Client, l *zap.SugaredLogger) (*Router, error) {
+	authMW, err := newAuthMiddleware(authCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	out := &Router{
+		authMW:        authMW,
 		authzedClient: authzedClient,
 		logger:        l.Named("api"),
 	}
+
+	return out, nil
 }
 
 // Routes will add the routes for this API version to a router group
 func (r *Router) Routes(rg *gin.RouterGroup) {
 	// /servers
-	v1 := rg.Group("api/v1")
+	v1 := rg.Group("api/v1").Use(r.authMW)
 	{
 		// Creating an OU gets a special
 		v1.POST("/resources/:urn", r.resourceCreate)
@@ -38,19 +46,8 @@ func (r *Router) Routes(rg *gin.RouterGroup) {
 	}
 }
 
-type actorToken struct {
-	// name  string
-	// email string
-	urn   string
-	token string
-}
+func currentActor(c *gin.Context) (*urnx.URN, error) {
+	subject := ginjwt.GetSubject(c)
 
-func currentActor(c *gin.Context) (*actorToken, error) {
-	authHeader := c.GetHeader("authorization")
-
-	a := &actorToken{}
-	a.token = strings.TrimPrefix(authHeader, "bearer ")
-	a.urn = a.token
-
-	return a, nil
+	return urnx.Parse(subject)
 }

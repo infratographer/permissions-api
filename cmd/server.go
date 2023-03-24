@@ -21,6 +21,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"go.hollow.sh/toolbox/ginjwt"
 	"go.infratographer.com/x/ginx"
 	"go.infratographer.com/x/otelx"
 	"go.infratographer.com/x/versionx"
@@ -45,8 +46,11 @@ var serverCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(serverCmd)
 
-	ginx.MustViperFlags(viper.GetViper(), serverCmd.Flags(), APIDefaultListen)
-	otelx.MustViperFlags(viper.GetViper(), serverCmd.Flags())
+	v := viper.GetViper()
+
+	ginx.MustViperFlags(v, serverCmd.Flags(), APIDefaultListen)
+	otelx.MustViperFlags(v, serverCmd.Flags())
+	ginjwt.RegisterViperOIDCFlags(v, serverCmd)
 }
 
 func serve(ctx context.Context, cfg *config.AppConfig) {
@@ -61,7 +65,11 @@ func serve(ctx context.Context, cfg *config.AppConfig) {
 	}
 
 	s := ginx.NewServer(logger.Desugar(), cfg.Server, versionx.BuildDetails())
-	r := api.NewRouter(spiceClient, logger)
+
+	r, err := api.NewRouter(cfg.OIDC, spiceClient, logger)
+	if err != nil {
+		logger.Fatalw("unable to initialize router", "error", err)
+	}
 
 	s = s.AddHandler(r).
 		AddReadinessCheck("spicedb", spicedbx.Healthcheck(spiceClient))

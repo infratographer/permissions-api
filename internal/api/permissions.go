@@ -6,14 +6,21 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.infratographer.com/permissions-api/internal/query"
+	"go.infratographer.com/x/urnx"
 )
 
 func (r *Router) checkScope(c *gin.Context) {
-	resourceURN := c.Param("urn")
+	resourceURNStr := c.Param("urn")
 	scope := c.Param("scope")
 
 	ctx, span := tracer.Start(c.Request.Context(), "api.checkScope")
 	defer span.End()
+
+	resourceURN, err := urnx.Parse(resourceURNStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "error processing resource URN", "error": err.Error()})
+		return
+	}
 
 	resource, err := query.NewResourceFromURN(resourceURN)
 	if err != nil {
@@ -27,7 +34,7 @@ func (r *Router) checkScope(c *gin.Context) {
 		return
 	}
 
-	actorResource, err := query.NewResourceFromURN(actor.urn)
+	actorResource, err := query.NewResourceFromURN(actor)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "error processing actor URN", "error": err.Error()})
 		return

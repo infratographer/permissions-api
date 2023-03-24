@@ -13,6 +13,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"go.infratographer.com/permissions-api/internal/query"
+	"go.infratographer.com/x/urnx"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 	"gocloud.dev/pubsub"
@@ -200,17 +201,45 @@ func (s *Subscription) Receive(ctx context.Context, st *query.Stores) error {
 func (s *Subscription) ProcessMessage(ctx context.Context, db *query.Stores, msg *Message) error {
 	switch {
 	case strings.HasSuffix(msg.EventType, ".added"):
-		resource, err := query.NewResourceFromURN(msg.SubjectURN)
+		subjectURN, err := urnx.Parse(msg.SubjectURN)
 		if err != nil {
-			fmt.Println("Error getting resource from URN for subject")
+			s.logger.Errorw(
+				"Error getting resource from URN for subject",
+				"error",
+				err,
+			)
+			return err
+		}
+
+		resource, err := query.NewResourceFromURN(subjectURN)
+		if err != nil {
+			s.logger.Errorw(
+				"Error getting resource from URN for subject",
+				"error",
+				err,
+			)
 			return err
 		}
 
 		resource.Fields = msg.SubjectFields
 
-		actor, err := query.NewResourceFromURN(msg.ActorURN)
+		actorURN, err := urnx.Parse(msg.ActorURN)
 		if err != nil {
-			fmt.Println("Error getting resource from URN for actor")
+			s.logger.Errorw(
+				"Error getting resource from URN for actor",
+				"error",
+				err,
+			)
+			return err
+		}
+
+		actor, err := query.NewResourceFromURN(actorURN)
+		if err != nil {
+			s.logger.Errorw(
+				"Error getting resource from URN for actor",
+				"error",
+				err,
+			)
 			return err
 		}
 
