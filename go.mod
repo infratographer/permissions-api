@@ -11,6 +11,7 @@ require (
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.15.0
 	github.com/stretchr/testify v1.8.2
+	go.hollow.sh/toolbox v0.5.1
 	go.infratographer.com/x v0.0.3
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.40.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.40.0
@@ -77,7 +78,6 @@ require (
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.9 // indirect
 	github.com/zsais/go-gin-prometheus v0.1.0 // indirect
-	go.hollow.sh/toolbox v0.5.1 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.37.0 // indirect
 	go.opentelemetry.io/otel/exporters/jaeger v1.11.2 // indirect
