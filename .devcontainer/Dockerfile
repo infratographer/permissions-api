@@ -15,6 +15,11 @@ RUN curl https://binaries.cockroachdb.com/cockroach-v22.1.8.linux-amd64.tgz | ta
     && sudo cp -i cockroach-v22.1.8.linux-amd64/cockroach /usr/local/bin/ \
     && rm -rf cockroach-v*
 
+USER vscode
+
+# Add ~/.ssh for the vscode user so updating known_hosts works
+RUN mkdir --mode=700 /home/vscode/.ssh
+
 WORKDIR /workspace
 
 # [Optional] Uncomment the next lines to use go get to install anything else you need
