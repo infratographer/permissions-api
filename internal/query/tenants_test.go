@@ -80,7 +80,7 @@ func TestActorScopes(t *testing.T) {
 	})
 
 	t.Run("check that the user has edit access to an ou", func(t *testing.T) {
-		err := query.ActorHasPermission(ctx, s.SpiceDB, userRes, "loadbalancer_get", tenRes, queryToken)
+		err := query.SubjectHasPermission(ctx, s.SpiceDB, userRes, "loadbalancer_get", tenRes, queryToken)
 		assert.NoError(t, err)
 	})
 
@@ -88,7 +88,7 @@ func TestActorScopes(t *testing.T) {
 		otherUserRes, err := query.NewResourceFromURN("urn:infratographer:subject:" + uuid.NewString())
 		require.NoError(t, err)
 
-		err = query.ActorHasPermission(ctx, s.SpiceDB, otherUserRes, "loadbalancer_get", tenRes, queryToken)
+		err = query.SubjectHasPermission(ctx, s.SpiceDB, otherUserRes, "loadbalancer_get", tenRes, queryToken)
 		assert.Error(t, err)
 		assert.ErrorIs(t, err, query.ErrScopeNotAssigned)
 	})

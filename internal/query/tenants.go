@@ -18,12 +18,16 @@ var (
 	BuiltInRoleViewers = "Viewers"
 )
 
-func ActorHasPermission(ctx context.Context, db *authzed.Client, actor *Resource, scope string, object *Resource, queryToken string) error {
+// SubjectHasPermission checks if a given subject is allowed to execute
+// an action on a given resource. Given that permissions evaluate on targets
+// that is object + action, we need to pass in the target as a string.
+// The resource is the tenant that the target is being executed on.
+func SubjectHasPermission(ctx context.Context, db *authzed.Client, subject *Resource, target string, resource *Resource, queryToken string) error {
 	req := &pb.CheckPermissionRequest{
-		Resource:   object.spiceDBObjectReference(),
-		Permission: scope,
+		Resource:   resource.spiceDBObjectReference(),
+		Permission: target,
 		Subject: &pb.SubjectReference{
-			Object: actor.spiceDBObjectReference(),
+			Object: subject.spiceDBObjectReference(),
 		},
 	}
 

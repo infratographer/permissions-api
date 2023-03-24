@@ -33,7 +33,7 @@ func (r *Router) checkScope(c *gin.Context) {
 		return
 	}
 
-	err = query.ActorHasPermission(ctx, r.authzedClient, actorResource, scope, resource, "")
+	err = query.SubjectHasPermission(ctx, r.authzedClient, actorResource, scope, resource, "")
 	if err != nil {
 		if errors.Is(err, query.ErrScopeNotAssigned) {
 			c.JSON(http.StatusForbidden, gin.H{"message": "actor does not have requested scope"})
