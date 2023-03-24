@@ -27,7 +27,7 @@ func (r *Router) checkScope(c *gin.Context) {
 		return
 	}
 
-	actorResource, err := query.NewResourceFromURN(actor.urn)
+	actorResource, err := query.NewResourceFromURN(actor.String())
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "error processing actor URN", "error": err.Error()})
 		return

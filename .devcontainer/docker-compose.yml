@@ -95,3 +95,24 @@ services:
   jaeger:
     image: jaegertracing/all-in-one:1.43.0
     network_mode: service:app
+
+  mock-oauth2-server:
+    image: ghcr.io/navikt/mock-oauth2-server:0.5.8
+    networks:
+      - infradev
+    environment:
+      - PORT=8081
+    ports:
+      - 8081:8081
+
+  mock-oauth2-server-health:
+    image: alpine:3.17
+    networks:
+      - infradev
+    command: ["sleep", "infinity"]
+    healthcheck:
+      test: ["CMD", "wget", "-O", "-", "http:/mock-oauth2-server:8081/.well-known/openid-configuration"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 5s
