@@ -203,13 +203,21 @@ func (s *Subscription) ProcessMessage(ctx context.Context, db *query.Stores, msg
 	case strings.HasSuffix(msg.EventType, ".added"):
 		subjectURN, err := urnx.Parse(msg.SubjectURN)
 		if err != nil {
-			fmt.Println("Error getting resource from URN for subject")
+			s.logger.Errorw(
+				"Error getting resource from URN for subject",
+				"error",
+				err,
+			)
 			return err
 		}
 
 		resource, err := query.NewResourceFromURN(subjectURN)
 		if err != nil {
-			fmt.Println("Error getting resource from URN for subject")
+			s.logger.Errorw(
+				"Error getting resource from URN for subject",
+				"error",
+				err,
+			)
 			return err
 		}
 
@@ -217,13 +225,21 @@ func (s *Subscription) ProcessMessage(ctx context.Context, db *query.Stores, msg
 
 		actorURN, err := urnx.Parse(msg.ActorURN)
 		if err != nil {
-			fmt.Println("Error getting resource from URN for subject")
+			s.logger.Errorw(
+				"Error getting resource from URN for actor",
+				"error",
+				err,
+			)
 			return err
 		}
 
 		actor, err := query.NewResourceFromURN(actorURN)
 		if err != nil {
-			fmt.Println("Error getting resource from URN for actor")
+			s.logger.Errorw(
+				"Error getting resource from URN for actor",
+				"error",
+				err,
+			)
 			return err
 		}
 
