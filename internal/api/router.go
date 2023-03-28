@@ -1,9 +1,9 @@
 package api
 
 import (
-	"github.com/authzed/authzed-go/v1"
 	"github.com/gin-gonic/gin"
 	"go.hollow.sh/toolbox/ginjwt"
+	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/x/urnx"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
@@ -13,21 +13,21 @@ var tracer = otel.Tracer("go.infratographer.com/permissions-api/internal/api")
 
 // Router provides a router for the API
 type Router struct {
-	authMW        func(*gin.Context)
-	authzedClient *authzed.Client
-	logger        *zap.SugaredLogger
+	authMW func(*gin.Context)
+	engine *query.Engine
+	logger *zap.SugaredLogger
 }
 
-func NewRouter(authCfg ginjwt.AuthConfig, authzedClient *authzed.Client, l *zap.SugaredLogger) (*Router, error) {
+func NewRouter(authCfg ginjwt.AuthConfig, engine *query.Engine, l *zap.SugaredLogger) (*Router, error) {
 	authMW, err := newAuthMiddleware(authCfg)
 	if err != nil {
 		return nil, err
 	}
 
 	out := &Router{
-		authMW:        authMW,
-		authzedClient: authzedClient,
-		logger:        l.Named("api"),
+		authMW: authMW,
+		engine: engine,
+		logger: l.Named("api"),
 	}
 
 	return out, nil

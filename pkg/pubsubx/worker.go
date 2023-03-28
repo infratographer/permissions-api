@@ -1,5 +1,6 @@
 package pubsubx
 
+/*
 import (
 	"context"
 	"encoding/json"
@@ -266,3 +267,4 @@ func (s *Subscription) ProcessMessage(ctx context.Context, db *query.Stores, msg
 
 	return nil
 }
+*/

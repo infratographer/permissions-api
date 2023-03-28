@@ -24,9 +24,6 @@ import (
 	"go.infratographer.com/x/otelx"
 
 	"go.infratographer.com/permissions-api/internal/config"
-	"go.infratographer.com/permissions-api/internal/query"
-	"go.infratographer.com/permissions-api/internal/spicedbx"
-	"go.infratographer.com/permissions-api/pkg/pubsubx"
 )
 
 var workerCmd = &cobra.Command{
@@ -44,22 +41,24 @@ func init() {
 }
 
 func worker(ctx context.Context, cfg *config.AppConfig) {
-	err := otelx.InitTracer(cfg.Tracing, appName, logger)
-	if err != nil {
-		logger.Fatalw("unable to initialize tracing system", "error", err)
-	}
+	/*
+		err := otelx.InitTracer(cfg.Tracing, appName, logger)
+		if err != nil {
+			logger.Fatalw("unable to initialize tracing system", "error", err)
+		}
 
-	spiceClient, err := spicedbx.NewClient(cfg.SpiceDB, cfg.Tracing.Enabled)
-	if err != nil {
-		logger.Fatalw("unable to initialize spicedb client", "error", err)
-	}
+		spiceClient, err := spicedbx.NewClient(cfg.SpiceDB, cfg.Tracing.Enabled)
+		if err != nil {
+			logger.Fatalw("unable to initialize spicedb client", "error", err)
+		}
 
-	w, err := pubsubx.NewSubscription(ctx, "nats://localhost", logger)
-	if err != nil {
-		logger.Fatalw("unable to start queue subscription", "error", err)
-	}
+		w, err := pubsubx.NewSubscription(ctx, "nats://localhost", logger)
+		if err != nil {
+			logger.Fatalw("unable to start queue subscription", "error", err)
+		}
 
-	if err := w.StartListening(ctx, &query.Stores{SpiceDB: spiceClient}); err != nil {
-		logger.Fatalw("listener stopped listening", "error", err)
-	}
+		if err := w.StartListening(ctx, &query.Stores{SpiceDB: spiceClient}); err != nil {
+			logger.Fatalw("listener stopped listening", "error", err)
+		}
+	*/
 }

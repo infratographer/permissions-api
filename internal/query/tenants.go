@@ -3,36 +3,58 @@ package query
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	pb "github.com/authzed/authzed-go/proto/authzed/api/v1"
-	"github.com/authzed/authzed-go/v1"
+	"go.infratographer.com/permissions-api/internal/types"
 	"go.infratographer.com/x/urnx"
 )
 
 var roleSubjectRelation = "subject"
 
 var (
-	BuiltInRoleAdmins  = "Admins"
-	BuiltInRoleEditors = "Editors"
-	BuiltInRoleViewers = "Viewers"
-)
-
-func SubjectHasPermission(ctx context.Context, db *authzed.Client, subject *Resource, action string, object *Resource, queryToken string) error {
-	req := &pb.CheckPermissionRequest{
-		Resource:   object.spiceDBObjectReference(),
-		Permission: action,
-		Subject: &pb.SubjectReference{
-			Object: subject.spiceDBObjectReference(),
+	roleTemplateAdmin = types.RoleTemplate{
+		Actions: []string{
+			"loadbalancer_create",
+			"loadbalancer_update",
+			"loadbalancer_list",
+			"loadbalancer_get",
+			"loadbalancer_delete",
 		},
 	}
 
-	return checkPermission(ctx, db, req, queryToken)
+	roleTemplates = []types.RoleTemplate{
+		roleTemplateAdmin,
+	}
+
+	errorInvalidNamespace = errors.New("invalid namespace")
+)
+
+func resourceToSpiceDBRef(namespace string, r types.Resource) *pb.ObjectReference {
+	return &pb.ObjectReference{
+		ObjectType: namespace + "/" + r.Type,
+		ObjectId:   r.ID.String(),
+	}
 }
 
-func AssignSubjectRole(ctx context.Context, db *authzed.Client, subject *Resource, role string, object *Resource) (string, error) {
-	request := &pb.WriteRelationshipsRequest{Updates: []*pb.RelationshipUpdate{subjectRoleRel(subject, role, object)}}
-	r, err := db.WriteRelationships(ctx, request)
+func (e *Engine) SubjectHasPermission(ctx context.Context, subject types.Resource, action string, resource types.Resource, queryToken string) error {
+	req := &pb.CheckPermissionRequest{
+		Resource:   resourceToSpiceDBRef(e.namespace, resource),
+		Permission: action,
+		Subject: &pb.SubjectReference{
+			Object: resourceToSpiceDBRef(e.namespace, subject),
+		},
+	}
+
+	return e.checkPermission(ctx, req, queryToken)
+}
+
+func (e *Engine) AssignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) (string, error) {
+	request := &pb.WriteRelationshipsRequest{
+		Updates: []*pb.RelationshipUpdate{
+			e.subjectRoleRel(subject, role),
+		},
+	}
+	r, err := e.client.WriteRelationships(ctx, request)
 
 	if err != nil {
 		return "", err
@@ -41,28 +63,30 @@ func AssignSubjectRole(ctx context.Context, db *authzed.Client, subject *Resourc
 	return r.WrittenAt.GetToken(), nil
 }
 
-func subjectRoleRel(subject *Resource, role string, object *Resource) *pb.RelationshipUpdate {
+func (e *Engine) subjectRoleRel(subject types.Resource, role types.Role) *pb.RelationshipUpdate {
+	roleResource := types.Resource{
+		Type: "role",
+		ID:   role.ID,
+	}
+
 	return &pb.RelationshipUpdate{
 		Operation: pb.RelationshipUpdate_OPERATION_CREATE,
 		Relationship: &pb.Relationship{
-			Resource: &pb.ObjectReference{
-				ObjectType: "role",
-				ObjectId:   dbRoleName(role, object),
-			},
+			Resource: resourceToSpiceDBRef(e.namespace, roleResource),
 			Relation: roleSubjectRelation,
 			Subject: &pb.SubjectReference{
-				Object: subject.spiceDBObjectReference(),
+				Object: resourceToSpiceDBRef(e.namespace, subject),
 			},
 		},
 	}
 }
 
-func checkPermission(ctx context.Context, db *authzed.Client, req *pb.CheckPermissionRequest, queryToken string) error {
+func (e *Engine) checkPermission(ctx context.Context, req *pb.CheckPermissionRequest, queryToken string) error {
 	if queryToken != "" {
 		req.Consistency = &pb.Consistency{Requirement: &pb.Consistency_AtLeastAsFresh{AtLeastAsFresh: &pb.ZedToken{Token: queryToken}}}
 	}
 
-	resp, err := db.CheckPermission(ctx, req)
+	resp, err := e.client.CheckPermission(ctx, req)
 	if err != nil {
 		return err
 	}
@@ -74,84 +98,51 @@ func checkPermission(ctx context.Context, db *authzed.Client, req *pb.CheckPermi
 	return ErrActionNotAssigned
 }
 
-func dbRoleName(role string, res *Resource) string {
-	return fmt.Sprintf("%s_%s_%s", res.ResourceType.DBType, res.ID, role)
-}
+func (e *Engine) CreateBuiltInRoles(ctx context.Context, context types.Resource) ([]types.Role, string, error) {
+	var (
+		roles    []types.Role
+		roleRels []*pb.RelationshipUpdate
+	)
 
-func CreateBuiltInRoles(ctx context.Context, db *authzed.Client, res *Resource) (string, error) {
-	rels := builtInRoles(res)
+	for _, t := range roleTemplates {
+		role := newRoleFromTemplate(t)
+		roles = append(roles, role)
+		roleRels = append(roleRels, e.roleRelationships(role, context)...)
+	}
 
-	request := &pb.WriteRelationshipsRequest{Updates: rels}
+	request := &pb.WriteRelationshipsRequest{Updates: roleRels}
 
-	r, err := db.WriteRelationships(ctx, request)
+	r, err := e.client.WriteRelationships(ctx, request)
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 
-	return r.WrittenAt.GetToken(), nil
+	return roles, r.WrittenAt.GetToken(), nil
 }
 
-func builtInRoles(res *Resource) []*pb.RelationshipUpdate {
-	adminRole := &pb.ObjectReference{
-		ObjectType: "role",
-		ObjectId:   dbRoleName(BuiltInRoleAdmins, res),
+func actionToRelation(action string) string {
+	return action + "_rel"
+}
+
+func (e *Engine) roleRelationships(role types.Role, resource types.Resource) []*pb.RelationshipUpdate {
+	var rels []*pb.RelationshipUpdate
+
+	roleResource := types.Resource{
+		Type: "role",
+		ID:   role.ID,
 	}
 
-	editorRole := &pb.ObjectReference{
-		ObjectType: "role",
-		ObjectId:   dbRoleName(BuiltInRoleEditors, res),
-	}
+	resourceRef := resourceToSpiceDBRef(e.namespace, resource)
+	roleRef := resourceToSpiceDBRef(e.namespace, roleResource)
 
-	viewerRole := &pb.ObjectReference{
-		ObjectType: "role",
-		ObjectId:   dbRoleName(BuiltInRoleViewers, res),
-	}
-
-	adminAssignments := []string{}
-	editorAssignments := []string{"loadbalancer_create_rel", "loadbalancer_update_rel", "loadbalancer_delete_rel"}
-	viewerAssignments := []string{"loadbalancer_list_rel", "loadbalancer_get_rel"}
-
-	editorAssignments = append(editorAssignments, viewerAssignments...)
-	adminAssignments = append(adminAssignments, editorAssignments...)
-
-	rels := []*pb.RelationshipUpdate{}
-
-	for _, action := range adminAssignments {
+	for _, action := range role.Actions {
 		rels = append(rels, &pb.RelationshipUpdate{
 			Operation: pb.RelationshipUpdate_OPERATION_CREATE,
 			Relationship: &pb.Relationship{
-				Resource: res.spiceDBObjectReference(),
-				Relation: action,
+				Resource: resourceRef,
+				Relation: actionToRelation(action),
 				Subject: &pb.SubjectReference{
-					Object:           adminRole,
-					OptionalRelation: roleSubjectRelation,
-				},
-			},
-		})
-	}
-
-	for _, action := range editorAssignments {
-		rels = append(rels, &pb.RelationshipUpdate{
-			Operation: pb.RelationshipUpdate_OPERATION_CREATE,
-			Relationship: &pb.Relationship{
-				Resource: res.spiceDBObjectReference(),
-				Relation: action,
-				Subject: &pb.SubjectReference{
-					Object:           editorRole,
-					OptionalRelation: roleSubjectRelation,
-				},
-			},
-		})
-	}
-
-	for _, action := range viewerAssignments {
-		rels = append(rels, &pb.RelationshipUpdate{
-			Operation: pb.RelationshipUpdate_OPERATION_CREATE,
-			Relationship: &pb.Relationship{
-				Resource: res.spiceDBObjectReference(),
-				Relation: action,
-				Subject: &pb.SubjectReference{
-					Object:           viewerRole,
+					Object:           roleRef,
 					OptionalRelation: roleSubjectRelation,
 				},
 			},
@@ -161,126 +152,30 @@ func builtInRoles(res *Resource) []*pb.RelationshipUpdate {
 	return rels
 }
 
-type Resource struct {
-	URN          string
-	ID           string
-	ResourceType *ResourceType
-	Fields       map[string]string
-}
-
-type ResourceType struct {
-	Name            string
-	URNNamespace    string
-	URNResourceType string
-	DBType          string
-	Relationships   []*ResourceRelationship
-}
-
-type ResourceRelationship struct {
-	Name       string
-	Field      string
-	Optional   bool
-	DBTypes    string
-	DBRelation string
-}
-
-func GetResourceTypes() []*ResourceType {
-	return []*ResourceType{
+func GetResourceTypes() []types.ResourceType {
+	return []types.ResourceType{
 		{
-			Name:            "Tenant",
-			DBType:          "tenant",
-			URNNamespace:    "infratographer",
-			URNResourceType: "tenant",
-			Relationships: []*ResourceRelationship{
+			Name: "tenant",
+			Relationships: []types.ResourceRelationship{
 				{
-					Name:       "Parent tenant",
-					Field:      "parent_tenant_id",
-					DBTypes:    "tenant",
-					DBRelation: "parent",
-					Optional:   true,
+					Name:     "tenant",
+					Type:     "tenant",
+					Optional: true,
 				},
 			},
 		},
-		{
-			Name:            "Subject",
-			DBType:          "subject",
-			URNNamespace:    "infratographer",
-			URNResourceType: "subject",
-		},
 	}
 }
 
-func NewResourceFromURN(urn *urnx.URN) (*Resource, error) {
-	r := &Resource{
-		URN: urn.String(),
-		ID:  urn.ResourceID.String(),
+func (e *Engine) NewResourceFromURN(urn *urnx.URN) (types.Resource, error) {
+	if urn.Namespace != e.namespace {
+		return types.Resource{}, errorInvalidNamespace
 	}
 
-	rt, err := ResourceTypeByURN(urn)
-	if err != nil {
-		return nil, err
+	out := types.Resource{
+		Type: urn.ResourceType,
+		ID:   urn.ResourceID,
 	}
 
-	r.ResourceType = rt
-
-	return r, nil
-}
-
-func ResourceTypeByURN(urn *urnx.URN) (*ResourceType, error) {
-	for _, resType := range GetResourceTypes() {
-		if resType.URNNamespace == urn.Namespace &&
-			resType.URNResourceType == urn.ResourceType {
-			return resType, nil
-		}
-	}
-
-	return nil, errors.New("invalid urn")
-}
-
-func (r *Resource) spiceDBObjectReference() *pb.ObjectReference {
-	return &pb.ObjectReference{
-		ObjectType: r.ResourceType.DBType,
-		ObjectId:   r.ID,
-	}
-}
-
-func CreateSpiceDBRelationships(ctx context.Context, db *authzed.Client, r *Resource, subject *Resource) (string, error) {
-	rels := []*pb.RelationshipUpdate{}
-
-	if r.ResourceType.URNResourceType == "tenant" {
-		rels = append(rels, builtInRoles(r)...)
-
-		rels = append(rels, subjectRoleRel(subject, BuiltInRoleAdmins, r))
-	}
-
-	for _, rr := range r.ResourceType.Relationships {
-		if rr.Optional && r.Fields[rr.Field] == "" {
-			continue
-		}
-
-		if r.Fields[rr.Field] == "" {
-			return "", errors.New("missing required relationship to " + rr.Name)
-		}
-
-		rels = append(rels, &pb.RelationshipUpdate{
-			Operation: pb.RelationshipUpdate_OPERATION_TOUCH,
-			Relationship: &pb.Relationship{
-				Resource: r.spiceDBObjectReference(),
-				Relation: rr.DBRelation,
-				Subject: &pb.SubjectReference{
-					Object: &pb.ObjectReference{
-						ObjectType: rr.DBTypes,
-						ObjectId:   r.Fields[rr.Field],
-					},
-				},
-			},
-		})
-	}
-
-	res, err := db.WriteRelationships(ctx, &pb.WriteRelationshipsRequest{Updates: rels})
-	if err != nil {
-		return "", err
-	}
-
-	return res.WrittenAt.GetToken(), nil
+	return out, nil
 }

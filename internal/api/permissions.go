@@ -22,7 +22,7 @@ func (r *Router) checkAction(c *gin.Context) {
 		return
 	}
 
-	resource, err := query.NewResourceFromURN(resourceURN)
+	resource, err := r.engine.NewResourceFromURN(resourceURN)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "error processing resource URN", "error": err.Error()})
 		return
@@ -34,13 +34,13 @@ func (r *Router) checkAction(c *gin.Context) {
 		return
 	}
 
-	subjectResource, err := query.NewResourceFromURN(subject)
+	subjectResource, err := r.engine.NewResourceFromURN(subject)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "error processing subject URN", "error": err.Error()})
 		return
 	}
 
-	err = query.SubjectHasPermission(ctx, r.authzedClient, subjectResource, action, resource, "")
+	err = r.engine.SubjectHasPermission(ctx, subjectResource, action, resource, "")
 	if err != nil {
 		if errors.Is(err, query.ErrActionNotAssigned) {
 			c.JSON(http.StatusForbidden, gin.H{"message": "subject does not have requested action"})

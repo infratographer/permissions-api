@@ -28,6 +28,7 @@ import (
 
 	"go.infratographer.com/permissions-api/internal/api"
 	"go.infratographer.com/permissions-api/internal/config"
+	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/permissions-api/internal/spicedbx"
 )
 
@@ -64,9 +65,11 @@ func serve(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("unable to initialize spicedb client", "error", err)
 	}
 
+	engine := query.NewEngine("infratographer", spiceClient)
+
 	s := ginx.NewServer(logger.Desugar(), cfg.Server, versionx.BuildDetails())
 
-	r, err := api.NewRouter(cfg.OIDC, spiceClient, logger)
+	r, err := api.NewRouter(cfg.OIDC, engine, logger)
 	if err != nil {
 		logger.Fatalw("unable to initialize router", "error", err)
 	}

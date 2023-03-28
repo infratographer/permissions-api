@@ -8,7 +8,7 @@ type RoleTemplate struct {
 }
 
 type Role struct {
-	ID      *uuid.UUID
+	ID      uuid.UUID
 	Actions []string
 }
 
@@ -26,5 +26,5 @@ type ResourceType struct {
 
 type Resource struct {
 	Type string
-	ID   *uuid.UUID
+	ID   uuid.UUID
 }
