@@ -59,7 +59,7 @@ func cleanDB(ctx context.Context, t *testing.T, client *authzed.Client) {
 	}
 }
 
-func TestActorScopes(t *testing.T) {
+func TestSubjectActions(t *testing.T) {
 	ctx := context.Background()
 	s := dbTest(ctx, t)
 
@@ -78,23 +78,23 @@ func TestActorScopes(t *testing.T) {
 	assert.NoError(t, err)
 
 	t.Run("allow a user to view an ou", func(t *testing.T) {
-		queryToken, err = query.AssignActorRole(ctx, s.SpiceDB, userRes, "Editors", tenRes)
+		queryToken, err = query.AssignSubjectRole(ctx, s.SpiceDB, userRes, "Editors", tenRes)
 		assert.NoError(t, err)
 	})
 
 	t.Run("check that the user has edit access to an ou", func(t *testing.T) {
-		err := query.ActorHasPermission(ctx, s.SpiceDB, userRes, "loadbalancer_get", tenRes, queryToken)
+		err := query.SubjectHasPermission(ctx, s.SpiceDB, userRes, "loadbalancer_get", tenRes, queryToken)
 		assert.NoError(t, err)
 	})
 
-	t.Run("error returned when the user doesn't have the global scope", func(t *testing.T) {
+	t.Run("error returned when the user doesn't have the global action", func(t *testing.T) {
 		subjURN, err := urnx.Build("infratographer", "subject", uuid.New())
 		require.NoError(t, err)
 		otherUserRes, err := query.NewResourceFromURN(subjURN)
 		require.NoError(t, err)
 
-		err = query.ActorHasPermission(ctx, s.SpiceDB, otherUserRes, "loadbalancer_get", tenRes, queryToken)
+		err = query.SubjectHasPermission(ctx, s.SpiceDB, otherUserRes, "loadbalancer_get", tenRes, queryToken)
 		assert.Error(t, err)
-		assert.ErrorIs(t, err, query.ErrScopeNotAssigned)
+		assert.ErrorIs(t, err, query.ErrActionNotAssigned)
 	})
 }

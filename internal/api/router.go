@@ -42,11 +42,11 @@ func (r *Router) Routes(rg *gin.RouterGroup) {
 		v1.POST("/resources/:urn", r.resourceCreate)
 		v1.DELETE("/resources/:urn", r.resourceDelete)
 		// Check resource access
-		v1.GET("/has/:scope/on/:urn", r.checkScope)
+		v1.GET("/has/:action/on/:urn", r.checkAction)
 	}
 }
 
-func currentActor(c *gin.Context) (*urnx.URN, error) {
+func currentSubject(c *gin.Context) (*urnx.URN, error) {
 	subject := ginjwt.GetSubject(c)
 
 	return urnx.Parse(subject)

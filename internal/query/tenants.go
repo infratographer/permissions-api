@@ -10,7 +10,7 @@ import (
 	"go.infratographer.com/x/urnx"
 )
 
-var roleActorRelation = "subject"
+var roleSubjectRelation = "subject"
 
 var (
 	BuiltInRoleAdmins  = "Admins"
@@ -18,20 +18,20 @@ var (
 	BuiltInRoleViewers = "Viewers"
 )
 
-func ActorHasPermission(ctx context.Context, db *authzed.Client, actor *Resource, scope string, object *Resource, queryToken string) error {
+func SubjectHasPermission(ctx context.Context, db *authzed.Client, subject *Resource, action string, object *Resource, queryToken string) error {
 	req := &pb.CheckPermissionRequest{
 		Resource:   object.spiceDBObjectReference(),
-		Permission: scope,
+		Permission: action,
 		Subject: &pb.SubjectReference{
-			Object: actor.spiceDBObjectReference(),
+			Object: subject.spiceDBObjectReference(),
 		},
 	}
 
 	return checkPermission(ctx, db, req, queryToken)
 }
 
-func AssignActorRole(ctx context.Context, db *authzed.Client, actor *Resource, role string, object *Resource) (string, error) {
-	request := &pb.WriteRelationshipsRequest{Updates: []*pb.RelationshipUpdate{actorRoleRel(actor, role, object)}}
+func AssignSubjectRole(ctx context.Context, db *authzed.Client, subject *Resource, role string, object *Resource) (string, error) {
+	request := &pb.WriteRelationshipsRequest{Updates: []*pb.RelationshipUpdate{subjectRoleRel(subject, role, object)}}
 	r, err := db.WriteRelationships(ctx, request)
 
 	if err != nil {
@@ -41,7 +41,7 @@ func AssignActorRole(ctx context.Context, db *authzed.Client, actor *Resource, r
 	return r.WrittenAt.GetToken(), nil
 }
 
-func actorRoleRel(actor *Resource, role string, object *Resource) *pb.RelationshipUpdate {
+func subjectRoleRel(subject *Resource, role string, object *Resource) *pb.RelationshipUpdate {
 	return &pb.RelationshipUpdate{
 		Operation: pb.RelationshipUpdate_OPERATION_CREATE,
 		Relationship: &pb.Relationship{
@@ -49,9 +49,9 @@ func actorRoleRel(actor *Resource, role string, object *Resource) *pb.Relationsh
 				ObjectType: "role",
 				ObjectId:   dbRoleName(role, object),
 			},
-			Relation: roleActorRelation,
+			Relation: roleSubjectRelation,
 			Subject: &pb.SubjectReference{
-				Object: actor.spiceDBObjectReference(),
+				Object: subject.spiceDBObjectReference(),
 			},
 		},
 	}
@@ -71,7 +71,7 @@ func checkPermission(ctx context.Context, db *authzed.Client, req *pb.CheckPermi
 		return nil
 	}
 
-	return ErrScopeNotAssigned
+	return ErrActionNotAssigned
 }
 
 func dbRoleName(role string, res *Resource) string {
@@ -116,43 +116,43 @@ func builtInRoles(res *Resource) []*pb.RelationshipUpdate {
 
 	rels := []*pb.RelationshipUpdate{}
 
-	for _, scope := range adminAssignments {
+	for _, action := range adminAssignments {
 		rels = append(rels, &pb.RelationshipUpdate{
 			Operation: pb.RelationshipUpdate_OPERATION_CREATE,
 			Relationship: &pb.Relationship{
 				Resource: res.spiceDBObjectReference(),
-				Relation: scope,
+				Relation: action,
 				Subject: &pb.SubjectReference{
 					Object:           adminRole,
-					OptionalRelation: roleActorRelation,
+					OptionalRelation: roleSubjectRelation,
 				},
 			},
 		})
 	}
 
-	for _, scope := range editorAssignments {
+	for _, action := range editorAssignments {
 		rels = append(rels, &pb.RelationshipUpdate{
 			Operation: pb.RelationshipUpdate_OPERATION_CREATE,
 			Relationship: &pb.Relationship{
 				Resource: res.spiceDBObjectReference(),
-				Relation: scope,
+				Relation: action,
 				Subject: &pb.SubjectReference{
 					Object:           editorRole,
-					OptionalRelation: roleActorRelation,
+					OptionalRelation: roleSubjectRelation,
 				},
 			},
 		})
 	}
 
-	for _, scope := range viewerAssignments {
+	for _, action := range viewerAssignments {
 		rels = append(rels, &pb.RelationshipUpdate{
 			Operation: pb.RelationshipUpdate_OPERATION_CREATE,
 			Relationship: &pb.Relationship{
 				Resource: res.spiceDBObjectReference(),
-				Relation: scope,
+				Relation: action,
 				Subject: &pb.SubjectReference{
 					Object:           viewerRole,
-					OptionalRelation: roleActorRelation,
+					OptionalRelation: roleSubjectRelation,
 				},
 			},
 		})
@@ -244,13 +244,13 @@ func (r *Resource) spiceDBObjectReference() *pb.ObjectReference {
 	}
 }
 
-func CreateSpiceDBRelationships(ctx context.Context, db *authzed.Client, r *Resource, actor *Resource) (string, error) {
+func CreateSpiceDBRelationships(ctx context.Context, db *authzed.Client, r *Resource, subject *Resource) (string, error) {
 	rels := []*pb.RelationshipUpdate{}
 
 	if r.ResourceType.URNResourceType == "tenant" {
 		rels = append(rels, builtInRoles(r)...)
 
-		rels = append(rels, actorRoleRel(actor, BuiltInRoleAdmins, r))
+		rels = append(rels, subjectRoleRel(subject, BuiltInRoleAdmins, r))
 	}
 
 	for _, rr := range r.ResourceType.Relationships {

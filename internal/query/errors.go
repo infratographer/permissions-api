@@ -3,7 +3,7 @@ package query
 import "errors"
 
 var (
-	// ErrScopeNotAssigned represents an error condition where the actor is not able to complete
+	// ErrActionNotAssigned represents an error condition where the subject is not able to complete
 	// the given request.
-	ErrScopeNotAssigned = errors.New("the actor does not have permissions to complete this request")
+	ErrActionNotAssigned = errors.New("the subject does not have permissions to complete this request")
 )

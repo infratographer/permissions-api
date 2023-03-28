@@ -10,5 +10,5 @@ var (
 	ErrNoAuthToken = errors.New("no auth token provided for client")
 
 	// ErrPermissionDenied is the error returned when permission is denied to a call
-	ErrPermissionDenied = errors.New("actor doesn't have access")
+	ErrPermissionDenied = errors.New("subject doesn't have access")
 )
