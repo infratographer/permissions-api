@@ -55,14 +55,14 @@ func New(url string, doerClient Doer) (*Client, error) {
 	return c, nil
 }
 
-func (c *Client) Allowed(ctx context.Context, scope string, resourceURNPrefix string) (bool, error) {
-	ctx, span := tracer.Start(ctx, "ActorHasScope", trace.WithAttributes(
-		attribute.String("scope", scope),
+func (c *Client) Allowed(ctx context.Context, action string, resourceURNPrefix string) (bool, error) {
+	ctx, span := tracer.Start(ctx, "SubjectHasAction", trace.WithAttributes(
+		attribute.String("action", action),
 		attribute.String("resource", resourceURNPrefix),
 	))
 	defer span.End()
 
-	err := c.get(ctx, fmt.Sprintf("/has/%s/on/%s", scope, resourceURNPrefix), map[string]string{})
+	err := c.get(ctx, fmt.Sprintf("/has/%s/on/%s", action, resourceURNPrefix), map[string]string{})
 	if err != nil {
 		if errors.Is(err, ErrPermissionDenied) {
 			return false, nil

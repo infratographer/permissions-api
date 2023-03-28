@@ -33,19 +33,19 @@ func (r *Router) resourceCreate(c *gin.Context) {
 		return
 	}
 
-	actor, err := currentActor(c)
+	subject, err := currentSubject(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "message": "failed to get the actor"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "message": "failed to get the subject"})
 		return
 	}
 
-	actorResource, err := query.NewResourceFromURN(actor)
+	subjectResource, err := query.NewResourceFromURN(subject)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "error processing actor URN", "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "error processing subject URN", "error": err.Error()})
 		return
 	}
 
-	zedToken, err := query.CreateSpiceDBRelationships(ctx, r.authzedClient, resource, actorResource)
+	zedToken, err := query.CreateSpiceDBRelationships(ctx, r.authzedClient, resource, subjectResource)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to create relationship", "error": err.Error()})
 		return

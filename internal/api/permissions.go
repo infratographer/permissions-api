@@ -9,11 +9,11 @@ import (
 	"go.infratographer.com/x/urnx"
 )
 
-func (r *Router) checkScope(c *gin.Context) {
+func (r *Router) checkAction(c *gin.Context) {
 	resourceURNStr := c.Param("urn")
-	scope := c.Param("scope")
+	action := c.Param("action")
 
-	ctx, span := tracer.Start(c.Request.Context(), "api.checkScope")
+	ctx, span := tracer.Start(c.Request.Context(), "api.checkAction")
 	defer span.End()
 
 	resourceURN, err := urnx.Parse(resourceURNStr)
@@ -28,22 +28,22 @@ func (r *Router) checkScope(c *gin.Context) {
 		return
 	}
 
-	actor, err := currentActor(c)
+	subject, err := currentSubject(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "message": "failed to get the actor"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "message": "failed to get the subject"})
 		return
 	}
 
-	actorResource, err := query.NewResourceFromURN(actor)
+	subjectResource, err := query.NewResourceFromURN(subject)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "error processing actor URN", "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "error processing subject URN", "error": err.Error()})
 		return
 	}
 
-	err = query.ActorHasPermission(ctx, r.authzedClient, actorResource, scope, resource, "")
+	err = query.SubjectHasPermission(ctx, r.authzedClient, subjectResource, action, resource, "")
 	if err != nil {
-		if errors.Is(err, query.ErrScopeNotAssigned) {
-			c.JSON(http.StatusForbidden, gin.H{"message": "actor does not have requested scope"})
+		if errors.Is(err, query.ErrActionNotAssigned) {
+			c.JSON(http.StatusForbidden, gin.H{"message": "subject does not have requested action"})
 			return
 		}
 
