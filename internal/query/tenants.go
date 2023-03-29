@@ -36,6 +36,7 @@ func resourceToSpiceDBRef(namespace string, r types.Resource) *pb.ObjectReferenc
 	}
 }
 
+// SubjectHasPermission checks if the given subject can do the given action on the given resource
 func (e *Engine) SubjectHasPermission(ctx context.Context, subject types.Resource, action string, resource types.Resource, queryToken string) error {
 	req := &pb.CheckPermissionRequest{
 		Resource:   resourceToSpiceDBRef(e.namespace, resource),
@@ -48,6 +49,7 @@ func (e *Engine) SubjectHasPermission(ctx context.Context, subject types.Resourc
 	return e.checkPermission(ctx, req, queryToken)
 }
 
+// AssignSubjectRole assigns the given role to the given subject
 func (e *Engine) AssignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) (string, error) {
 	request := &pb.WriteRelationshipsRequest{
 		Updates: []*pb.RelationshipUpdate{
@@ -98,6 +100,7 @@ func (e *Engine) checkPermission(ctx context.Context, req *pb.CheckPermissionReq
 	return ErrActionNotAssigned
 }
 
+// CreateBuiltInRoles generates the builtin roles for a resource
 func (e *Engine) CreateBuiltInRoles(ctx context.Context, context types.Resource) ([]types.Role, string, error) {
 	var (
 		roles    []types.Role

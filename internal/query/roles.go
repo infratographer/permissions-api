@@ -6,10 +6,8 @@ import (
 )
 
 func newRoleFromTemplate(t types.RoleTemplate) types.Role {
-	out := types.Role{
+	return types.Role{
 		ID:      uuid.New(),
 		Actions: t.Actions,
 	}
-
-	return out
 }

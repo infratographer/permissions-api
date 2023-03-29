@@ -8,6 +8,7 @@ type Engine struct {
 	client    *authzed.Client
 }
 
+// NewEngine returns a new client for making permissions queries.
 func NewEngine(namespace string, client *authzed.Client) *Engine {
 	return &Engine{
 		namespace: namespace,
