@@ -39,10 +39,10 @@ func (r *Router) Routes(rg *gin.RouterGroup) {
 	// /servers
 	v1 := rg.Group("api/v1").Use(r.authMW)
 	{
-		// Creating an OU gets a special
-		v1.POST("/resources/:urn", r.resourceCreate)
-		v1.DELETE("/resources/:urn", r.resourceDelete)
-		// Check resource access
+		v1.POST("/resources/:urn/roles", r.roleCreate)
+		v1.POST("/resources/:urn/relationships", r.relationshipsCreate)
+		v1.POST("/roles/:role_id/memberships", r.membershipCreate)
+
 		v1.GET("/has/:action/on/:urn", r.checkAction)
 	}
 }

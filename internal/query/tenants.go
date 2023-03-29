@@ -12,22 +12,45 @@ import (
 var roleSubjectRelation = "subject"
 
 var (
-	roleTemplateAdmin = types.RoleTemplate{
-		Actions: []string{
-			"loadbalancer_create",
-			"loadbalancer_update",
-			"loadbalancer_list",
-			"loadbalancer_get",
-			"loadbalancer_delete",
-		},
-	}
-
-	roleTemplates = []types.RoleTemplate{
-		roleTemplateAdmin,
-	}
-
-	errorInvalidNamespace = errors.New("invalid namespace")
+	errorInvalidNamespace    = errors.New("invalid namespace")
+	errorInvalidType         = errors.New("invalid type")
+	errorInvalidRelationship = errors.New("invalid relationship")
 )
+
+func getTypeForResource(res types.Resource) (types.ResourceType, error) {
+	resTypes := GetResourceTypes()
+
+	for _, resType := range resTypes {
+		if res.Type == resType.Name {
+			return resType, nil
+		}
+	}
+
+	return types.ResourceType{}, errorInvalidType
+}
+
+func validateRelationship(rel types.Relationship) error {
+	subjType, err := getTypeForResource(rel.Subject)
+	if err != nil {
+		return err
+	}
+
+	resType, err := getTypeForResource(rel.Resource)
+	if err != nil {
+		return err
+	}
+
+	for _, typeRel := range subjType.Relationships {
+		// If we find a relation with a name and type that matches our relationship,
+		// return
+		if rel.Relation == typeRel.Name && resType.Name == typeRel.Type {
+			return nil
+		}
+	}
+
+	// No matching relationship was found, so we should return an error
+	return errorInvalidRelationship
+}
 
 func resourceToSpiceDBRef(namespace string, r types.Resource) *pb.ObjectReference {
 	return &pb.ObjectReference{
@@ -49,7 +72,7 @@ func (e *Engine) SubjectHasPermission(ctx context.Context, subject types.Resourc
 	return e.checkPermission(ctx, req, queryToken)
 }
 
-// AssignSubjectRole assigns the given role to the given subject
+// AssignSubjectRole assigns the given role to the given subject.
 func (e *Engine) AssignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) (string, error) {
 	request := &pb.WriteRelationshipsRequest{
 		Updates: []*pb.RelationshipUpdate{
@@ -100,27 +123,42 @@ func (e *Engine) checkPermission(ctx context.Context, req *pb.CheckPermissionReq
 	return ErrActionNotAssigned
 }
 
-// CreateBuiltInRoles generates the builtin roles for a resource
-func (e *Engine) CreateBuiltInRoles(ctx context.Context, context types.Resource) ([]types.Role, string, error) {
-	var (
-		roles    []types.Role
-		roleRels []*pb.RelationshipUpdate
-	)
-
-	for _, t := range roleTemplates {
-		role := newRoleFromTemplate(t)
-		roles = append(roles, role)
-		roleRels = append(roleRels, e.roleRelationships(role, context)...)
+// CreateRelationships atomically creates the given relationships in SpiceDB.
+func (e *Engine) CreateRelationships(ctx context.Context, rels []types.Relationship) (string, error) {
+	for _, rel := range rels {
+		err := validateRelationship(rel)
+		if err != nil {
+			return "", err
+		}
 	}
+
+	relUpdates := e.relationshipsToUpdates(rels)
+
+	request := &pb.WriteRelationshipsRequest{
+		Updates: relUpdates,
+	}
+
+	r, err := e.client.WriteRelationships(ctx, request)
+	if err != nil {
+		return "", err
+	}
+
+	return r.WrittenAt.GetToken(), nil
+}
+
+// CreateRole creates a role scoped to the given resource with the given actions.
+func (e *Engine) CreateRole(ctx context.Context, res types.Resource, actions []string) (types.Role, string, error) {
+	role := newRole(actions)
+	roleRels := e.roleRelationships(role, res)
 
 	request := &pb.WriteRelationshipsRequest{Updates: roleRels}
 
 	r, err := e.client.WriteRelationships(ctx, request)
 	if err != nil {
-		return nil, "", err
+		return types.Role{}, "", err
 	}
 
-	return roles, r.WrittenAt.GetToken(), nil
+	return role, r.WrittenAt.GetToken(), nil
 }
 
 func actionToRelation(action string) string {
@@ -155,18 +193,42 @@ func (e *Engine) roleRelationships(role types.Role, resource types.Resource) []*
 	return rels
 }
 
-// GetResourceTypes returns the list of resource types
+func (e *Engine) relationshipsToUpdates(rels []types.Relationship) []*pb.RelationshipUpdate {
+	relUpdates := make([]*pb.RelationshipUpdate, len(rels))
+
+	for i, rel := range rels {
+		subjRef := resourceToSpiceDBRef(e.namespace, rel.Subject)
+		resRef := resourceToSpiceDBRef(e.namespace, rel.Resource)
+
+		relUpdates[i] = &pb.RelationshipUpdate{
+			Operation: pb.RelationshipUpdate_OPERATION_CREATE,
+			Relationship: &pb.Relationship{
+				Resource: resRef,
+				Relation: rel.Relation,
+				Subject: &pb.SubjectReference{
+					Object: subjRef,
+				},
+			},
+		}
+	}
+
+	return relUpdates
+}
+
+// GetResourceTypes returns the list of resource types.
 func GetResourceTypes() []types.ResourceType {
 	return []types.ResourceType{
 		{
 			Name: "tenant",
-			Relationships: []types.ResourceRelationship{
+			Relationships: []types.ResourceTypeRelationship{
 				{
-					Name:     "tenant",
-					Type:     "tenant",
-					Optional: true,
+					Name: "tenant",
+					Type: "tenant",
 				},
 			},
+		},
+		{
+			Name: "subject",
 		},
 	}
 }
