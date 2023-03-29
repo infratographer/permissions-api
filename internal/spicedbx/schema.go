@@ -1,39 +1,89 @@
 package spicedbx
 
 import (
-	"strings"
+	"bytes"
+	"text/template"
+
+	"go.infratographer.com/permissions-api/internal/types"
 )
 
-func GeneratedSchema(prefix string) string {
-	schema := `
-definition PREFIX/subject {}
+var (
+	schemaTemplate = template.Must(template.New("schema").Parse(`
+{{- $namespace := .Namespace -}}
+definition {{$namespace}}/subject {}
 
-definition PREFIX/role {
-    relation tenant: PREFIX/tenant
-    relation subject: PREFIX/subject
+definition {{$namespace}}/role {
+    relation tenant: {{$namespace}}/tenant
+    relation subject: {{$namespace}}/subject
 }
 
-definition PREFIX/tenant {
-    relation parent: PREFIX/tenant
-
-    relation loadbalancer_create_rel: PREFIX/role#subject
-    relation loadbalancer_list_rel: PREFIX/role#subject
-    relation loadbalancer_get_rel: PREFIX/role#subject
-    relation loadbalancer_update_rel: PREFIX/role#subject
-    relation loadbalancer_delete_rel: PREFIX/role#subject
-
-    permission loadbalancer_create = loadbalancer_create_rel + parent->loadbalancer_create
-    permission loadbalancer_list = loadbalancer_list_rel + parent->loadbalancer_list
-    permission loadbalancer_get = loadbalancer_get_rel + parent->loadbalancer_get
-    permission loadbalancer_update = loadbalancer_update_rel + parent->loadbalancer_update
-    permission loadbalancer_delete = loadbalancer_delete_rel + parent->loadbalancer_delete
+definition {{$namespace}}/tenant {
+    relation tenant: {{$namespace}}/tenant
+{{- range .ResourceTypes -}}
+{{$typeName := .Name}}
+{{range .TenantActions}}
+    relation {{$typeName}}_{{.}}_rel: {{$namespace}}/role#subject
+{{- end}}
+{{range .TenantActions}}
+    permission {{$typeName}}_{{.}} = {{$typeName}}_{{.}}_rel + tenant->{{$typeName}}_{{.}}
+{{- end}}
+{{- end}}
 }
-`
+{{range .ResourceTypes -}}
+{{$typeName := .Name}}
+definition {{$namespace}}/{{$typeName}} {
+    relation tenant: {{$namespace}}/tenant
+{{range .TenantActions}}
+    relation {{$typeName}}_{{.}}_rel: {{$namespace}}/role#subject
+{{- end}}
+{{range .TenantActions}}
+    permission {{$typeName}}_{{.}} = {{$typeName}}_{{.}}_rel + tenant->{{$typeName}}_{{.}}
+{{- end}}
+}
+{{end}}`))
+)
 
-	if prefix != "" && !strings.HasSuffix(prefix, "/") {
-		prefix += "/"
+func GenerateSchema(namespace string, resourceTypes []types.ResourceType) (string, error) {
+	if namespace == "" {
+		return "", ErrorNoNamespace
 	}
 
-	return strings.ReplaceAll(schema, "PREFIX/", prefix)
+	var data struct {
+		Namespace     string
+		ResourceTypes []types.ResourceType
+	}
 
+	data.Namespace = namespace
+	data.ResourceTypes = resourceTypes
+
+	var out bytes.Buffer
+
+	err := schemaTemplate.Execute(&out, data)
+	if err != nil {
+		return "", err
+	}
+
+	return out.String(), nil
+}
+
+func GeneratedSchema(namespace string) string {
+	resourceTypes := []types.ResourceType{
+		{
+			Name: "loadbalancer",
+			TenantActions: []string{
+				"create",
+				"get",
+				"list",
+				"update",
+				"delete",
+			},
+		},
+	}
+
+	schema, err := GenerateSchema(namespace, resourceTypes)
+	if err != nil {
+		panic(err)
+	}
+
+	return schema
 }
