@@ -11,8 +11,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func (r *Router) buildRelationship(subjResource types.Resource, item createRelationshipItem) (types.Relationship, error) {
-	itemURN, err := urnx.Parse(item.ResourceURN)
+func (r *Router) buildRelationship(resource types.Resource, item createRelationshipItem) (types.Relationship, error) {
+	itemURN, err := urnx.Parse(item.SubjectURN)
 	if err != nil {
 		return types.Relationship{}, err
 	}
@@ -23,9 +23,9 @@ func (r *Router) buildRelationship(subjResource types.Resource, item createRelat
 	}
 
 	out := types.Relationship{
-		Subject:  subjResource,
+		Subject:  itemResource,
 		Relation: item.Relation,
-		Resource: itemResource,
+		Resource: resource,
 	}
 
 	return out, nil

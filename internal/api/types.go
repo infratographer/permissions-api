@@ -12,8 +12,8 @@ type createRoleResponse struct {
 }
 
 type createRelationshipItem struct {
-	Relation    string `json:"relation" binding:"required"`
-	ResourceURN string `json:"resource_urn" binding:"required"`
+	Relation   string `json:"relation" binding:"required"`
+	SubjectURN string `json:"subject_urn" binding:"required"`
 }
 
 type createRelationshipsRequest struct {
