@@ -1,3 +1,4 @@
+// Package config defines the application configuration
 package config
 
 import (
@@ -9,6 +10,7 @@ import (
 	"go.infratographer.com/permissions-api/internal/spicedbx"
 )
 
+// AppConfig is the struct used for configuring the app
 type AppConfig struct {
 	OIDC    ginjwt.AuthConfig
 	Logging loggingx.Config

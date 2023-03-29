@@ -1,3 +1,4 @@
+// Package api defines the server for permissions-api
 package api
 
 import (

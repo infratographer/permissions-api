@@ -18,6 +18,7 @@ type Router struct {
 	logger *zap.SugaredLogger
 }
 
+// NewRouter returns a new api router
 func NewRouter(authCfg ginjwt.AuthConfig, engine *query.Engine, l *zap.SugaredLogger) (*Router, error) {
 	authMW, err := newAuthMiddleware(authCfg)
 	if err != nil {

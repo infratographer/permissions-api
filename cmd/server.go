@@ -33,7 +33,7 @@ import (
 )
 
 var (
-	APIDefaultListen = "0.0.0.0:7602"
+	apiDefaultListen = "0.0.0.0:7602"
 )
 
 var serverCmd = &cobra.Command{
@@ -49,7 +49,7 @@ func init() {
 
 	v := viper.GetViper()
 
-	ginx.MustViperFlags(v, serverCmd.Flags(), APIDefaultListen)
+	ginx.MustViperFlags(v, serverCmd.Flags(), apiDefaultListen)
 	otelx.MustViperFlags(v, serverCmd.Flags())
 	ginjwt.RegisterViperOIDCFlags(v, serverCmd)
 }
