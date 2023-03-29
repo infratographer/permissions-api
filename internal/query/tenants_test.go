@@ -62,14 +62,16 @@ func TestSubjectActions(t *testing.T) {
 	require.NoError(t, err)
 	userRes, err := e.NewResourceFromURN(subjURN)
 	require.NoError(t, err)
-
-	roles, queryToken, err := e.CreateBuiltInRoles(ctx, tenRes)
+	role, queryToken, err := e.CreateRole(
+		ctx,
+		tenRes,
+		[]string{
+			"loadbalancer_update",
+		},
+	)
 	assert.NoError(t, err)
 
 	t.Run("allow a user to view an ou", func(t *testing.T) {
-		role := roles[0]
-		require.Contains(t, role.Actions, "loadbalancer_update")
-
 		queryToken, err = e.AssignSubjectRole(ctx, userRes, role)
 		assert.NoError(t, err)
 	})
