@@ -9,20 +9,20 @@ import (
 
 var (
 	schemaTemplate = template.Must(template.New("schema").Parse(`
-{{$prefix := .Prefix}}
-definition {{$prefix}}/subject {}
+{{- $namespace := .Namespace -}}
+definition {{$namespace}}/subject {}
 
-definition {{$prefix}}/role {
-    relation tenant: {{$prefix}}/tenant
-    relation subject: {{$prefix}}/subject
+definition {{$namespace}}/role {
+    relation tenant: {{$namespace}}/tenant
+    relation subject: {{$namespace}}/subject
 }
 
-definition {{$prefix}}/tenant {
-    relation tenant: {{$prefix}}/tenant
+definition {{$namespace}}/tenant {
+    relation tenant: {{$namespace}}/tenant
 {{- range .ResourceTypes -}}
 {{$typeName := .Name}}
 {{range .TenantActions}}
-    relation {{$typeName}}_{{.}}_rel: {{$prefix}}/role#subject
+    relation {{$typeName}}_{{.}}_rel: {{$namespace}}/role#subject
 {{- end}}
 {{range .TenantActions}}
     permission {{$typeName}}_{{.}} = {{$typeName}}_{{.}}_rel + tenant->{{$typeName}}_{{.}}
@@ -31,26 +31,29 @@ definition {{$prefix}}/tenant {
 }
 {{range .ResourceTypes -}}
 {{$typeName := .Name}}
-definition {{$prefix}}/{{$typeName}} {
-    relation tenant: {{$prefix}}/tenant
+definition {{$namespace}}/{{$typeName}} {
+    relation tenant: {{$namespace}}/tenant
 {{range .TenantActions}}
-    relation {{$typeName}}_{{.}}_rel: {{$prefix}}/role#subject
+    relation {{$typeName}}_{{.}}_rel: {{$namespace}}/role#subject
 {{- end}}
 {{range .TenantActions}}
     permission {{$typeName}}_{{.}} = {{$typeName}}_{{.}}_rel + tenant->{{$typeName}}_{{.}}
 {{- end}}
 }
-{{end}}
-`))
+{{end}}`))
 )
 
 func GenerateSchema(namespace string, resourceTypes []types.ResourceType) (string, error) {
+	if namespace == "" {
+		return "", ErrorNoNamespace
+	}
+
 	var data struct {
-		Prefix        string
+		Namespace     string
 		ResourceTypes []types.ResourceType
 	}
 
-	data.Prefix = namespace
+	data.Namespace = namespace
 	data.ResourceTypes = resourceTypes
 
 	var out bytes.Buffer
@@ -63,7 +66,7 @@ func GenerateSchema(namespace string, resourceTypes []types.ResourceType) (strin
 	return out.String(), nil
 }
 
-func GeneratedSchema(prefix string) string {
+func GeneratedSchema(namespace string) string {
 	resourceTypes := []types.ResourceType{
 		{
 			Name: "loadbalancer",
@@ -77,7 +80,7 @@ func GeneratedSchema(prefix string) string {
 		},
 	}
 
-	schema, err := GenerateSchema(prefix, resourceTypes)
+	schema, err := GenerateSchema(namespace, resourceTypes)
 	if err != nil {
 		panic(err)
 	}
