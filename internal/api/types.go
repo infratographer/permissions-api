@@ -6,9 +6,13 @@ type createRoleRequest struct {
 	Actions []string `json:"actions" binding:"required"`
 }
 
-type createRoleResponse struct {
+type roleResponse struct {
 	ID      uuid.UUID `json:"id"`
 	Actions []string  `json:"actions"`
+}
+
+type listRolesResponse struct {
+	Data []roleResponse `json:"data"`
 }
 
 type createRelationshipItem struct {

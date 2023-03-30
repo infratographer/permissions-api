@@ -40,7 +40,9 @@ func (r *Router) Routes(rg *gin.RouterGroup) {
 	v1 := rg.Group("api/v1").Use(r.authMW)
 	{
 		v1.POST("/resources/:urn/roles", r.roleCreate)
+		v1.GET("/resources/:urn/roles", r.rolesList)
 		v1.POST("/resources/:urn/relationships", r.relationshipsCreate)
+
 		v1.POST("/roles/:role_id/assignments", r.assignmentCreate)
 
 		v1.GET("/has/:action/on/:urn", r.checkAction)

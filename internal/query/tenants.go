@@ -3,8 +3,11 @@ package query
 import (
 	"context"
 	"errors"
+	"io"
+	"strings"
 
 	pb "github.com/authzed/authzed-go/proto/authzed/api/v1"
+	"github.com/google/uuid"
 	"go.infratographer.com/permissions-api/internal/types"
 	"go.infratographer.com/x/urnx"
 )
@@ -165,6 +168,16 @@ func actionToRelation(action string) string {
 	return action + "_rel"
 }
 
+func relationToAction(relation string) string {
+	action, _, found := strings.Cut(relation, "_rel")
+
+	if !found {
+		panic("unexpected relation on role")
+	}
+
+	return action
+}
+
 func (e *Engine) roleRelationships(role types.Role, resource types.Resource) []*pb.RelationshipUpdate {
 	var rels []*pb.RelationshipUpdate
 
@@ -213,6 +226,98 @@ func (e *Engine) relationshipsToUpdates(rels []types.Relationship) []*pb.Relatio
 	}
 
 	return relUpdates
+}
+
+func (e *Engine) readRelationships(ctx context.Context, filter *pb.RelationshipFilter, queryToken string) ([]*pb.Relationship, error) {
+	var req pb.ReadRelationshipsRequest
+
+	if queryToken != "" {
+		req.Consistency = &pb.Consistency{
+			Requirement: &pb.Consistency_AtLeastAsFresh{
+				AtLeastAsFresh: &pb.ZedToken{
+					Token: queryToken,
+				},
+			},
+		}
+	}
+
+	req.RelationshipFilter = filter
+
+	r, err := e.client.ReadRelationships(ctx, &req)
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		responses []*pb.Relationship
+		done      bool
+	)
+
+	for !done {
+		rel, err := r.Recv()
+		switch err {
+		case nil:
+			responses = append(responses, rel.Relationship)
+		case io.EOF:
+			done = true
+		default:
+			return nil, err
+		}
+	}
+
+	return responses, nil
+}
+
+func relationshipsToRoles(rels []*pb.Relationship) []types.Role {
+	var roles []types.Role
+
+	roleMap := make(map[uuid.UUID]*types.Role)
+
+	for _, rel := range rels {
+		roleIDStr := rel.Subject.Object.ObjectId
+		roleID := uuid.MustParse(roleIDStr)
+		action := relationToAction(rel.Relation)
+
+		rolePtr, ok := roleMap[roleID]
+		if !ok {
+			role := types.Role{
+				ID: roleID,
+			}
+			roles = append(roles, role)
+			rolePtr = &roles[len(roles)-1]
+			roleMap[roleID] = rolePtr
+		}
+
+		rolePtr.Actions = append(rolePtr.Actions, action)
+	}
+
+	return roles
+}
+
+// ListRoles returns all roles bound to a given resource.
+func (e *Engine) ListRoles(ctx context.Context, resource types.Resource, queryToken string) ([]types.Role, error) {
+	resType := e.namespace + "/" + resource.Type
+	roleType := e.namespace + "/role"
+
+	filter := &pb.RelationshipFilter{
+		ResourceType:       resType,
+		OptionalResourceId: resource.ID.String(),
+		OptionalSubjectFilter: &pb.SubjectFilter{
+			SubjectType: roleType,
+			OptionalRelation: &pb.SubjectFilter_RelationFilter{
+				Relation: roleSubjectRelation,
+			},
+		},
+	}
+
+	relationships, err := e.readRelationships(ctx, filter, queryToken)
+	if err != nil {
+		return nil, err
+	}
+
+	out := relationshipsToRoles(relationships)
+
+	return out, nil
 }
 
 // GetResourceTypes returns the list of resource types.
