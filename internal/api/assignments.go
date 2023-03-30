@@ -12,7 +12,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func (r *Router) membershipCreate(c *gin.Context) {
+func (r *Router) assignmentCreate(c *gin.Context) {
 	roleIDStr := c.Param("role_id")
 
 	roleID, err := uuid.Parse(roleIDStr)
@@ -21,10 +21,10 @@ func (r *Router) membershipCreate(c *gin.Context) {
 		return
 	}
 
-	_, span := tracer.Start(c.Request.Context(), "api.membershipCreate", trace.WithAttributes(attribute.String("role_id", roleIDStr)))
+	_, span := tracer.Start(c.Request.Context(), "api.assignmentCreate", trace.WithAttributes(attribute.String("role_id", roleIDStr)))
 	defer span.End()
 
-	var reqBody createMembershipRequest
+	var reqBody createAssignmentRequest
 	err = c.BindJSON(&reqBody)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "error parsing request body", "error": err.Error()})
@@ -53,7 +53,7 @@ func (r *Router) membershipCreate(c *gin.Context) {
 		return
 	}
 
-	resp := createMembershipResponse{
+	resp := createAssignmentResponse{
 		Success: true,
 	}
 

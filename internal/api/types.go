@@ -24,10 +24,10 @@ type createRelationshipsResponse struct {
 	Success bool `json:"success"`
 }
 
-type createMembershipRequest struct {
+type createAssignmentRequest struct {
 	SubjectURN string `json:"subject_urn" binding:"required"`
 }
 
-type createMembershipResponse struct {
+type createAssignmentResponse struct {
 	Success bool `json:"success"`
 }
