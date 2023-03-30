@@ -7,7 +7,39 @@ permissions-api is made up of two components:
 * A policy decision endpoint for making permissions checks
 * A management API for resources necessary to make decisions
 
-For information around the concepts underlying permissions-api, see the [Concepts](#concepts) section of this README.
+To get started using permissions-api, see the [Usage](#usage) section of this README.
+
+## Concepts
+
+permissions-api is designed to answer the following question: Does the given _subject_ have permission to perform the requested _action_ on the requested _resource_?
+
+Permission is granted by the assignment of roles to subjects.
+
+The concepts necessary to accomplish this are described in this section.
+
+### Resource
+
+A resource is any uniquely identifiable thing in the Infratographer ecosystem. Resources have types and are identified using URNs in permissions-api. For example, the URN `urn:infratographer:loadbalancer:a69e79ce-ac05-4a3e-b9b3-f371255e8e99` corresponds to a resource of type `loadbalancer` and ID `a69e79ce-ac05-4a3e-b9b3-f371255e8e99`.
+
+### Subject
+
+A subject is any resource that can be granted permission to perform some action. A subject may be a user, an OAuth client, a server instance, or any other resource.
+
+### Relationship
+
+A relationship is a named link between two resources. Resources in permissions-api are defined entirely in terms of their relationships.
+
+### Action
+
+An action is a relationship that describes something that can be done to a resource (e.g., "update"). Actions are scoped to and named based on resources. For example, an action called `update` scoped to the `loadbalancer` resource is referred to as `loadbalancer_update`.
+
+### Role
+
+A role is a collection of actions that are allowed to be performed on a resource.
+
+### Role assignment
+
+A role assignment is a relationship that binds a subject to a role. This is how a subject is granted access to a resource.
 
 ## Usage
 
@@ -75,38 +107,6 @@ The `/has` API endpoint is used to check whether the authenticated subject in th
 $ curl --oauth2-bearer "$AUTH_TOKEN" \
     http://localhost:7602/api/v1/has/loadbalancer_create/on/urn:infratographer:tenant:3fc4e4e0-6030-4e36-83d6-09ae2d58fee8
 ```
-
-## Concepts
-
-permissions-api is designed to answer the following question: Does the given _subject_ have permission to perform the requested _action_ on the requested _resource_?
-
-Permission is granted by the assignment of roles to subjects.
-
-The concepts necessary to accomplish this are described in this section.
-
-### Resource
-
-A resource is any uniquely identifiable thing in the Infratographer ecosystem. Resources have types and are identified using URNs in permissions-api. For example, the URN `urn:infratographer:loadbalancer:a69e79ce-ac05-4a3e-b9b3-f371255e8e99` corresponds to a resource of type `loadbalancer` and ID `a69e79ce-ac05-4a3e-b9b3-f371255e8e99`.
-
-### Subject
-
-A subject is any resource that can be granted permission to perform some action. A subject may be a user, an OAuth client, a server instance, or any other resource.
-
-### Relationship
-
-A relationship is a named link between two resources. Resources in permissions-api are defined entirely in terms of their relationships.
-
-### Action
-
-An action is a relationship that describes something that can be done to a resource (e.g., "update"). Actions are scoped to and named based on resources. For example, an action called `update` scoped to the `loadbalancer` resource is referred to as `loadbalancer_update`.
-
-### Role
-
-A role is a collection of actions that are allowed to be performed on a resource.
-
-### Role assignment
-
-A role assignment is a relationship that binds a subject to a role. This is how a subject is granted access to a resource.
 
 ## Development
 
