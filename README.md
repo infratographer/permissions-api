@@ -11,7 +11,23 @@ For information around the concepts underlying permissions-api, see the [Concept
 
 ## Usage
 
-permissions-api is a Go service. To build it, you can use `make build` to build a Go binary.
+permissions-api is a Go service. To build it, you can use `make build` to build a Go binary. Configuration is done using environment variables and/or a YAML config file. An example config is available at [`permissions-api.example.yaml`](./permissions-api.example.yaml), and an example environment file is available at [`.devcontainer/.env`](./.devcontainer/.env).
+
+### Generating SpiceDB schema
+
+To generate a SpiceDB schema based on the resource types defined in permissions-api, use the `schema` command:
+
+```
+$ ./permissions-api schema --config permissions-api.example.yaml
+```
+
+### Running a server
+
+To run the permissions-api server, use the `server` command:
+
+```
+$ ./permissions-api server --config permissions-api.example.yaml
+```
 
 ### Creating relationships
 
