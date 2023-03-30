@@ -18,8 +18,10 @@ permissions-api is a Go service. To build it, you can use `make build` to build 
 To generate a SpiceDB schema based on the resource types defined in permissions-api, use the `schema` command:
 
 ```
-$ ./permissions-api schema --config permissions-api.example.yaml
+$ ./permissions-api schema --dry-run --config permissions-api.example.yaml
 ```
+
+Omit the `--dry-run` flag to apply the schema to your SpiceDB server.
 
 ### Running a server
 
