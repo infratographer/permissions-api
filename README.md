@@ -31,6 +31,12 @@ To run the permissions-api server, use the `server` command:
 $ ./permissions-api server --config permissions-api.example.yaml
 ```
 
+### Generating access tokens
+
+permissions-api requests are authenticated using JWT access tokens. If you are using the provided [dev container](#development), permissions-api is already configured to accept JWTs from the included [mock-oauth2-server][mock-oauth2-server] service. A UI to manually create access tokens is available at http://localhost:8081/default/debugger. Tokens must be configured with a "scope" value in the UI set to `openid permissions-api` (which maps to an audience in the JWT of `permissions-api`) and a subject value of `urn:infratographer:subject:$SOME_UUID`.
+
+[mock-oauth2-server]: https://github.com/navikt/mock-oauth2-server
+
 ### Creating relationships
 
 Resources are defined in terms of their relationships to other resources using the `/relationships` API endpoint. Using curl, one can create a relationship `tenant` between two tenants like so:
