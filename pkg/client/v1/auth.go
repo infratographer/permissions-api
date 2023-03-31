@@ -10,7 +10,6 @@ import (
 	"path"
 	"strings"
 
-	"go.infratographer.com/x/versionx"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -20,6 +19,7 @@ import (
 var (
 	tracer = otel.Tracer("go.infratographer.com/permissions-api/pkg/permissions/v1")
 
+	appName    = "permissions-api"
 	apiVersion = "/api/v1"
 )
 
@@ -101,8 +101,11 @@ func newGetRequest(ctx context.Context, uri, endpoint string) (*http.Request, er
 	return http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 }
 
+// userAgentString returns a string that identifies this client to the server
+// TODO: This should be a constant, but we need to figure out how to get the version
+// of the package at compile time
 func userAgentString() string {
-	return fmt.Sprintf("%s (%s)", versionx.BuildDetails().AppName, versionx.BuildDetails().Version)
+	return fmt.Sprintf("%s (%s)", appName, apiVersion)
 }
 
 func (c Client) do(req *http.Request, result interface{}) error {
