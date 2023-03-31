@@ -1,3 +1,4 @@
+// Package spicedbx is the wrapper around spicedb client interaction
 package spicedbx
 
 import (
@@ -20,6 +21,7 @@ type Config struct {
 	Prefix   string
 }
 
+// NewClient returns a new spicedb/authzed client
 func NewClient(cfg Config, enableTracing bool) (*authzed.Client, error) {
 	clientOpts := []grpc.DialOption{}
 
@@ -58,6 +60,7 @@ func NewClient(cfg Config, enableTracing bool) (*authzed.Client, error) {
 	return authzed.NewClient(cfg.Endpoint, clientOpts...)
 }
 
+// Healthcheck does nothing :laughing:
 func Healthcheck(client *authzed.Client) func(ctx context.Context) error {
 	return func(ctx context.Context) error {
 		return nil

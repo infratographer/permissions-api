@@ -11,7 +11,12 @@ type ErrorResponse struct {
 }
 
 var (
-	ErrResourceNotFound      = errors.New("resource not found")
-	ErrSearchNotFound        = errors.New("search term not found")
+	// ErrResourceNotFound is returned when the requested resource isn't found
+	ErrResourceNotFound = errors.New("resource not found")
+
+	// ErrSearchNotFound is returned when the requested search term isn't found
+	ErrSearchNotFound = errors.New("search term not found")
+
+	// ErrResourceAlreadyExists is returned when the resource already exists
 	ErrResourceAlreadyExists = errors.New("resource already exists")
 )

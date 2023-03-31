@@ -20,6 +20,7 @@ type Pagination struct {
 	Order string
 }
 
+// ParsePagination parses the pagination query parameters from the gin context
 func ParsePagination(c *gin.Context) *Pagination {
 	// Initializing default
 	limit := DefaultPaginationSize
@@ -86,6 +87,7 @@ func parseLimit(l int) int {
 // 	return (page - 1) * p.Limit
 // }
 
+// SetHeaders sets the pagination headers on a response
 func (p *Pagination) SetHeaders(c *gin.Context, count int) {
 	c.Header("Pagination-Count", strconv.Itoa(count))
 	c.Header("Pagination-Limit", strconv.Itoa(p.Limit))

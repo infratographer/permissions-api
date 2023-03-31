@@ -155,6 +155,7 @@ func (e *Engine) roleRelationships(role types.Role, resource types.Resource) []*
 	return rels
 }
 
+// GetResourceTypes returns the list of resource types
 func GetResourceTypes() []types.ResourceType {
 	return []types.ResourceType{
 		{
@@ -170,6 +171,7 @@ func GetResourceTypes() []types.ResourceType {
 	}
 }
 
+// NewResourceFromURN returns a new resource struct from a given urn
 func (e *Engine) NewResourceFromURN(urn *urnx.URN) (types.Resource, error) {
 	if urn.Namespace != e.namespace {
 		return types.Resource{}, errorInvalidNamespace

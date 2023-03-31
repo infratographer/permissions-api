@@ -1,3 +1,4 @@
+// Package permissions defines the permissions-api client
 package permissions
 
 import (
@@ -28,11 +29,13 @@ type Doer interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
+// Client is used to interact with the api
 type Client struct {
 	url        string
 	httpClient Doer
 }
 
+// New returns a new permissions client
 func New(url string, doerClient Doer) (*Client, error) {
 	if url == "" {
 		return nil, ErrMissingURI
@@ -55,6 +58,7 @@ func New(url string, doerClient Doer) (*Client, error) {
 	return c, nil
 }
 
+// Allowed checks if the client subject is permitted exec the action on the resource
 func (c *Client) Allowed(ctx context.Context, action string, resourceURNPrefix string) (bool, error) {
 	ctx, span := tracer.Start(ctx, "SubjectHasAction", trace.WithAttributes(
 		attribute.String("action", action),
@@ -133,7 +137,7 @@ func ensureValidServerResponse(resp *http.Response) error {
 			return ErrPermissionDenied
 		}
 
-		return errors.New("bad response from server")
+		return ErrBadResponse
 	}
 
 	return nil

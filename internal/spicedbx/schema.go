@@ -43,6 +43,7 @@ definition {{$namespace}}/{{$typeName}} {
 {{end}}`))
 )
 
+// GenerateSchema generates the spicedb schema from the template
 func GenerateSchema(namespace string, resourceTypes []types.ResourceType) (string, error) {
 	if namespace == "" {
 		return "", ErrorNoNamespace
@@ -66,6 +67,7 @@ func GenerateSchema(namespace string, resourceTypes []types.ResourceType) (strin
 	return out.String(), nil
 }
 
+// GeneratedSchema generated the schema for a namespace
 func GeneratedSchema(namespace string) string {
 	resourceTypes := []types.ResourceType{
 		{
