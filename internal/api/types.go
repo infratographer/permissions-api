@@ -28,6 +28,15 @@ type createRelationshipsResponse struct {
 	Success bool `json:"success"`
 }
 
+type relationshipItem struct {
+	Relation   string `json:"relation"`
+	SubjectURN string `json:"subject_urn"`
+}
+
+type listRelationshipsResponse struct {
+	Data []relationshipItem `json:"data"`
+}
+
 type createAssignmentRequest struct {
 	SubjectURN string `json:"subject_urn" binding:"required"`
 }

@@ -49,7 +49,7 @@ func (r *Router) buildRelationships(subjResource types.Resource, items []createR
 func (r *Router) relationshipsCreate(c *gin.Context) {
 	resourceURNStr := c.Param("urn")
 
-	_, span := tracer.Start(c.Request.Context(), "api.relationshipCreate", trace.WithAttributes(attribute.String("urn", resourceURNStr)))
+	_, span := tracer.Start(c.Request.Context(), "api.relationshipsCreate", trace.WithAttributes(attribute.String("urn", resourceURNStr)))
 	defer span.End()
 
 	resourceURN, err := urnx.Parse(resourceURNStr)
@@ -88,4 +88,50 @@ func (r *Router) relationshipsCreate(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, resp)
+}
+
+func (r *Router) relationshipsList(c *gin.Context) {
+	resourceURNStr := c.Param("urn")
+
+	_, span := tracer.Start(c.Request.Context(), "api.relationshipsList", trace.WithAttributes(attribute.String("urn", resourceURNStr)))
+	defer span.End()
+
+	resourceURN, err := urnx.Parse(resourceURNStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "error parsing resource URN", "error": err.Error()})
+		return
+	}
+
+	resource, err := r.engine.NewResourceFromURN(resourceURN)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "error listing relationships", "error": err.Error()})
+		return
+	}
+
+	rels, err := r.engine.ListRelationships(c.Request.Context(), resource, "")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "error listing relationships", "error": err.Error()})
+		return
+	}
+
+	items := make([]relationshipItem, len(rels))
+	for i, rel := range rels {
+		subjURN, err := r.engine.NewURNFromResource(rel.Subject)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "error listing relationships", "error": err.Error()})
+			return
+		}
+		item := relationshipItem{
+			Relation:   rel.Relation,
+			SubjectURN: subjURN.String(),
+		}
+
+		items[i] = item
+	}
+
+	out := listRelationshipsResponse{
+		Data: items,
+	}
+
+	c.JSON(http.StatusOK, out)
 }

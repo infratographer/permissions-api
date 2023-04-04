@@ -62,6 +62,24 @@ func resourceToSpiceDBRef(namespace string, r types.Resource) *pb.ObjectReferenc
 	}
 }
 
+func spiceDBRefToResource(namespace string, ref *pb.ObjectReference) (types.Resource, error) {
+	sep := namespace + "/"
+	before, typeName, found := strings.Cut(ref.ObjectType, sep)
+
+	if !found || before != "" {
+		return types.Resource{}, ErrInvalidReference
+	}
+
+	resUUID := uuid.MustParse(ref.ObjectId)
+
+	out := types.Resource{
+		Type: typeName,
+		ID:   resUUID,
+	}
+
+	return out, nil
+}
+
 // SubjectHasPermission checks if the given subject can do the given action on the given resource
 func (e *Engine) SubjectHasPermission(ctx context.Context, subject types.Resource, action string, resource types.Resource, queryToken string) error {
 	req := &pb.CheckPermissionRequest{
@@ -294,6 +312,47 @@ func relationshipsToRoles(rels []*pb.Relationship) []types.Role {
 	return roles
 }
 
+func (e *Engine) relationshipsToNonRoles(rels []*pb.Relationship, res types.Resource) ([]types.Relationship, error) {
+	var out []types.Relationship
+	for _, rel := range rels {
+		if rel.Subject.Object.ObjectType == e.namespace+"/role" {
+			continue
+		}
+
+		subjRes, err := spiceDBRefToResource(e.namespace, rel.Subject.Object)
+		if err != nil {
+			return nil, err
+		}
+
+		item := types.Relationship{
+			Resource: res,
+			Relation: rel.Relation,
+			Subject:  subjRes,
+		}
+
+		out = append(out, item)
+	}
+
+	return out, nil
+}
+
+// ListRelationships returns all non-role relationships bound to a given resource.
+func (e *Engine) ListRelationships(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error) {
+	resType := e.namespace + "/" + resource.Type
+
+	filter := &pb.RelationshipFilter{
+		ResourceType:       resType,
+		OptionalResourceId: resource.ID.String(),
+	}
+
+	relationships, err := e.readRelationships(ctx, filter, queryToken)
+	if err != nil {
+		return nil, err
+	}
+
+	return e.relationshipsToNonRoles(relationships, resource)
+}
+
 // ListRoles returns all roles bound to a given resource.
 func (e *Engine) ListRoles(ctx context.Context, resource types.Resource, queryToken string) ([]types.Role, error) {
 	resType := e.namespace + "/" + resource.Type
@@ -350,4 +409,8 @@ func (e *Engine) NewResourceFromURN(urn *urnx.URN) (types.Resource, error) {
 	}
 
 	return out, nil
+}
+
+func (e *Engine) NewURNFromResource(res types.Resource) (*urnx.URN, error) {
+	return urnx.Build(e.namespace, res.Type, res.ID)
 }

@@ -29,7 +29,7 @@ type Resource struct {
 }
 
 type Relationship struct {
-	Subject  Resource
-	Relation string
 	Resource Resource
+	Relation string
+	Subject  Resource
 }
