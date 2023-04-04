@@ -25,6 +25,7 @@ func (r *Router) assignmentCreate(c *gin.Context) {
 	defer span.End()
 
 	var reqBody createAssignmentRequest
+
 	err = c.BindJSON(&reqBody)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "error parsing request body", "error": err.Error()})

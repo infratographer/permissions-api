@@ -22,6 +22,7 @@ func (r *Router) roleCreate(c *gin.Context) {
 	}
 
 	var reqBody createRoleRequest
+
 	err = c.BindJSON(&reqBody)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "error parsing request body", "error": err.Error()})

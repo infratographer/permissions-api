@@ -59,6 +59,7 @@ func (r *Router) relationshipsCreate(c *gin.Context) {
 	}
 
 	var reqBody createRelationshipsRequest
+
 	err = c.BindJSON(&reqBody)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "error parsing request body", "error": err.Error()})
@@ -115,12 +116,14 @@ func (r *Router) relationshipsList(c *gin.Context) {
 	}
 
 	items := make([]relationshipItem, len(rels))
+
 	for i, rel := range rels {
 		subjURN, err := r.engine.NewURNFromResource(rel.Subject)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"message": "error listing relationships", "error": err.Error()})
 			return
 		}
+
 		item := relationshipItem{
 			Relation:   rel.Relation,
 			SubjectURN: subjURN.String(),

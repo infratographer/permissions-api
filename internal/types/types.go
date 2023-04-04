@@ -28,6 +28,7 @@ type Resource struct {
 	ID   uuid.UUID
 }
 
+// Relationship represents a named association between a resource and a subject.
 type Relationship struct {
 	Resource Resource
 	Relation string

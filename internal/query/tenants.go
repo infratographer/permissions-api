@@ -314,6 +314,7 @@ func relationshipsToRoles(rels []*pb.Relationship) []types.Role {
 
 func (e *Engine) relationshipsToNonRoles(rels []*pb.Relationship, res types.Resource) ([]types.Relationship, error) {
 	var out []types.Relationship
+
 	for _, rel := range rels {
 		if rel.Subject.Object.ObjectType == e.namespace+"/role" {
 			continue
@@ -411,6 +412,7 @@ func (e *Engine) NewResourceFromURN(urn *urnx.URN) (types.Resource, error) {
 	return out, nil
 }
 
+// NewURNFromResource creates a new URN namespaced to the given engine from the given resource.
 func (e *Engine) NewURNFromResource(res types.Resource) (*urnx.URN, error) {
 	return urnx.Build(e.namespace, res.Type, res.ID)
 }
