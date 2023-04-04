@@ -21,7 +21,7 @@ func (r *Router) assignmentCreate(c *gin.Context) {
 		return
 	}
 
-	_, span := tracer.Start(c.Request.Context(), "api.assignmentCreate", trace.WithAttributes(attribute.String("role_id", roleIDStr)))
+	ctx, span := tracer.Start(c.Request.Context(), "api.assignmentCreate", trace.WithAttributes(attribute.String("role_id", roleIDStr)))
 	defer span.End()
 
 	var reqBody createAssignmentRequest
@@ -48,7 +48,7 @@ func (r *Router) assignmentCreate(c *gin.Context) {
 		ID: roleID,
 	}
 
-	_, err = r.engine.AssignSubjectRole(c.Request.Context(), subjResource, role)
+	_, err = r.engine.AssignSubjectRole(ctx, subjResource, role)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "error creating resource", "error": err.Error()})
 		return

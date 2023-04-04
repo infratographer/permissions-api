@@ -12,7 +12,7 @@ import (
 func (r *Router) roleCreate(c *gin.Context) {
 	resourceURNStr := c.Param("urn")
 
-	_, span := tracer.Start(c.Request.Context(), "api.roleCreate", trace.WithAttributes(attribute.String("urn", resourceURNStr)))
+	ctx, span := tracer.Start(c.Request.Context(), "api.roleCreate", trace.WithAttributes(attribute.String("urn", resourceURNStr)))
 	defer span.End()
 
 	resourceURN, err := urnx.Parse(resourceURNStr)
@@ -35,7 +35,7 @@ func (r *Router) roleCreate(c *gin.Context) {
 		return
 	}
 
-	role, _, err := r.engine.CreateRole(c.Request.Context(), resource, reqBody.Actions)
+	role, _, err := r.engine.CreateRole(ctx, resource, reqBody.Actions)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "error creating resource", "error": err.Error()})
 		return
@@ -52,7 +52,7 @@ func (r *Router) roleCreate(c *gin.Context) {
 func (r *Router) rolesList(c *gin.Context) {
 	resourceURNStr := c.Param("urn")
 
-	_, span := tracer.Start(c.Request.Context(), "api.roleGet", trace.WithAttributes(attribute.String("urn", resourceURNStr)))
+	ctx, span := tracer.Start(c.Request.Context(), "api.roleGet", trace.WithAttributes(attribute.String("urn", resourceURNStr)))
 	defer span.End()
 
 	resourceURN, err := urnx.Parse(resourceURNStr)
@@ -67,7 +67,7 @@ func (r *Router) rolesList(c *gin.Context) {
 		return
 	}
 
-	roles, err := r.engine.ListRoles(c.Request.Context(), resource, "")
+	roles, err := r.engine.ListRoles(ctx, resource, "")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "error getting role", "error": err.Error()})
 		return

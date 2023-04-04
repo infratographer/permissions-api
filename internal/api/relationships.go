@@ -49,7 +49,7 @@ func (r *Router) buildRelationships(subjResource types.Resource, items []createR
 func (r *Router) relationshipsCreate(c *gin.Context) {
 	resourceURNStr := c.Param("urn")
 
-	_, span := tracer.Start(c.Request.Context(), "api.relationshipsCreate", trace.WithAttributes(attribute.String("urn", resourceURNStr)))
+	ctx, span := tracer.Start(c.Request.Context(), "api.relationshipsCreate", trace.WithAttributes(attribute.String("urn", resourceURNStr)))
 	defer span.End()
 
 	resourceURN, err := urnx.Parse(resourceURNStr)
@@ -78,7 +78,7 @@ func (r *Router) relationshipsCreate(c *gin.Context) {
 		return
 	}
 
-	_, err = r.engine.CreateRelationships(c.Request.Context(), rels)
+	_, err = r.engine.CreateRelationships(ctx, rels)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "error creating relationships", "error": err.Error()})
 		return
@@ -94,7 +94,7 @@ func (r *Router) relationshipsCreate(c *gin.Context) {
 func (r *Router) relationshipsList(c *gin.Context) {
 	resourceURNStr := c.Param("urn")
 
-	_, span := tracer.Start(c.Request.Context(), "api.relationshipsList", trace.WithAttributes(attribute.String("urn", resourceURNStr)))
+	ctx, span := tracer.Start(c.Request.Context(), "api.relationshipsList", trace.WithAttributes(attribute.String("urn", resourceURNStr)))
 	defer span.End()
 
 	resourceURN, err := urnx.Parse(resourceURNStr)
@@ -109,7 +109,7 @@ func (r *Router) relationshipsList(c *gin.Context) {
 		return
 	}
 
-	rels, err := r.engine.ListRelationships(c.Request.Context(), resource, "")
+	rels, err := r.engine.ListRelationships(ctx, resource, "")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "error listing relationships", "error": err.Error()})
 		return
