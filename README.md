@@ -27,15 +27,17 @@ A subject is any resource that can be granted permission to perform some action.
 
 ### Relationship
 
-A relationship is a named link between two resources. Resources in permissions-api are defined entirely in terms of their relationships.
+A relationship is a named link between a resource and a subject (another resource). Resources in permissions-api are defined entirely in terms of their relationships. For example, a load balancer and tenant might be related to each other using a relationship with the name `tenant`, where the resource is a load balancer and the subject is a tenant.
 
 ### Action
 
-An action is a relationship that describes something that can be done to a resource (e.g., "update"). Actions are scoped to and named based on resources. For example, an action called `update` scoped to the `loadbalancer` resource is referred to as `loadbalancer_update`.
+An action is a verb that describes something that can be done to a resource (e.g., "update"). Actions map to permissions in SpiceDB, and are scoped to and named based on resources. For example, an action called `update` scoped to the `loadbalancer` resource is referred to as `loadbalancer_update`.
+
+When making authorization decisions, permissions-api walks the graph of known relationships to determine whether a path exists between the resource and subject, and whether that path meets the constraints of the action's corresponding SpiceDB permission.
 
 ### Role
 
-A role is a collection of actions that are allowed to be performed on a resource.
+A role is a collection of actions that are allowed to be performed on a resource. A role like `loadbalancer_readonly` might allow the actions `loadbalancer_get` and `loadbalancer_list`, for example.
 
 ### Role assignment
 
