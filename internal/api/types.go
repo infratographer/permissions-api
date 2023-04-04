@@ -44,3 +44,11 @@ type createAssignmentRequest struct {
 type createAssignmentResponse struct {
 	Success bool `json:"success"`
 }
+
+type assignmentItem struct {
+	SubjectURN string `json:"subject_urn"`
+}
+
+type listAssignmentsResponse struct {
+	Data []assignmentItem `json:"data"`
+}

@@ -60,3 +60,48 @@ func (r *Router) assignmentCreate(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, resp)
 }
+
+func (r *Router) assignmentsList(c *gin.Context) {
+	roleIDStr := c.Param("role_id")
+
+	roleID, err := uuid.Parse(roleIDStr)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "not found"})
+		return
+	}
+
+	ctx, span := tracer.Start(c.Request.Context(), "api.assignmentCreate", trace.WithAttributes(attribute.String("role_id", roleIDStr)))
+	defer span.End()
+
+	role := types.Role{
+		ID: roleID,
+	}
+
+	assignments, err := r.engine.ListAssignments(ctx, role, "")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "error listing assignments", "error": err.Error()})
+		return
+	}
+
+	items := make([]assignmentItem, len(assignments))
+
+	for i, res := range assignments {
+		subjURN, err := r.engine.NewURNFromResource(res)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "error listing assignments", "error": err.Error()})
+			return
+		}
+
+		item := assignmentItem{
+			SubjectURN: subjURN.String(),
+		}
+
+		items[i] = item
+	}
+
+	out := listAssignmentsResponse{
+		Data: items,
+	}
+
+	c.JSON(http.StatusOK, out)
+}

@@ -109,6 +109,34 @@ func (e *Engine) AssignSubjectRole(ctx context.Context, subject types.Resource, 
 	return r.WrittenAt.GetToken(), nil
 }
 
+// ListAssignments returns the assigned subjects for a given role.
+func (e *Engine) ListAssignments(ctx context.Context, role types.Role, queryToken string) ([]types.Resource, error) {
+	roleType := e.namespace + "/role"
+	filter := &pb.RelationshipFilter{
+		ResourceType:       roleType,
+		OptionalResourceId: role.ID.String(),
+		OptionalRelation:   roleSubjectRelation,
+	}
+
+	relationships, err := e.readRelationships(ctx, filter, queryToken)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]types.Resource, len(relationships))
+
+	for i, rel := range relationships {
+		subjRes, err := spiceDBRefToResource(e.namespace, rel.Subject.Object)
+		if err != nil {
+			return nil, err
+		}
+
+		out[i] = subjRes
+	}
+
+	return out, nil
+}
+
 func (e *Engine) subjectRoleRel(subject types.Resource, role types.Role) *pb.RelationshipUpdate {
 	roleResource := types.Resource{
 		Type: "role",
