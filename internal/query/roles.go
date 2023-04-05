@@ -5,9 +5,9 @@ import (
 	"go.infratographer.com/permissions-api/internal/types"
 )
 
-func newRoleFromTemplate(t types.RoleTemplate) types.Role {
+func newRole(actions []string) types.Role {
 	return types.Role{
 		ID:      uuid.New(),
-		Actions: t.Actions,
+		Actions: actions,
 	}
 }
