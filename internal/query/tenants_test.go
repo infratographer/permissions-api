@@ -245,9 +245,13 @@ func TestSubjectActions(t *testing.T) {
 	require.NoError(t, err)
 	tenRes, err := e.NewResourceFromURN(tenURN)
 	require.NoError(t, err)
+	otherURN, err := urnx.Build(namespace, "tenant", uuid.New())
+	require.NoError(t, err)
+	otherRes, err := e.NewResourceFromURN(otherURN)
+	require.NoError(t, err)
 	subjURN, err := urnx.Build(namespace, "subject", uuid.New())
 	require.NoError(t, err)
-	userRes, err := e.NewResourceFromURN(subjURN)
+	subjRes, err := e.NewResourceFromURN(subjURN)
 	require.NoError(t, err)
 	role, queryToken, err := e.CreateRole(
 		ctx,
@@ -257,25 +261,53 @@ func TestSubjectActions(t *testing.T) {
 		},
 	)
 	assert.NoError(t, err)
+	queryToken, err = e.AssignSubjectRole(ctx, subjRes, role)
+	assert.NoError(t, err)
 
-	t.Run("allow a user to view an ou", func(t *testing.T) {
-		queryToken, err = e.AssignSubjectRole(ctx, userRes, role)
-		assert.NoError(t, err)
-	})
+	type testInput struct {
+		resource types.Resource
+		action   string
+	}
 
-	t.Run("check that the user has edit access to an ou", func(t *testing.T) {
-		err := e.SubjectHasPermission(ctx, userRes, "loadbalancer_update", tenRes, queryToken)
-		assert.NoError(t, err)
-	})
+	testCases := []testingx.TestCase[testInput, any]{
+		{
+			Name: "BadResource",
+			Input: testInput{
+				resource: otherRes,
+				action:   "loadbalancer_update",
+			},
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[any]) {
+				assert.ErrorIs(t, ErrActionNotAssigned, res.Err)
+			},
+		},
+		{
+			Name: "BadAction",
+			Input: testInput{
+				resource: tenRes,
+				action:   "loadbalancer_delete",
+			},
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[any]) {
+				assert.ErrorIs(t, ErrActionNotAssigned, res.Err)
+			},
+		},
+		{
+			Name: "Success",
+			Input: testInput{
+				resource: tenRes,
+				action:   "loadbalancer_update",
+			},
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[any]) {
+				assert.NoError(t, res.Err)
+			},
+		},
+	}
 
-	t.Run("error returned when the user doesn't have the global action", func(t *testing.T) {
-		subjURN, err := urnx.Build(namespace, "subject", uuid.New())
-		require.NoError(t, err)
-		otherUserRes, err := e.NewResourceFromURN(subjURN)
-		require.NoError(t, err)
+	testFn := func(ctx context.Context, input testInput) testingx.TestResult[any] {
+		err := e.SubjectHasPermission(ctx, subjRes, input.action, input.resource, queryToken)
+		return testingx.TestResult[any]{
+			Err: err,
+		}
+	}
 
-		err = e.SubjectHasPermission(ctx, otherUserRes, "loadbalancer_get", tenRes, queryToken)
-		assert.Error(t, err)
-		assert.ErrorIs(t, err, ErrActionNotAssigned)
-	})
+	testingx.RunTests(ctx, t, testCases, testFn)
 }
