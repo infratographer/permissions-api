@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"go.infratographer.com/permissions-api/internal/spicedbx"
+	"go.infratographer.com/permissions-api/internal/testingx"
+	"go.infratographer.com/permissions-api/internal/types"
 	"go.infratographer.com/x/urnx"
 )
 
@@ -50,15 +52,200 @@ func cleanDB(ctx context.Context, t *testing.T, client *authzed.Client, namespac
 	}
 }
 
-func TestSubjectActions(t *testing.T) {
+func TestRoles(t *testing.T) {
+	namespace := "testroles"
 	ctx := context.Background()
-	e := testEngine(ctx, t, "infratographer")
+	e := testEngine(ctx, t, namespace)
 
-	tenURN, err := urnx.Build("infratographer", "tenant", uuid.New())
+	testCases := []testingx.TestCase[[]string, []types.Role]{
+		{
+			Name: "CreateInvalidAction",
+			Input: []string{
+				"bad_action",
+			},
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
+				assert.Error(t, res.Err)
+			},
+		},
+		{
+			Name: "CreateSuccess",
+			Input: []string{
+				"loadbalancer_get",
+			},
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
+				expActions := []string{
+					"loadbalancer_get",
+				}
+
+				assert.NoError(t, res.Err)
+				require.Equal(t, 1, len(res.Success))
+
+				role := res.Success[0]
+				assert.Equal(t, expActions, role.Actions)
+			},
+		},
+	}
+
+	testFn := func(ctx context.Context, actions []string) testingx.TestResult[[]types.Role] {
+		tenURN, err := urnx.Build(namespace, "tenant", uuid.New())
+		require.NoError(t, err)
+		tenRes, err := e.NewResourceFromURN(tenURN)
+		require.NoError(t, err)
+
+		_, queryToken, err := e.CreateRole(ctx, tenRes, actions)
+		if err != nil {
+			return testingx.TestResult[[]types.Role]{
+				Err: err,
+			}
+		}
+
+		roles, err := e.ListRoles(ctx, tenRes, queryToken)
+
+		return testingx.TestResult[[]types.Role]{
+			Success: roles,
+			Err:     err,
+		}
+	}
+
+	testingx.RunTests(ctx, t, testCases, testFn)
+}
+
+func TestAssignments(t *testing.T) {
+	namespace := "testassignments"
+	ctx := context.Background()
+	e := testEngine(ctx, t, namespace)
+
+	tenURN, err := urnx.Build(namespace, "tenant", uuid.New())
 	require.NoError(t, err)
 	tenRes, err := e.NewResourceFromURN(tenURN)
 	require.NoError(t, err)
-	subjURN, err := urnx.Build("infratographer", "subject", uuid.New())
+	subjURN, err := urnx.Build(namespace, "subject", uuid.New())
+	require.NoError(t, err)
+	subjRes, err := e.NewResourceFromURN(subjURN)
+	require.NoError(t, err)
+	role, _, err := e.CreateRole(
+		ctx,
+		tenRes,
+		[]string{
+			"loadbalancer_update",
+		},
+	)
+	assert.NoError(t, err)
+
+	testCases := []testingx.TestCase[types.Role, []types.Resource]{
+		{
+			Name:  "Success",
+			Input: role,
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Resource]) {
+				expAssignments := []types.Resource{
+					subjRes,
+				}
+
+				assert.NoError(t, res.Err)
+				assert.Equal(t, expAssignments, res.Success)
+			},
+		},
+	}
+
+	testFn := func(ctx context.Context, role types.Role) testingx.TestResult[[]types.Resource] {
+		queryToken, err := e.AssignSubjectRole(ctx, subjRes, role)
+		if err != nil {
+			return testingx.TestResult[[]types.Resource]{
+				Err: err,
+			}
+		}
+
+		resources, err := e.ListAssignments(ctx, role, queryToken)
+		return testingx.TestResult[[]types.Resource]{
+			Success: resources,
+			Err:     err,
+		}
+	}
+
+	testingx.RunTests(ctx, t, testCases, testFn)
+}
+
+func TestRelationships(t *testing.T) {
+	namespace := "testrelationships"
+	ctx := context.Background()
+	e := testEngine(ctx, t, namespace)
+
+	parentURN, err := urnx.Build(namespace, "tenant", uuid.New())
+	require.NoError(t, err)
+	parentRes, err := e.NewResourceFromURN(parentURN)
+	require.NoError(t, err)
+	childURN, err := urnx.Build(namespace, "tenant", uuid.New())
+	require.NoError(t, err)
+	childRes, err := e.NewResourceFromURN(childURN)
+	require.NoError(t, err)
+
+	testCases := []testingx.TestCase[[]types.Relationship, []types.Relationship]{
+		{
+			Name: "InvalidRelationship",
+			Input: []types.Relationship{
+				{
+					Resource: childRes,
+					Relation: "foo",
+					Subject:  parentRes,
+				},
+			},
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Relationship]) {
+				assert.ErrorIs(t, errorInvalidRelationship, res.Err)
+			},
+		},
+		{
+			Name: "Success",
+			Input: []types.Relationship{
+				{
+					Resource: childRes,
+					Relation: "tenant",
+					Subject:  parentRes,
+				},
+			},
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Relationship]) {
+				expRels := []types.Relationship{
+					{
+						Resource: childRes,
+						Relation: "tenant",
+						Subject:  parentRes,
+					},
+				}
+
+				assert.NoError(t, res.Err)
+				assert.Equal(t, expRels, res.Success)
+			},
+		},
+	}
+
+	testFn := func(ctx context.Context, input []types.Relationship) testingx.TestResult[[]types.Relationship] {
+		queryToken, err := e.CreateRelationships(ctx, input)
+		if err != nil {
+			return testingx.TestResult[[]types.Relationship]{
+				Err: err,
+			}
+		}
+
+		rels, err := e.ListRelationships(ctx, childRes, queryToken)
+
+		return testingx.TestResult[[]types.Relationship]{
+			Success: rels,
+			Err:     err,
+		}
+	}
+
+	testingx.RunTests(ctx, t, testCases, testFn)
+}
+
+func TestSubjectActions(t *testing.T) {
+	namespace := "infratestactions"
+	ctx := context.Background()
+	e := testEngine(ctx, t, namespace)
+
+	tenURN, err := urnx.Build(namespace, "tenant", uuid.New())
+	require.NoError(t, err)
+	tenRes, err := e.NewResourceFromURN(tenURN)
+	require.NoError(t, err)
+	subjURN, err := urnx.Build(namespace, "subject", uuid.New())
 	require.NoError(t, err)
 	userRes, err := e.NewResourceFromURN(subjURN)
 	require.NoError(t, err)
@@ -82,7 +269,7 @@ func TestSubjectActions(t *testing.T) {
 	})
 
 	t.Run("error returned when the user doesn't have the global action", func(t *testing.T) {
-		subjURN, err := urnx.Build("infratographer", "subject", uuid.New())
+		subjURN, err := urnx.Build(namespace, "subject", uuid.New())
 		require.NoError(t, err)
 		otherUserRes, err := e.NewResourceFromURN(subjURN)
 		require.NoError(t, err)
