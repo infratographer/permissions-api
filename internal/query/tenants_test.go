@@ -156,6 +156,7 @@ func TestAssignments(t *testing.T) {
 		}
 
 		resources, err := e.ListAssignments(ctx, role, queryToken)
+
 		return testingx.TestResult[[]types.Resource]{
 			Success: resources,
 			Err:     err,
@@ -253,7 +254,7 @@ func TestSubjectActions(t *testing.T) {
 	require.NoError(t, err)
 	subjRes, err := e.NewResourceFromURN(subjURN)
 	require.NoError(t, err)
-	role, queryToken, err := e.CreateRole(
+	role, _, err := e.CreateRole(
 		ctx,
 		tenRes,
 		[]string{
@@ -261,7 +262,7 @@ func TestSubjectActions(t *testing.T) {
 		},
 	)
 	assert.NoError(t, err)
-	queryToken, err = e.AssignSubjectRole(ctx, subjRes, role)
+	queryToken, err := e.AssignSubjectRole(ctx, subjRes, role)
 	assert.NoError(t, err)
 
 	type testInput struct {
@@ -304,6 +305,7 @@ func TestSubjectActions(t *testing.T) {
 
 	testFn := func(ctx context.Context, input testInput) testingx.TestResult[any] {
 		err := e.SubjectHasPermission(ctx, subjRes, input.action, input.resource, queryToken)
+
 		return testingx.TestResult[any]{
 			Err: err,
 		}
