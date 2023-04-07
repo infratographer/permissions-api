@@ -22,7 +22,7 @@ var (
 
 var serverCmd = &cobra.Command{
 	Use:   "server",
-	Short: "starts the permission api server",
+	Short: "starts the permissions-api server",
 	Run: func(cmd *cobra.Command, args []string) {
 		serve(cmd.Context(), globalCfg)
 	},
