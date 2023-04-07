@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	appName   = "permissionapi"
+	appName   = "permissions-api"
 	cfgFile   string
 	logger    *zap.SugaredLogger
 	globalCfg *config.AppConfig
@@ -24,8 +24,8 @@ var (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "infra-permission-api",
-	Short: "Infratographer Permission API Service",
+	Use:   appName,
+	Short: "Infratographer Permissions API Service",
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -39,7 +39,7 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is /etc/infratographer/permission-api.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is /etc/infratographer/permissions-api.yaml)")
 	loggingx.MustViperFlags(viper.GetViper(), rootCmd.PersistentFlags())
 
 	// Add version command
@@ -69,7 +69,7 @@ func initConfig() {
 	}
 
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	viper.SetEnvPrefix(appName)
+	viper.SetEnvPrefix("permissionsapi")
 	viper.AutomaticEnv() // read in environment variables that match
 
 	// If a config file is found, read it in.
