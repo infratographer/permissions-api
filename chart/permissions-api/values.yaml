@@ -1,0 +1,87 @@
+image:
+  # repository is the image repository to pull the image from
+  repository: ghcr.io/infratographer/permissions-api
+  # pullPolicy is the image pull policy for the service image
+  pullPolicy: IfNotPresent
+  # tag is the image tag to use. Defaults to the chart's app version
+  tag: ""
+
+config:
+  server:
+    # port is the port that the permissions-api container should listen on
+    port: 7602
+  oidc:
+    # issuer is the OIDC issuer to use when validating Bearer JWTs
+    issuer: ""
+    # jwksuri is the URI containing the JWKS for the Bearer JWTs' signing keys
+    jwksuri: ""
+    # audience is the audience to validate when accepting requests
+    audience: ""
+  spicedb:
+    # endpoint is the address of the SpiceDB cluster containing permissions-api data
+    endpoint: ""
+    # insecure is true if TLS should not be required when connecting to SpiceDB
+    insecure: false
+    # verifyCA is true if the CA certificate of the SpiceDB cluster should be verified when connecting to SpiceDB
+    verifyCA: true
+    # caSecretName is the name of the secret containing the CA used to issue the TLS certificate for SpiceDB. Required when verifyCA is set to true
+    caSecretName: ""
+    # pskSecretName is the name of the secret containing the pre-shared key for connecting to SpiceDB. This must contain a key, PERMISSIONSAPI_SPICEDB_KEY, that contains the PSK value
+    pskSecretName: ""
+  tracing:
+    # enabled is true if OpenTelemetry tracing should be enabled for permissions-api
+    enabled: false
+    # provider is the OpenTelemetry tracing provider to use
+    provider: stdout
+    jaeger:
+      # endpoint is the Jaeger collector to send traces to
+      endpoint: ""
+      # user is the user to use when authenticating against the Jaeger deployment
+      user: ""
+      # password is the password to use when authenticating against the Jaeger deployment
+      password: ""
+    otlp:
+      # endpoint is the OpenTelemetry Protocol (OTLP) collector endpoint to send traces to
+      endpoint: ""
+      # insecure is true if TLS should not be required when sending traces
+      insecure: false
+    
+deployment:
+  # replicas is the number of replicas to deploy in the deployment
+  replicas: 1
+  # imagePullSecrets is the list of image pull secrets to use when fetching the image
+  imagePullSecrets: []
+  # podSecurityContext is the pod security context for the deployment
+  podSecurityContext: {}
+  # extraLabels is the set of extra labels to set for the deployment
+  extraLabels: {}
+  # annotations is the set of annotations to set for the deployment
+  annotations: {}
+  # resources is the collection of resource requests and requirements for the deploymet
+  resources: {}
+  # nodeSelector is the set of node selection criteria for the deployment
+  nodeSelector: {}
+  # affinity is the set of pod affinity criteria for the deployment
+  affinity: {}
+  # tolerations is the set of tolerations for the deployment
+  tolerations: {}
+
+service:
+  # type is the type of service to deploy
+  type: ClusterIP
+  # port is the port number the service should listen on
+  port: 80
+  # annotations is the set of annotations to set for the service
+  annotations: {}
+
+ingress:
+  # enabled is true if an Ingress should be created for permissions-api
+  enabled: false
+  # className is the name of the Ingress class to use
+  className: ""
+  # annotations is the set of annotations to set for the Ingress
+  annotations: {}
+  # hosts is the list of hosts and rules for the Ingress
+  hosts: []
+  # tls is the list of TLS configurations for the Ingress
+  tls: []
