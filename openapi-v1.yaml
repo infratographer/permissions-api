@@ -58,15 +58,15 @@ components:
       required: true
       schema:
         type: string
-    resourceParam:
-      in: query
-      name: resource
-      required: true
-      schema:
-        type: string
     actionParam:
       in: query
       name: action
       required: true
+      schema:
+        type: string
+    resourceParam:
+      in: query
+      name: resource
+      required: false
       schema:
         type: string

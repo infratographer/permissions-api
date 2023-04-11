@@ -20,20 +20,16 @@ import (
 // contain the subject of the request in the "sub" claim.
 //
 // The following query parameters are required:
-// - resource: the resource URN to check
 // - tenant: the tenant URN to check
 // - action: the action to check
+//
+// The following query parameters are optional:
+// - resource: the resource URN to check
 func (r *Router) checkAction(c *gin.Context) {
 	ctx, span := tracer.Start(c.Request.Context(), "api.checkAction")
 	defer span.End()
 
 	// Get the query parameters. These are mandatory.
-	resourceURNStr, hasQuery := c.GetQuery("resource")
-	if !hasQuery {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "missing resource query parameter"})
-		return
-	}
-
 	tenantURNStr, hasQuery := c.GetQuery("tenant")
 	if !hasQuery {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "missing tenant query parameter"})
@@ -46,15 +42,12 @@ func (r *Router) checkAction(c *gin.Context) {
 		return
 	}
 
+	// Optional query parameters
+	resourceURNStr, hasResourceParam := c.GetQuery("resource")
+
 	// Query parameter validation
 	// Note that we currently only check the tenant as a scope. The
 	// resource is not checked as of yet.
-	_, err := urnx.Parse(resourceURNStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "error processing resource URN", "error": err.Error()})
-		return
-	}
-
 	tenantURN, err := urnx.Parse(tenantURNStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "error processing tenant URN", "error": err.Error()})
@@ -65,6 +58,14 @@ func (r *Router) checkAction(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "error processing tenant resource URN", "error": err.Error()})
 		return
+	}
+
+	if hasResourceParam {
+		_, err := urnx.Parse(resourceURNStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "error processing resource URN", "error": err.Error()})
+			return
+		}
 	}
 
 	// Subject validation
