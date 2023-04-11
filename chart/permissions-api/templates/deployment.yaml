@@ -1,0 +1,127 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "common.names.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "common.labels.standard" . | nindent 4 }}
+    {{- with .Values.deployment.extraLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.deployment.annotations }}
+  annotations:
+    {{ toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.deployment.replicas }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      {{- include "common.labels.matchLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "common.labels.standard" . | nindent 8 }}
+        {{- with .Values.deployment.extraLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.deployment.annotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      {{- with .Values.deployment.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.deployment.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.deployment.podSecurityContext | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ include "common.names.name" . }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: PERMISSIONSAPI_SERVER_ADDRESS
+              value: ":{{ include "permapi.listenPort" . }}"
+            - name: PERMISSIONSAPI_OIDC_ISSUER
+              value: "{{ .Values.config.oidc.issuer }}"
+            - name: PERMISSIONSAPI_OIDC_JWKSURI
+              value: "{{ .Values.config.oidc.jwksuri }}"
+            - name: PERMISSIONSAPI_OIDC_AUDIENCE
+              value: "{{ .Values.config.oidc.audience }}"
+            - name: PERMISSIONSAPI_SPICEDB_ENDPOINT
+              value: "{{ .Values.config.spicedb.endpoint }}"
+            - name: PERMISSIONSAPI_SPICEDB_INSECURE
+              value: "{{ .Values.config.spicedb.insecure }}"
+            - name: PERMISSIONSAPI_SPICEDB_VERIFYCA
+              value: "{{ .Values.config.spicedb.verifyCA }}"
+            - name: PERMISSIONSAPI_TRACING_ENABLED
+              value: "{{ .Values.config.tracing.enabled }}"
+            - name: PERMISSIONSAPI_TRACING_PROVIDER
+              value: "{{ .Values.config.tracing.provider }}"
+            - name: PERMISSIONSAPI_TRACING_ENVIRONMENT
+              value: "{{ .Values.config.tracing.environment }}"
+            {{- if .Values.config.spicedb.caSecretName }}
+            - name: SSL_CERT_DIR
+              value: "/etc/ssl/spicedb"
+            {{- end }}
+            {{- if eq .Values.config.tracing.provider "jaeger" }}
+            - name: PERMISSIONSAPI_TRACING_JAEGER_ENDPOINT
+              value: "{{ .Values.config.tracing.jaeger.endpoint }}"
+            - name: PERMISSIONSAPI_TRACING_JAEGER_USER
+              value: "{{ .Values.config.tracing.jaeger.user }}"
+            - name: PERMISSIONSAPI_TRACING_JAEGER_PASSWORD
+              value: "{{ .Values.config.tracing.jaeger.password }}"
+            {{- end }}
+            {{- if eq .Values.config.tracing.provider "otlp" }}
+            - name: PERMISSIONSAPI_TRACING_OTLP_ENDPOINT
+              value: "{{ .Values.config.tracing.otlp.endpoint }}"
+            - name: PERMISSIONSAPI_TRACING_OTLP_INSECURE
+              value: "{{ .Values.config.tracing.otlp.insecure }}"
+            - name: PERMISSIONSAPI_TRACING_OTLP_CERTIFICATE
+              value: "{{ .Values.config.tracing.otlp.certificate }}"
+            {{- end }}
+          envFrom:
+            - secretRef:
+                name: "{{ .Values.config.spicedb.pskSecretName }}"
+          ports:
+            - name: http
+              containerPort: {{ include "permapi.listenPort" . }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          {{- with .Values.deployment.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.deployment.nodeSelector }}
+      volumeMounts:
+        - name: spicedb-ca
+          mountPath: /etc/ssl/spicedb/
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.deployment.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.deployment.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.config.spicedb.caSecretName }}  
+    volumes:
+      - name: spicedb-ca
+        secret:
+          secretName: {{ . }}
+    {{- end }}

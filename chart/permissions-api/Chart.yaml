@@ -1,0 +1,19 @@
+---
+apiVersion: v2
+appVersion: v0.0.1
+description: Helm chart for permissions-api, a SpiceDB-based authorization service.
+name: permissions-api
+keywords:
+  - authorization
+  - rbac
+  - spicedb
+version: v0.0.1
+home: http://github.com/infratographer/permissions-api
+dependencies:
+  - name: common
+    version: 2.2.4
+    repository: https://charts.bitnami.com/bitnami
+maintainers:
+  - name: John Schaeffer
+    url: https://github.com/jnschaeffer
+    email: jschaeffer@equinix.com
