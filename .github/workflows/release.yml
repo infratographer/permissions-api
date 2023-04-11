@@ -1,0 +1,31 @@
+name: release
+on:
+  push:
+    tags:
+    - '*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Publish Helm charts
+        uses: stefanprodan/helm-gh-pages@master
+        with:
+          token: ${{ secrets.RELEASEBOT_PAT }}
+          charts_dir: chart
+          charts_url: "https://infratographer.github.io/charts"
+          repository: "charts"
+          app_version: ${{  github.ref_name }}
+          chart_version: ${{  github.ref_name }}
+          branch: gh-pages
+
+  image-build:
+    uses: metal-toolbox/container-push/.github/workflows/container-push.yml@main
+    with:
+      name: permissions-api
+      tag: ${{ github.ref_name }}
+      registry_org: ${{ github.repository_owner }}
+      dockerfile_path: Dockerfile
+      platforms: linux/amd64,linux/arm64
