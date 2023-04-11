@@ -1,0 +1,72 @@
+---
+openapi: "3.1.0"
+info:
+  version: 0.0.1
+  title: Permissions API
+  description: Permissions API is an API to manage permissions for infratographer.
+  contact:
+    name: Infratographer Authors
+    url: http://github.com/infratographer
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+#servers:
+#  - url: http://localhost/api/v1
+paths:
+  /allow:
+    get:
+      description: 
+      operationId: allow
+      parameters:
+        - $ref: '#/components/parameters/tenantParam'
+        - $ref: '#/components/parameters/resourceParam'
+        - $ref: '#/components/parameters/actionParam'
+      responses:
+        '200':
+          description: allow response
+          content:
+            application/json:
+              schema:
+                type: object
+        '403':
+          description: forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    Error:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+
+  parameters:
+    tenantParam:
+      in: query
+      name: tenant
+      required: true
+      schema:
+        type: string
+    resourceParam:
+      in: query
+      name: resource
+      required: true
+      schema:
+        type: string
+    actionParam:
+      in: query
+      name: action
+      required: true
+      schema:
+        type: string
