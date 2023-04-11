@@ -36,7 +36,8 @@ func NewRouter(authCfg ginjwt.AuthConfig, engine *query.Engine, l *zap.SugaredLo
 
 // Routes will add the routes for this API version to a router group
 func (r *Router) Routes(rg *gin.RouterGroup) {
-	// /servers
+	rg.GET("healthz", r.healthz)
+
 	v1 := rg.Group("api/v1").Use(r.authMW)
 	{
 		v1.POST("/resources/:urn/roles", r.roleCreate)
