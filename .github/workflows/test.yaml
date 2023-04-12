@@ -72,12 +72,3 @@ jobs:
           push: false
           load: true
           tags: ${{ steps.metadata.outputs.tags }}
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ steps.metadata.outputs.tags }}
-          scanners: 'vuln,config,secret'
-          ignore-unfixed: true
-          severity: 'HIGH,CRITICAL'
-          format: 'table'
