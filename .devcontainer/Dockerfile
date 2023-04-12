@@ -11,7 +11,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     &&  curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | gpg --dearmor > /usr/share/keyrings/yarn-archive-keyring.gpg \
     && apt-get install apt-transport-https --yes \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | tee /etc/apt/sources.list.d/helm-stable-debian.list \
-    && apt-get update && apt-get install --yes --no-install-recommends \
+    && apt-get update \
+    && apt-get install --yes --no-install-recommends \
         bash-completion \
         helm \
         uuid-runtime
