@@ -24,6 +24,7 @@ jobs:
           ignore-unfixed: true
           severity: 'HIGH,CRITICAL'
           format: 'table'
+          exit-code: '1'
 
       - name: Registry login
         uses: docker/login-action@v2
@@ -58,6 +59,7 @@ jobs:
           ignore-unfixed: true
           severity: 'HIGH,CRITICAL'
           format: 'table'
+          exit-code: '1'
 
       - name: Push
         uses: docker/build-push-action@v4

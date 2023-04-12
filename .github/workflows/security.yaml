@@ -45,6 +45,7 @@ jobs:
           ignore-unfixed: true
           severity: 'HIGH,CRITICAL'
           format: 'table'
+          exit-code: '1'
 
   repo-scan:
     name: repo-scan
@@ -63,3 +64,4 @@ jobs:
           ignore-unfixed: true
           severity: 'HIGH,CRITICAL'
           format: 'table'
+          exit-code: '1'
