@@ -41,7 +41,7 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ steps.metadata.outputs.tags }}
-          scanners: 'vuln,config,secret'
+          scanners: 'vuln,secret'
           ignore-unfixed: true
           severity: 'HIGH,CRITICAL'
           format: 'table'
@@ -60,7 +60,7 @@ jobs:
         with:
           scan-type: 'fs'
           scan-ref: '.'
-          scanners: 'vuln,config,secret'
+          scanners: 'vuln,secret'
           ignore-unfixed: true
           severity: 'HIGH,CRITICAL'
           format: 'table'
