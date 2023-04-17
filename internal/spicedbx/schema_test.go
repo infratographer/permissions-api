@@ -44,11 +44,13 @@ func TestSchema(t *testing.T) {
 		},
 	}
 
-	schemaOutput := `definition foo/subject {}
+	schemaOutput := `definition foo/user {}
+
+definition foo/client {}
 
 definition foo/role {
     relation tenant: foo/tenant
-    relation subject: foo/subject
+    relation subject: foo/user | foo/client
 }
 
 definition foo/tenant {

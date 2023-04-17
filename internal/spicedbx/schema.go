@@ -10,11 +10,13 @@ import (
 var (
 	schemaTemplate = template.Must(template.New("schema").Parse(`
 {{- $namespace := .Namespace -}}
-definition {{$namespace}}/subject {}
+definition {{$namespace}}/user {}
+
+definition {{$namespace}}/client {}
 
 definition {{$namespace}}/role {
     relation tenant: {{$namespace}}/tenant
-    relation subject: {{$namespace}}/subject
+    relation subject: {{$namespace}}/user | {{$namespace}}/client
 }
 
 definition {{$namespace}}/tenant {
