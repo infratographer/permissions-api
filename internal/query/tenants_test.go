@@ -40,7 +40,7 @@ func testEngine(ctx context.Context, t *testing.T, namespace string) *Engine {
 }
 
 func cleanDB(ctx context.Context, t *testing.T, client *authzed.Client, namespace string) {
-	for _, dbType := range []string{"subject", "role", "tenant"} {
+	for _, dbType := range []string{"user", "client", "role", "tenant"} {
 		namespacedType := namespace + "/" + dbType
 		delRequest := &pb.DeleteRelationshipsRequest{
 			RelationshipFilter: &pb.RelationshipFilter{
