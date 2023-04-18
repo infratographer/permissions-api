@@ -40,7 +40,7 @@ func testEngine(ctx context.Context, t *testing.T, namespace string) *Engine {
 }
 
 func cleanDB(ctx context.Context, t *testing.T, client *authzed.Client, namespace string) {
-	for _, dbType := range []string{"subject", "role", "tenant"} {
+	for _, dbType := range []string{"user", "client", "role", "tenant"} {
 		namespacedType := namespace + "/" + dbType
 		delRequest := &pb.DeleteRelationshipsRequest{
 			RelationshipFilter: &pb.RelationshipFilter{
@@ -119,7 +119,7 @@ func TestAssignments(t *testing.T) {
 	require.NoError(t, err)
 	tenRes, err := e.NewResourceFromURN(tenURN)
 	require.NoError(t, err)
-	subjURN, err := urnx.Build(namespace, "subject", uuid.New())
+	subjURN, err := urnx.Build(namespace, "user", uuid.New())
 	require.NoError(t, err)
 	subjRes, err := e.NewResourceFromURN(subjURN)
 	require.NoError(t, err)
@@ -250,7 +250,7 @@ func TestSubjectActions(t *testing.T) {
 	require.NoError(t, err)
 	otherRes, err := e.NewResourceFromURN(otherURN)
 	require.NoError(t, err)
-	subjURN, err := urnx.Build(namespace, "subject", uuid.New())
+	subjURN, err := urnx.Build(namespace, "user", uuid.New())
 	require.NoError(t, err)
 	subjRes, err := e.NewResourceFromURN(subjURN)
 	require.NoError(t, err)

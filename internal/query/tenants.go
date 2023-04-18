@@ -421,7 +421,10 @@ func GetResourceTypes() []types.ResourceType {
 			},
 		},
 		{
-			Name: "subject",
+			Name: "user",
+		},
+		{
+			Name: "client",
 		},
 	}
 }
