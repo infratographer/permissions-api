@@ -1,8 +1,8 @@
 BIN?=permissions-api
 
 # Utility settings
+ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 TOOLS_DIR := .tools
-GOLANGCI_LINT_VERSION = v1.51.2
 
 # Container build settings
 CONTAINER_BUILD_CMD?=docker build
@@ -11,6 +11,13 @@ CONTAINER_BUILD_CMD?=docker build
 CONTAINER_REPO?=ghcr.io/infratographer
 PERMISSIONS_API_CONTAINER_IMAGE_NAME = $(CONTAINER_REPO)/permissions-api
 CONTAINER_TAG?=latest
+
+# Tool Versions
+GCI_REPO = github.com/daixiang0/gci
+GCI_VERSION = v0.10.1
+
+GOLANGCI_LINT_REPO = github.com/golangci/golangci-lint
+GOLANGCI_LINT_VERSION = v1.51.2
 
 # go files to be checked
 GO_FILES=$(shell git ls-files '*.go')
@@ -25,10 +32,13 @@ help: Makefile ## Print help
 build:  ## Builds permissions-api binary.
 	go build -o $(BIN) ./main.go
 
+.PHONY: ci
+ci: | golint test coverage  ## Setup dev database and run tests.
+
 .PHONY: test
 test:  ## Runs unit tests.
 	@echo Running unit tests...
-	@docker exec devcontainer-app-1 go test -v -timeout 30s -cover -short  -tags testtools ./...
+	@go test -v -timeout 30s -cover -short -tags testtools ./...
 
 .PHONY: coverage
 coverage:  ## Generates a test coverage report.
@@ -54,11 +64,11 @@ vendor:  ## Downloads and tidies go modules.
 	@go mod tidy
 
 .PHONY: gci-diff gci-write gci
-gci-diff: $(GO_FILES) | gci-tool  ## Outputs improper go import ordering.
-	@gci diff -s 'standard,default,prefix(github.com/infratographer)' $^
+gci-diff: $(GO_FILES) | $(TOOLS_DIR)/gci  ## Outputs improper go import ordering.
+	@$(TOOLS_DIR)/gci diff -s 'standard,default,prefix(github.com/infratographer)' $^
 
-gci-write: $(GO_FILES) | gci-tool  ## Checks and updates all go files for proper import ordering.
-	@gci write -s 'standard,default,prefix(github.com/infratographer)' $^
+gci-write: $(GO_FILES) | $(TOOLS_DIR)/gci  ## Checks and updates all go files for proper import ordering.
+	@$(TOOLS_DIR)/gci write -s 'standard,default,prefix(github.com/infratographer)' $^
 
 gci: | gci-diff gci-write  ## Outputs and corrects all improper go import ordering.
 
@@ -79,24 +89,13 @@ dev-infra-down:  ## Stops local services used for local development.
 $(TOOLS_DIR):
 	mkdir -p $(TOOLS_DIR)
 
-$(TOOLS_DIR)/golangci-lint: $(TOOLS_DIR)
-	export \
-		VERSION=$(GOLANGCI_LINT_VERSION) \
-		URL=https://raw.githubusercontent.com/golangci/golangci-lint \
-		BINDIR=$(TOOLS_DIR) && \
-	curl -sfL $$URL/$$VERSION/install.sh | sh -s $$VERSION
-	$(TOOLS_DIR)/golangci-lint version
-	$(TOOLS_DIR)/golangci-lint linters
+$(TOOLS_DIR)/gci: | $(TOOLS_DIR)
+	@echo "Installing $(GCI_REPO)@$(GCI_VERSION)"
+	@GOBIN=$(ROOT_DIR)/$(TOOLS_DIR) go install $(GCI_REPO)@$(GCI_VERSION)
+	$@ --version
 
-.PHONY: gci-tool
-gci-tool:
-	@which gci &>/dev/null \
-		|| echo Installing gci tool \
-		&& go install github.com/daixiang0/gci@latest
-
-.PHONY: nk-tool
-nk-tool:
-	@which nk &>/dev/null || \
-		echo Installing "nk" tool && \
-		go install github.com/nats-io/nkeys/nk@latest && \
-		export PATH=$$PATH:$(shell go env GOPATH)
+$(TOOLS_DIR)/golangci-lint: | $(TOOLS_DIR)
+	@echo "Installing $(GOLANGCI_LINT_REPO)/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)"
+	@GOBIN=$(ROOT_DIR)/$(TOOLS_DIR) go install $(GOLANGCI_LINT_REPO)/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+	$@ version
+	$@ linters
