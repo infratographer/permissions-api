@@ -16,3 +16,6 @@
 
 # Emacs stuff
 *~
+
+# Ignore .tools dir
+.tools/
