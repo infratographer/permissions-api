@@ -3,7 +3,7 @@ package api
 import (
 	"strconv"
 
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v4"
 )
 
 var (
@@ -20,13 +20,13 @@ type Pagination struct {
 	Order string
 }
 
-// ParsePagination parses the pagination query parameters from the gin context
-func ParsePagination(c *gin.Context) *Pagination {
+// ParsePagination parses the pagination query parameters from the echo context
+func ParsePagination(c echo.Context) *Pagination {
 	// Initializing default
 	limit := DefaultPaginationSize
 	page := 1
 	order := ""
-	query := c.Request.URL.Query()
+	query := c.Request().URL.Query()
 
 	for key, value := range query {
 		queryValue := value[len(value)-1]
@@ -88,8 +88,8 @@ func parseLimit(l int) int {
 // }
 
 // SetHeaders sets the pagination headers on a response
-func (p *Pagination) SetHeaders(c *gin.Context, count int) {
-	c.Header("Pagination-Count", strconv.Itoa(count))
-	c.Header("Pagination-Limit", strconv.Itoa(p.Limit))
-	c.Header("Pagination-Page", strconv.Itoa(p.Page))
+func (p *Pagination) SetHeaders(c echo.Context, count int) {
+	c.Response().Header().Set("Pagination-Count", strconv.Itoa(count))
+	c.Response().Header().Set("Pagination-Limit", strconv.Itoa(p.Limit))
+	c.Response().Header().Set("Pagination-Page", strconv.Itoa(p.Page))
 }

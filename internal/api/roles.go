@@ -3,42 +3,38 @@ package api
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v4"
 	"go.infratographer.com/x/urnx"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
-func (r *Router) roleCreate(c *gin.Context) {
+func (r *Router) roleCreate(c echo.Context) error {
 	resourceURNStr := c.Param("urn")
 
-	ctx, span := tracer.Start(c.Request.Context(), "api.roleCreate", trace.WithAttributes(attribute.String("urn", resourceURNStr)))
+	ctx, span := tracer.Start(c.Request().Context(), "api.roleCreate", trace.WithAttributes(attribute.String("urn", resourceURNStr)))
 	defer span.End()
 
 	resourceURN, err := urnx.Parse(resourceURNStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "error parsing resource URN", "error": err.Error()})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing resource URN").SetInternal(err)
 	}
 
 	var reqBody createRoleRequest
 
-	err = c.BindJSON(&reqBody)
+	err = c.Bind(&reqBody)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "error parsing request body", "error": err.Error()})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing request body").SetInternal(err)
 	}
 
 	resource, err := r.engine.NewResourceFromURN(resourceURN)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "error creating resource", "error": err.Error()})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "error creating resource").SetInternal(err)
 	}
 
 	role, _, err := r.engine.CreateRole(ctx, resource, reqBody.Actions)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "error creating resource", "error": err.Error()})
-		return
+		return echo.NewHTTPError(http.StatusInternalServerError, "error creating resource").SetInternal(err)
 	}
 
 	resp := roleResponse{
@@ -46,31 +42,28 @@ func (r *Router) roleCreate(c *gin.Context) {
 		Actions: role.Actions,
 	}
 
-	c.JSON(http.StatusCreated, resp)
+	return c.JSON(http.StatusCreated, resp)
 }
 
-func (r *Router) rolesList(c *gin.Context) {
+func (r *Router) rolesList(c echo.Context) error {
 	resourceURNStr := c.Param("urn")
 
-	ctx, span := tracer.Start(c.Request.Context(), "api.roleGet", trace.WithAttributes(attribute.String("urn", resourceURNStr)))
+	ctx, span := tracer.Start(c.Request().Context(), "api.roleGet", trace.WithAttributes(attribute.String("urn", resourceURNStr)))
 	defer span.End()
 
 	resourceURN, err := urnx.Parse(resourceURNStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "error parsing resource URN", "error": err.Error()})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing resource URN").SetInternal(err)
 	}
 
 	resource, err := r.engine.NewResourceFromURN(resourceURN)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "error creating resource", "error": err.Error()})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "error creating resource").SetInternal(err)
 	}
 
 	roles, err := r.engine.ListRoles(ctx, resource, "")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "error getting role", "error": err.Error()})
-		return
+		return echo.NewHTTPError(http.StatusInternalServerError, "error getting role").SetInternal(err)
 	}
 
 	resp := listRolesResponse{
@@ -86,5 +79,5 @@ func (r *Router) rolesList(c *gin.Context) {
 		resp.Data = append(resp.Data, roleResp)
 	}
 
-	c.JSON(http.StatusOK, resp)
+	return c.JSON(http.StatusOK, resp)
 }

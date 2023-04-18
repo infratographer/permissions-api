@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v4"
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/x/urnx"
 )
@@ -25,60 +25,53 @@ import (
 //
 // The following query parameters are optional:
 // - resource: the resource URN to check
-func (r *Router) checkAction(c *gin.Context) {
-	ctx, span := tracer.Start(c.Request.Context(), "api.checkAction")
+func (r *Router) checkAction(c echo.Context) error {
+	ctx, span := tracer.Start(c.Request().Context(), "api.checkAction")
 	defer span.End()
 
 	// Get the query parameters. These are mandatory.
-	tenantURNStr, hasQuery := c.GetQuery("tenant")
+	tenantURNStr, hasQuery := getParam(c, "tenant")
 	if !hasQuery {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "missing tenant query parameter"})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "missing tenant query parameter")
 	}
 
-	action, hasQuery := c.GetQuery("action")
+	action, hasQuery := getParam(c, "action")
 	if !hasQuery {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "missing action query parameter"})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "missing action query parameter")
 	}
 
 	// Optional query parameters
-	resourceURNStr, hasResourceParam := c.GetQuery("resource")
+	resourceURNStr, hasResourceParam := getParam(c, "resource")
 
 	// Query parameter validation
 	// Note that we currently only check the tenant as a scope. The
 	// resource is not checked as of yet.
 	tenantURN, err := urnx.Parse(tenantURNStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "error processing tenant URN", "error": err.Error()})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "error processing tenant URN").SetInternal(err)
 	}
 
 	tenantResource, err := r.engine.NewResourceFromURN(tenantURN)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "error processing tenant resource URN", "error": err.Error()})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "error processing tenant resource URN").SetInternal(err)
 	}
 
 	if hasResourceParam {
 		_, err := urnx.Parse(resourceURNStr)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"message": "error processing resource URN", "error": err.Error()})
-			return
+			return echo.NewHTTPError(http.StatusBadRequest, "error processing resource URN").SetInternal(err)
 		}
 	}
 
 	// Subject validation
 	subject, err := currentSubject(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "message": "failed to get the subject"})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "failed to get the subject").SetInternal(err)
 	}
 
 	subjectResource, err := r.engine.NewResourceFromURN(subject)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "error processing subject URN", "error": err.Error()})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "error processing subject URN").SetInternal(err)
 	}
 
 	// Check the permissions
@@ -86,14 +79,24 @@ func (r *Router) checkAction(c *gin.Context) {
 	if err != nil && errors.Is(err, query.ErrActionNotAssigned) {
 		msg := fmt.Sprintf("subject '%s' does not have permission to perform action '%s' on resource '%s' scoped on tenant '%s'",
 			subject, action, resourceURNStr, tenantURNStr)
-		c.JSON(http.StatusForbidden, gin.H{"message": msg})
 
-		return
+		return echo.NewHTTPError(http.StatusForbidden, msg).SetInternal(err)
 	} else if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "an error occurred checking permissions", "error": err.Error()})
-
-		return
+		return echo.NewHTTPError(http.StatusInternalServerError, "an error occurred checking permissions").SetInternal(err)
 	}
 
-	c.JSON(http.StatusOK, gin.H{})
+	return c.JSON(http.StatusOK, echo.Map{})
+}
+
+func getParam(c echo.Context, name string) (string, bool) {
+	values, ok := c.QueryParams()[name]
+	if !ok {
+		return "", ok
+	}
+
+	if len(values) == 0 {
+		return "", true
+	}
+
+	return values[0], true
 }

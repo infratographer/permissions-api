@@ -2,8 +2,8 @@
 package config
 
 import (
-	"go.hollow.sh/toolbox/ginjwt"
-	"go.infratographer.com/x/ginx"
+	"go.infratographer.com/x/echojwtx"
+	"go.infratographer.com/x/echox"
 	"go.infratographer.com/x/loggingx"
 	"go.infratographer.com/x/otelx"
 
@@ -12,9 +12,9 @@ import (
 
 // AppConfig is the struct used for configuring the app
 type AppConfig struct {
-	OIDC    ginjwt.AuthConfig
+	OIDC    echojwtx.AuthConfig
 	Logging loggingx.Config
-	Server  ginx.Config
+	Server  echox.Config
 	SpiceDB spicedbx.Config
 	Tracing otelx.Config
 }

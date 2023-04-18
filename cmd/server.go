@@ -5,10 +5,11 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"go.hollow.sh/toolbox/ginjwt"
-	"go.infratographer.com/x/ginx"
+	"go.infratographer.com/x/echojwtx"
+	"go.infratographer.com/x/echox"
 	"go.infratographer.com/x/otelx"
 	"go.infratographer.com/x/versionx"
+	"go.uber.org/zap"
 
 	"go.infratographer.com/permissions-api/internal/api"
 	"go.infratographer.com/permissions-api/internal/config"
@@ -33,9 +34,9 @@ func init() {
 
 	v := viper.GetViper()
 
-	ginx.MustViperFlags(v, serverCmd.Flags(), apiDefaultListen)
+	echox.MustViperFlags(v, serverCmd.Flags(), apiDefaultListen)
 	otelx.MustViperFlags(v, serverCmd.Flags())
-	ginjwt.RegisterViperOIDCFlags(v, serverCmd)
+	echojwtx.MustViperFlags(v, serverCmd.Flags())
 }
 
 func serve(ctx context.Context, cfg *config.AppConfig) {
@@ -51,15 +52,24 @@ func serve(ctx context.Context, cfg *config.AppConfig) {
 
 	engine := query.NewEngine("infratographer", spiceClient)
 
-	s := ginx.NewServer(logger.Desugar(), cfg.Server, versionx.BuildDetails())
+	srv := echox.NewServer(
+		logger.Desugar(),
+		echox.Config{
+			Listen:              viper.GetString("server.listen"),
+			ShutdownGracePeriod: viper.GetDuration("server.shutdown-grace-period"),
+		},
+		versionx.BuildDetails(),
+	)
 
 	r, err := api.NewRouter(cfg.OIDC, engine, logger)
 	if err != nil {
 		logger.Fatalw("unable to initialize router", "error", err)
 	}
 
-	s = s.AddHandler(r).
-		AddReadinessCheck("spicedb", spicedbx.Healthcheck(spiceClient))
+	srv.AddHandler(r)
+	srv.AddReadinessCheck("spicedb", spicedbx.Healthcheck(spiceClient))
 
-	s.Run()
+	if err := srv.Run(); err != nil {
+		logger.Fatal("failed to run server", zap.Error(err))
+	}
 }
