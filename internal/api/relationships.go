@@ -5,7 +5,7 @@ import (
 
 	"go.infratographer.com/permissions-api/internal/types"
 
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v4"
 	"go.infratographer.com/x/urnx"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -46,73 +46,65 @@ func (r *Router) buildRelationships(subjResource types.Resource, items []createR
 	return out, nil
 }
 
-func (r *Router) relationshipsCreate(c *gin.Context) {
+func (r *Router) relationshipsCreate(c echo.Context) error {
 	resourceURNStr := c.Param("urn")
 
-	ctx, span := tracer.Start(c.Request.Context(), "api.relationshipsCreate", trace.WithAttributes(attribute.String("urn", resourceURNStr)))
+	ctx, span := tracer.Start(c.Request().Context(), "api.relationshipsCreate", trace.WithAttributes(attribute.String("urn", resourceURNStr)))
 	defer span.End()
 
 	resourceURN, err := urnx.Parse(resourceURNStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "error parsing resource URN", "error": err.Error()})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing resource URN").SetInternal(err)
 	}
 
 	var reqBody createRelationshipsRequest
 
-	err = c.BindJSON(&reqBody)
+	err = c.Bind(&reqBody)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "error parsing request body", "error": err.Error()})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing request body").SetInternal(err)
 	}
 
 	resource, err := r.engine.NewResourceFromURN(resourceURN)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "error creating relationships", "error": err.Error()})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "error creating relationships").SetInternal(err)
 	}
 
 	rels, err := r.buildRelationships(resource, reqBody.Relationships)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "error creating relationships", "error": err.Error()})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "error creating relationships").SetInternal(err)
 	}
 
 	_, err = r.engine.CreateRelationships(ctx, rels)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "error creating relationships", "error": err.Error()})
-		return
+		return echo.NewHTTPError(http.StatusInternalServerError, "error creating relationships").SetInternal(err)
 	}
 
 	resp := createRelationshipsResponse{
 		Success: true,
 	}
 
-	c.JSON(http.StatusCreated, resp)
+	return c.JSON(http.StatusCreated, resp)
 }
 
-func (r *Router) relationshipsList(c *gin.Context) {
+func (r *Router) relationshipsList(c echo.Context) error {
 	resourceURNStr := c.Param("urn")
 
-	ctx, span := tracer.Start(c.Request.Context(), "api.relationshipsList", trace.WithAttributes(attribute.String("urn", resourceURNStr)))
+	ctx, span := tracer.Start(c.Request().Context(), "api.relationshipsList", trace.WithAttributes(attribute.String("urn", resourceURNStr)))
 	defer span.End()
 
 	resourceURN, err := urnx.Parse(resourceURNStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "error parsing resource URN", "error": err.Error()})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing resource URN").SetInternal(err)
 	}
 
 	resource, err := r.engine.NewResourceFromURN(resourceURN)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "error listing relationships", "error": err.Error()})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "error listing relationships").SetInternal(err)
 	}
 
 	rels, err := r.engine.ListRelationships(ctx, resource, "")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "error listing relationships", "error": err.Error()})
-		return
+		return echo.NewHTTPError(http.StatusInternalServerError, "error listing relationships").SetInternal(err)
 	}
 
 	items := make([]relationshipItem, len(rels))
@@ -120,8 +112,7 @@ func (r *Router) relationshipsList(c *gin.Context) {
 	for i, rel := range rels {
 		subjURN, err := r.engine.NewURNFromResource(rel.Subject)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"message": "error listing relationships", "error": err.Error()})
-			return
+			return echo.NewHTTPError(http.StatusInternalServerError, "error listing relationships").SetInternal(err)
 		}
 
 		item := relationshipItem{
@@ -136,5 +127,5 @@ func (r *Router) relationshipsList(c *gin.Context) {
 		Data: items,
 	}
 
-	c.JSON(http.StatusOK, out)
+	return c.JSON(http.StatusOK, out)
 }

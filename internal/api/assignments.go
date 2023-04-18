@@ -5,43 +5,39 @@ import (
 
 	"go.infratographer.com/permissions-api/internal/types"
 
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
 	"go.infratographer.com/x/urnx"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
-func (r *Router) assignmentCreate(c *gin.Context) {
+func (r *Router) assignmentCreate(c echo.Context) error {
 	roleIDStr := c.Param("role_id")
 
 	roleID, err := uuid.Parse(roleIDStr)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"message": "not found"})
-		return
+		return echo.ErrNotFound
 	}
 
-	ctx, span := tracer.Start(c.Request.Context(), "api.assignmentCreate", trace.WithAttributes(attribute.String("role_id", roleIDStr)))
+	ctx, span := tracer.Start(c.Request().Context(), "api.assignmentCreate", trace.WithAttributes(attribute.String("role_id", roleIDStr)))
 	defer span.End()
 
 	var reqBody createAssignmentRequest
 
-	err = c.BindJSON(&reqBody)
+	err = c.Bind(&reqBody)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "error parsing request body", "error": err.Error()})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing request body").SetInternal(err)
 	}
 
 	subjURN, err := urnx.Parse(reqBody.SubjectURN)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "error parsing subject URN", "error": err.Error()})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing subject URN").SetInternal(err)
 	}
 
 	subjResource, err := r.engine.NewResourceFromURN(subjURN)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "error creating resource", "error": err.Error()})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "error creating resource").SetInternal(err)
 	}
 
 	role := types.Role{
@@ -50,27 +46,25 @@ func (r *Router) assignmentCreate(c *gin.Context) {
 
 	_, err = r.engine.AssignSubjectRole(ctx, subjResource, role)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "error creating resource", "error": err.Error()})
-		return
+		return echo.NewHTTPError(http.StatusInternalServerError, "error creating resource").SetInternal(err)
 	}
 
 	resp := createAssignmentResponse{
 		Success: true,
 	}
 
-	c.JSON(http.StatusCreated, resp)
+	return c.JSON(http.StatusCreated, resp)
 }
 
-func (r *Router) assignmentsList(c *gin.Context) {
+func (r *Router) assignmentsList(c echo.Context) error {
 	roleIDStr := c.Param("role_id")
 
 	roleID, err := uuid.Parse(roleIDStr)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"message": "not found"})
-		return
+		return echo.ErrNotFound
 	}
 
-	ctx, span := tracer.Start(c.Request.Context(), "api.assignmentCreate", trace.WithAttributes(attribute.String("role_id", roleIDStr)))
+	ctx, span := tracer.Start(c.Request().Context(), "api.assignmentCreate", trace.WithAttributes(attribute.String("role_id", roleIDStr)))
 	defer span.End()
 
 	role := types.Role{
@@ -79,8 +73,7 @@ func (r *Router) assignmentsList(c *gin.Context) {
 
 	assignments, err := r.engine.ListAssignments(ctx, role, "")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "error listing assignments", "error": err.Error()})
-		return
+		return echo.NewHTTPError(http.StatusInternalServerError, "error listing assignments").SetInternal(err)
 	}
 
 	items := make([]assignmentItem, len(assignments))
@@ -88,8 +81,7 @@ func (r *Router) assignmentsList(c *gin.Context) {
 	for i, res := range assignments {
 		subjURN, err := r.engine.NewURNFromResource(res)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"message": "error listing assignments", "error": err.Error()})
-			return
+			return echo.NewHTTPError(http.StatusInternalServerError, "error listing assignments").SetInternal(err)
 		}
 
 		item := assignmentItem{
@@ -103,5 +95,5 @@ func (r *Router) assignmentsList(c *gin.Context) {
 		Data: items,
 	}
 
-	c.JSON(http.StatusOK, out)
+	return c.JSON(http.StatusOK, out)
 }

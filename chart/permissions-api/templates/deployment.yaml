@@ -94,11 +94,11 @@ spec:
               protocol: TCP
           livenessProbe:
             httpGet:
-              path: /healthz
+              path: /livez
               port: http
           readinessProbe:
             httpGet:
-              path: /healthz
+              path: /readyz
               port: http
           {{- with .Values.deployment.resources }}
           resources:
