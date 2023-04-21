@@ -10,8 +10,7 @@ import (
 	"go.infratographer.com/x/urnx"
 )
 
-// checkAction will check if a subject is allowed to perform an action on a resource
-// scoped to the tenant.
+// checkAction will check if a subject is allowed to perform an action on a resource.
 // This is the permissions check endpoint.
 // It will return a 200 if the subject is allowed to perform the action on the resource.
 // It will return a 403 if the subject is not allowed to perform the action on the resource.
@@ -20,20 +19,11 @@ import (
 // contain the subject of the request in the "sub" claim.
 //
 // The following query parameters are required:
-// - tenant: the tenant URN to check
-// - action: the action to check
-//
-// The following query parameters are optional:
 // - resource: the resource URN to check
+// - action: the action to check
 func (r *Router) checkAction(c echo.Context) error {
 	ctx, span := tracer.Start(c.Request().Context(), "api.checkAction")
 	defer span.End()
-
-	// Get the query parameters. These are mandatory.
-	tenantURNStr, hasQuery := getParam(c, "tenant")
-	if !hasQuery {
-		return echo.NewHTTPError(http.StatusBadRequest, "missing tenant query parameter")
-	}
 
 	action, hasQuery := getParam(c, "action")
 	if !hasQuery {
@@ -42,25 +32,19 @@ func (r *Router) checkAction(c echo.Context) error {
 
 	// Optional query parameters
 	resourceURNStr, hasResourceParam := getParam(c, "resource")
+	if !hasResourceParam {
+		return echo.NewHTTPError(http.StatusBadRequest, "missing resource query parameter")
+	}
 
 	// Query parameter validation
-	// Note that we currently only check the tenant as a scope. The
-	// resource is not checked as of yet.
-	tenantURN, err := urnx.Parse(tenantURNStr)
+	resourceURN, err := urnx.Parse(resourceURNStr)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "error processing tenant URN").SetInternal(err)
+		return echo.NewHTTPError(http.StatusBadRequest, "error processing resource URN").SetInternal(err)
 	}
 
-	tenantResource, err := r.engine.NewResourceFromURN(tenantURN)
+	resource, err := r.engine.NewResourceFromURN(resourceURN)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "error processing tenant resource URN").SetInternal(err)
-	}
-
-	if hasResourceParam {
-		_, err := urnx.Parse(resourceURNStr)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, "error processing resource URN").SetInternal(err)
-		}
 	}
 
 	// Subject validation
@@ -75,10 +59,10 @@ func (r *Router) checkAction(c echo.Context) error {
 	}
 
 	// Check the permissions
-	err = r.engine.SubjectHasPermission(ctx, subjectResource, action, tenantResource, "")
+	err = r.engine.SubjectHasPermission(ctx, subjectResource, action, resource, "")
 	if err != nil && errors.Is(err, query.ErrActionNotAssigned) {
-		msg := fmt.Sprintf("subject '%s' does not have permission to perform action '%s' on resource '%s' scoped on tenant '%s'",
-			subject, action, resourceURNStr, tenantURNStr)
+		msg := fmt.Sprintf("subject '%s' does not have permission to perform action '%s' on resource '%s'",
+			subject, action, resourceURNStr)
 
 		return echo.NewHTTPError(http.StatusForbidden, msg).SetInternal(err)
 	} else if err != nil {
