@@ -104,7 +104,7 @@ func newGetRequest(ctx context.Context, uri, endpoint string, query url.Values) 
 		return nil, err
 	}
 
-	u.Path = path.Join(apiVersion, endpoint)
+	u = u.JoinPath(apiVersion, endpoint)
 
 	if len(query) > 0 {
 		u.Path = fmt.Sprintf("%s?%s", u.Path, query.Encode())
