@@ -107,7 +107,7 @@ func newGetRequest(ctx context.Context, uri, endpoint string, query url.Values) 
 	u = u.JoinPath(apiVersion, endpoint)
 
 	if len(query) > 0 {
-		u.Path = fmt.Sprintf("%s?%s", u.Path, query.Encode())
+		u.RawQuery = query.Encode()
 	}
 
 	return http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
