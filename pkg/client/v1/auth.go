@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"path"
 	"strings"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -59,14 +58,18 @@ func New(url string, doerClient Doer) (*Client, error) {
 }
 
 // Allowed checks if the client subject is permitted exec the action on the resource
-func (c *Client) Allowed(ctx context.Context, action string, resourceURNPrefix string) (bool, error) {
+func (c *Client) Allowed(ctx context.Context, action string, resourceURN string) (bool, error) {
 	ctx, span := tracer.Start(ctx, "SubjectHasAction", trace.WithAttributes(
 		attribute.String("action", action),
-		attribute.String("resource", resourceURNPrefix),
+		attribute.String("resource", resourceURN),
 	))
 	defer span.End()
 
-	err := c.get(ctx, fmt.Sprintf("/has/%s/on/%s", action, resourceURNPrefix), map[string]string{})
+	values := url.Values{}
+	values.Add("action", action)
+	values.Add("resource", resourceURN)
+
+	err := c.get(ctx, "/allow", values, map[string]string{})
 	if err != nil {
 		if errors.Is(err, ErrPermissionDenied) {
 			return false, nil
@@ -85,8 +88,8 @@ type ServerResponse struct {
 	StatusCode int
 }
 
-func (c Client) get(ctx context.Context, endpoint string, resp interface{}) error {
-	request, err := newGetRequest(ctx, c.url, endpoint)
+func (c Client) get(ctx context.Context, endpoint string, query url.Values, resp interface{}) error {
+	request, err := newGetRequest(ctx, c.url, endpoint, query)
 	if err != nil {
 		return err
 	}
@@ -94,13 +97,17 @@ func (c Client) get(ctx context.Context, endpoint string, resp interface{}) erro
 	return c.do(request, &resp)
 }
 
-func newGetRequest(ctx context.Context, uri, endpoint string) (*http.Request, error) {
+func newGetRequest(ctx context.Context, uri, endpoint string, query url.Values) (*http.Request, error) {
 	u, err := url.Parse(uri)
 	if err != nil {
 		return nil, err
 	}
 
-	u.Path = path.Join(apiVersion, endpoint)
+	u = u.JoinPath(apiVersion, endpoint)
+
+	if len(query) > 0 {
+		u.RawQuery = query.Encode()
+	}
 
 	return http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 }
