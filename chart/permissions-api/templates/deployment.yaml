@@ -45,8 +45,14 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
-            - name: PERMISSIONSAPI_SERVER_ADDRESS
+            - name: PERMISSIONSAPI_SERVER_LISTEN
               value: ":{{ include "permapi.listenPort" . }}"
+            - name: PERMISSIONSAPI_SERVER_SHUTDOWN_GRACE_PERIOD
+              value: "{{ .Values.config.server.shutdownGracePeriod }}"
+          {{- with .Values.config.server.trustedProxies }}
+            - name: PERMISSIONSAPI_SERVER_TRUSTED_PROXIES
+              value: "{{ join " " . }}"
+          {{- end }}
             - name: PERMISSIONSAPI_OIDC_ISSUER
               value: "{{ .Values.config.oidc.issuer }}"
             - name: PERMISSIONSAPI_OIDC_JWKSURI

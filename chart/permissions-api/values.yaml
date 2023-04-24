@@ -10,6 +10,13 @@ config:
   server:
     # port is the port that the permissions-api container should listen on
     port: 7602
+    # shutdownGracePeriod is the grace period allowed for in-flight requests to complete before the server is shutdown
+    shutdownGracePeriod: 5s
+    # trustedProxies is the ip/subnets to trust X-Forward-* headers from.
+    trustedProxies: []
+    # - "1.2.3.4"
+    # - "1.2.3.4/32"
+    # - "1.2.3.0/24"
   oidc:
     # issuer is the OIDC issuer to use when validating Bearer JWTs
     issuer: ""
