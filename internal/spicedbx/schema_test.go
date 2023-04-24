@@ -55,10 +55,42 @@ definition foo/client {}
 definition foo/role {
     relation tenant: foo/tenant
     relation subject: foo/user | foo/client
+
+    relation role_get_rel: foo/role#subject
+    relation role_update_rel: foo/role#subject
+    relation role_delete_rel: foo/role#subject
+
+    permission role_get = role_get_rel + tenant->role_get
+    permission role_update = role_update_rel + tenant->role_update
+    permission role_delete = role_delete_rel + tenant->role_delete
 }
 
 definition foo/tenant {
     relation tenant: foo/tenant
+
+    relation tenant_create_rel: foo/role#subject
+    relation tenant_get_rel: foo/role#subject
+    relation tenant_list_rel: foo/role#subject
+    relation tenant_update_rel: foo/role#subject
+    relation tenant_delete_rel: foo/role#subject
+
+    permission role_create = role_create_rel + tenant->role_create
+    permission role_get = role_get_rel + tenant->role_get
+    permission role_list = role_list_rel + tenant->role_list
+    permission role_update = role_update_rel + tenant->role_update
+    permission role_delete = role_delete_rel + tenant->role_delete
+
+    relation role_create_rel: foo/role#subject
+    relation role_get_rel: foo/role#subject
+    relation role_list_rel: foo/role#subject
+    relation role_update_rel: foo/role#subject
+    relation role_delete_rel: foo/role#subject
+
+    permission role_create = role_create_rel + tenant->role_create
+    permission role_get = role_get_rel + tenant->role_get
+    permission role_list = role_list_rel + tenant->role_list
+    permission role_update = role_update_rel + tenant->role_update
+    permission role_delete = role_delete_rel + tenant->role_delete
 
     relation loadbalancer_get_rel: foo/role#subject
 
