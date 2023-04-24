@@ -30,16 +30,20 @@ func TestSchema(t *testing.T) {
 	resourceTypes := []types.ResourceType{
 		{
 			Name: "loadbalancer",
+			Actions: []string{
+				"get",
+			},
 			TenantActions: []string{
 				"create",
-				"get",
 			},
 		},
 		{
 			Name: "port",
+			Actions: []string{
+				"get",
+			},
 			TenantActions: []string{
 				"create",
-				"get",
 			},
 		},
 	}
@@ -56,36 +60,36 @@ definition foo/role {
 definition foo/tenant {
     relation tenant: foo/tenant
 
-    relation loadbalancer_create_rel: foo/role#subject
     relation loadbalancer_get_rel: foo/role#subject
 
-    permission loadbalancer_create = loadbalancer_create_rel + tenant->loadbalancer_create
     permission loadbalancer_get = loadbalancer_get_rel + tenant->loadbalancer_get
 
-    relation port_create_rel: foo/role#subject
+    relation loadbalancer_create_rel: foo/role#subject
+
+    permission loadbalancer_create = loadbalancer_create_rel + tenant->loadbalancer_create
+
     relation port_get_rel: foo/role#subject
 
-    permission port_create = port_create_rel + tenant->port_create
     permission port_get = port_get_rel + tenant->port_get
+
+    relation port_create_rel: foo/role#subject
+
+    permission port_create = port_create_rel + tenant->port_create
 }
 
 definition foo/loadbalancer {
     relation tenant: foo/tenant
 
-    relation loadbalancer_create_rel: foo/role#subject
     relation loadbalancer_get_rel: foo/role#subject
 
-    permission loadbalancer_create = loadbalancer_create_rel + tenant->loadbalancer_create
     permission loadbalancer_get = loadbalancer_get_rel + tenant->loadbalancer_get
 }
 
 definition foo/port {
     relation tenant: foo/tenant
 
-    relation port_create_rel: foo/role#subject
     relation port_get_rel: foo/role#subject
 
-    permission port_create = port_create_rel + tenant->port_create
     permission port_get = port_get_rel + tenant->port_get
 }
 `

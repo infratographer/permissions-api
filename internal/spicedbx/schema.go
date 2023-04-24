@@ -23,6 +23,12 @@ definition {{$namespace}}/tenant {
     relation tenant: {{$namespace}}/tenant
 {{- range .ResourceTypes -}}
 {{$typeName := .Name}}
+{{range .Actions}}
+    relation {{$typeName}}_{{.}}_rel: {{$namespace}}/role#subject
+{{- end}}
+{{range .Actions}}
+    permission {{$typeName}}_{{.}} = {{$typeName}}_{{.}}_rel + tenant->{{$typeName}}_{{.}}
+{{- end}}
 {{range .TenantActions}}
     relation {{$typeName}}_{{.}}_rel: {{$namespace}}/role#subject
 {{- end}}
@@ -35,10 +41,10 @@ definition {{$namespace}}/tenant {
 {{$typeName := .Name}}
 definition {{$namespace}}/{{$typeName}} {
     relation tenant: {{$namespace}}/tenant
-{{range .TenantActions}}
+{{range .Actions}}
     relation {{$typeName}}_{{.}}_rel: {{$namespace}}/role#subject
 {{- end}}
-{{range .TenantActions}}
+{{range .Actions}}
     permission {{$typeName}}_{{.}} = {{$typeName}}_{{.}}_rel + tenant->{{$typeName}}_{{.}}
 {{- end}}
 }
@@ -74,12 +80,14 @@ func GeneratedSchema(namespace string) string {
 	resourceTypes := []types.ResourceType{
 		{
 			Name: "loadbalancer",
-			TenantActions: []string{
-				"create",
+			Actions: []string{
 				"get",
-				"list",
 				"update",
 				"delete",
+			},
+			TenantActions: []string{
+				"create",
+				"list",
 			},
 		},
 	}
