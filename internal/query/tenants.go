@@ -315,7 +315,7 @@ func (e *Engine) readRelationships(ctx context.Context, filter *pb.RelationshipF
 }
 
 func relationshipsToRoles(rels []*pb.Relationship) []types.Role {
-	var roles []types.Role
+	var roleIDs []uuid.UUID
 
 	roleMap := make(map[uuid.UUID]*types.Role)
 
@@ -324,20 +324,24 @@ func relationshipsToRoles(rels []*pb.Relationship) []types.Role {
 		roleID := uuid.MustParse(roleIDStr)
 		action := relationToAction(rel.Relation)
 
-		rolePtr, ok := roleMap[roleID]
+		_, ok := roleMap[roleID]
 		if !ok {
+			roleIDs = append(roleIDs, roleID)
 			role := types.Role{
 				ID: roleID,
 			}
-			roles = append(roles, role)
-			rolePtr = &roles[len(roles)-1]
-			roleMap[roleID] = rolePtr
+			roleMap[roleID] = &role
 		}
 
-		rolePtr.Actions = append(rolePtr.Actions, action)
+		roleMap[roleID].Actions = append(roleMap[roleID].Actions, action)
 	}
 
-	return roles
+	out := make([]types.Role, len(roleIDs))
+	for i, roleID := range roleIDs {
+		out[i] = *roleMap[roleID]
+	}
+
+	return out
 }
 
 func (e *Engine) relationshipsToNonRoles(rels []*pb.Relationship, res types.Resource) ([]types.Relationship, error) {
@@ -411,6 +415,24 @@ func (e *Engine) ListRoles(ctx context.Context, resource types.Resource, queryTo
 // GetResourceTypes returns the list of resource types.
 func GetResourceTypes() []types.ResourceType {
 	return []types.ResourceType{
+		{
+			Name: "loadbalancer",
+			Relationships: []types.ResourceTypeRelationship{
+				{
+					Name: "tenant",
+					Type: "tenant",
+				},
+			},
+		},
+		{
+			Name: "role",
+			Relationships: []types.ResourceTypeRelationship{
+				{
+					Name: "tenant",
+					Type: "tenant",
+				},
+			},
+		},
 		{
 			Name: "tenant",
 			Relationships: []types.ResourceTypeRelationship{

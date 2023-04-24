@@ -17,12 +17,51 @@ definition {{$namespace}}/client {}
 definition {{$namespace}}/role {
     relation tenant: {{$namespace}}/tenant
     relation subject: {{$namespace}}/user | {{$namespace}}/client
+
+    relation role_get_rel: {{$namespace}}/role#subject
+    relation role_update_rel: {{$namespace}}/role#subject
+    relation role_delete_rel: {{$namespace}}/role#subject
+
+    permission role_get = role_get_rel + tenant->role_get
+    permission role_update = role_update_rel + tenant->role_update
+    permission role_delete = role_delete_rel + tenant->role_delete
 }
 
 definition {{$namespace}}/tenant {
     relation tenant: {{$namespace}}/tenant
+
+    relation tenant_create_rel: {{$namespace}}/role#subject
+    relation tenant_get_rel: {{$namespace}}/role#subject
+    relation tenant_list_rel: {{$namespace}}/role#subject
+    relation tenant_update_rel: {{$namespace}}/role#subject
+    relation tenant_delete_rel: {{$namespace}}/role#subject
+
+    permission tenant_create = tenant_create_rel + tenant->tenant_create
+    permission tenant_get = tenant_get_rel + tenant->tenant_get
+    permission tenant_list = tenant_list_rel + tenant->tenant_list
+    permission tenant_update = tenant_update_rel + tenant->tenant_update
+    permission tenant_delete = tenant_delete_rel + tenant->tenant_delete
+
+    relation role_create_rel: {{$namespace}}/role#subject
+    relation role_get_rel: {{$namespace}}/role#subject
+    relation role_list_rel: {{$namespace}}/role#subject
+    relation role_update_rel: {{$namespace}}/role#subject
+    relation role_delete_rel: {{$namespace}}/role#subject
+
+    permission role_create = role_create_rel + tenant->role_create
+    permission role_get = role_get_rel + tenant->role_get
+    permission role_list = role_list_rel + tenant->role_list
+    permission role_update = role_update_rel + tenant->role_update
+    permission role_delete = role_delete_rel + tenant->role_delete
+
 {{- range .ResourceTypes -}}
 {{$typeName := .Name}}
+{{range .Actions}}
+    relation {{$typeName}}_{{.}}_rel: {{$namespace}}/role#subject
+{{- end}}
+{{range .Actions}}
+    permission {{$typeName}}_{{.}} = {{$typeName}}_{{.}}_rel + tenant->{{$typeName}}_{{.}}
+{{- end}}
 {{range .TenantActions}}
     relation {{$typeName}}_{{.}}_rel: {{$namespace}}/role#subject
 {{- end}}
@@ -35,10 +74,10 @@ definition {{$namespace}}/tenant {
 {{$typeName := .Name}}
 definition {{$namespace}}/{{$typeName}} {
     relation tenant: {{$namespace}}/tenant
-{{range .TenantActions}}
+{{range .Actions}}
     relation {{$typeName}}_{{.}}_rel: {{$namespace}}/role#subject
 {{- end}}
-{{range .TenantActions}}
+{{range .Actions}}
     permission {{$typeName}}_{{.}} = {{$typeName}}_{{.}}_rel + tenant->{{$typeName}}_{{.}}
 {{- end}}
 }
@@ -74,12 +113,14 @@ func GeneratedSchema(namespace string) string {
 	resourceTypes := []types.ResourceType{
 		{
 			Name: "loadbalancer",
-			TenantActions: []string{
-				"create",
+			Actions: []string{
 				"get",
-				"list",
 				"update",
 				"delete",
+			},
+			TenantActions: []string{
+				"create",
+				"list",
 			},
 		},
 	}

@@ -19,6 +19,9 @@ type ResourceTypeRelationship struct {
 type ResourceType struct {
 	Name          string
 	Relationships []ResourceTypeRelationship
+	// Actions represents actions that can be taken on the resource directly
+	Actions []string
+	// TenantActions represents actions that can be taken on the resource's tenant context
 	TenantActions []string
 }
 
