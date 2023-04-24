@@ -52,14 +52,14 @@ func serve(ctx context.Context, cfg *config.AppConfig) {
 
 	engine := query.NewEngine("infratographer", spiceClient)
 
-	srv := echox.NewServer(
+	srv, err := echox.NewServer(
 		logger.Desugar(),
-		echox.Config{
-			Listen:              viper.GetString("server.listen"),
-			ShutdownGracePeriod: viper.GetDuration("server.shutdown-grace-period"),
-		},
+		echox.ConfigFromViper(viper.GetViper()),
 		versionx.BuildDetails(),
 	)
+	if err != nil {
+		logger.Fatal("failed to initialize new server", zap.Error(err))
+	}
 
 	r, err := api.NewRouter(cfg.OIDC, engine, logger)
 	if err != nil {
