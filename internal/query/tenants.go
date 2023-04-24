@@ -412,6 +412,24 @@ func (e *Engine) ListRoles(ctx context.Context, resource types.Resource, queryTo
 func GetResourceTypes() []types.ResourceType {
 	return []types.ResourceType{
 		{
+			Name: "loadbalancer",
+			Relationships: []types.ResourceTypeRelationship{
+				{
+					Name: "tenant",
+					Type: "tenant",
+				},
+			},
+		},
+		{
+			Name: "role",
+			Relationships: []types.ResourceTypeRelationship{
+				{
+					Name: "tenant",
+					Type: "tenant",
+				},
+			},
+		},
+		{
 			Name: "tenant",
 			Relationships: []types.ResourceTypeRelationship{
 				{
