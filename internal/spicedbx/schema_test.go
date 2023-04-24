@@ -74,11 +74,11 @@ definition foo/tenant {
     relation tenant_update_rel: foo/role#subject
     relation tenant_delete_rel: foo/role#subject
 
-    permission role_create = role_create_rel + tenant->role_create
-    permission role_get = role_get_rel + tenant->role_get
-    permission role_list = role_list_rel + tenant->role_list
-    permission role_update = role_update_rel + tenant->role_update
-    permission role_delete = role_delete_rel + tenant->role_delete
+    permission tenant_create = tenant_create_rel + tenant->tenant_create
+    permission tenant_get = tenant_get_rel + tenant->tenant_get
+    permission tenant_list = tenant_list_rel + tenant->tenant_list
+    permission tenant_update = tenant_update_rel + tenant->tenant_update
+    permission tenant_delete = tenant_delete_rel + tenant->tenant_delete
 
     relation role_create_rel: foo/role#subject
     relation role_get_rel: foo/role#subject
