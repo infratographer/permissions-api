@@ -333,8 +333,7 @@ func relationshipsToRoles(rels []*pb.Relationship) []types.Role {
 			roleMap[roleID] = &role
 		}
 
-		actions := roleMap[roleID].Actions
-		roleMap[roleID].Actions = append(actions, action)
+		roleMap[roleID].Actions = append(roleMap[roleID].Actions, action)
 	}
 
 	out := make([]types.Role, len(roleIDs))
