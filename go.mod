@@ -92,3 +92,5 @@ require (
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace go.infratographer.com/x => github.com/mikemrm/infratographer-x v0.0.0-20230424202347-d153a4d0c90b
