@@ -56,7 +56,7 @@ As an example, consider the following lifecycle event for a resource of type `lo
   "actor_urn": "urn:infratographer:user:35464f0b-a7b4-47db-b446-01e61987db6c",
   "source": "loadbalancer-api",
   "timestamp": "2023-05-06T17:30:00Z",
-  "fields: {},
+  "fields": {},
   "additional_data": {}
 }
 ```
