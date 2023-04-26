@@ -18,13 +18,13 @@ permission-api expects lifecycle event messages in the format described in [`go.
 
 * `subject_urn`: The URN of the resource the event is about
 * `event_type`: The type of lifecyle event for the resouce. Must match one of the defined lifecycle events
-* `additional_subjects`: Resources related to the resource. These map to a relationship with both a relation and resource type that match the resource type in the URN
+* `fields`: Information related to the resource. A field's value will be persisted in permissions-api if the field is of the form `{foo}_urn` and a defined relationship exists on the resource with relation `{foo}`
 
 [pubsubx]: https://github.com/infratographer/x/blob/v0.0.7/pubsubx/message.go
 
 ### Subjects
 
-When listening for events, permissions-api subscribes to subjects of the form `{namespace}.{resource_type}.{lifecycle_event}`, where `namespace` is the configured namespace for resource types, `resource_type` is any resource type not directly managed by permissions-api (such as `role`), and `lifecycle_event` is one of the following defined lifecycle events.
+When listening for events, permissions-api subscribes to subjects of the form `{namespace}.{resource_type}.{lifecycle_event}`, where `namespace` is the configured namespace for resource types, `resource_type` is any resource type not directly managed by permissions-api, and `lifecycle_event` is one of the following defined lifecycle events.
 
 ### Lifecycle events
 
@@ -51,12 +51,16 @@ As an example, consider the following lifecycle event for a resource of type `lo
   "subject_urn": "urn:infratographer:loadbalancer:0e919c70-6d04-4050-a474-073ab8b58ffe",
   "event_type": "create",
   "additional_subjects": [
-    "urn:infratographer:tenant:42f0e8f2-4b81-4e5a-86f2-62d78ed35dca"
+    "urn:infratographer:tenant:42f0e8f2-4b81-4e5a-86f2-62d78ed35dca",
+    "urn:infratographer:loadbalancerport:db25eabd-30eb-4654-9bb6-a22c140eac97",
+    "urn:infratographer:loadbalancerassignment:44cadf84-c626-4428-8910-3a699a78b898"
   ],
   "actor_urn": "urn:infratographer:user:35464f0b-a7b4-47db-b446-01e61987db6c",
   "source": "loadbalancer-api",
   "timestamp": "2023-05-06T17:30:00Z",
-  "fields": {},
+  "fields": {
+    "tenant_urn": "urn:infratographer:tenant:42f0e8f2-4b81-4e5a-86f2-62d78ed35dca"
+  },
   "additional_data": {}
 }
 ```
