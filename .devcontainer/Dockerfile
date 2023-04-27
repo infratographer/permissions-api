@@ -23,15 +23,9 @@ RUN curl https://binaries.cockroachdb.com/cockroach-v22.1.8.linux-amd64.tgz | ta
 
 USER vscode
 
-# Add ~/.ssh for the vscode user so updating known_hosts works
-RUN mkdir --mode=700 /home/vscode/.ssh
+# Add ~/.ssh for the vscode user so updating known_hosts works and
+# add .devcontainer/.tools to PATH
+RUN mkdir --mode=700 /home/vscode/.ssh && \
+    echo 'export PATH="${PATH}:/workspace/.tools"' >> ~/.bashrc
 
 WORKDIR /workspace
-
-# [Optional] Uncomment the next lines to use go get to install anything else you need
-# USER vscode
-# RUN go get -x <your-dependency-or-tool>
-# USER root
-
-# [Optional] Uncomment this line to install global node packages.
-# RUN su vscode -c "source /usr/local/share/nvm/nvm.sh && npm install -g <your-package-here>" 2>&1

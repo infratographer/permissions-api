@@ -3,6 +3,7 @@ package cmd
 import (
 	"log"
 	"os"
+	"os/signal"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -20,6 +21,7 @@ var (
 	cfgFile   string
 	logger    *zap.SugaredLogger
 	globalCfg *config.AppConfig
+	sigCh     chan os.Signal
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -55,6 +57,10 @@ func init() {
 	viperx.MustBindFlag(viper.GetViper(), "spicedb.verifyca", rootCmd.PersistentFlags().Lookup("spicedb-verifyca"))
 	rootCmd.PersistentFlags().String("spicedb-prefix", "", "spicedb prefix")
 	viperx.MustBindFlag(viper.GetViper(), "spicedb.prefix", rootCmd.PersistentFlags().Lookup("spicedb-prefix"))
+
+	// Set up SIGINT listener
+	sigCh = make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt)
 }
 
 // initConfig reads in config file and ENV variables if set.

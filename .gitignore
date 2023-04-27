@@ -17,5 +17,9 @@
 # Emacs stuff
 *~
 
-# Ignore .tools dir
+# .tools dir
 .tools/
+
+# NATS dirs
+.devcontainer/nats/
+.devcontainer/nsc/

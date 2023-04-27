@@ -22,6 +22,8 @@ services:
     env_file:
       - .env
     volumes:
+      - ./nsc:/nsc
+      - ./nats:/nats
       - ..:/workspace:cached
 #      - type: bind
 #        source: ~/.ssh/authorized_keys
@@ -88,9 +90,30 @@ services:
     networks:
       - infradev
 
+  nats-init:
+    image: natsio/nats-box
+    environment:
+      - NSC_HOME=/nsc
+    volumes:
+      - ./nsc:/nsc
+      - ./nats:/nats
+      - ./scripts:/scripts
+    command:
+      - /scripts/nats_init.sh
+
   nats:
-    image: 'nats:2'
-    network_mode: service:app
+    image: 'nats:alpine'
+    depends_on:
+      - nats-init
+    command:
+      - -c
+      - '/etc/nats/nats-server.conf'
+      - -D
+    volumes:
+      - ./nats/:/etc/nats
+    restart: unless-stopped
+    networks:
+      - infradev
 
   jaeger:
     image: jaegertracing/all-in-one:1.44.0
