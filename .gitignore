@@ -21,5 +21,4 @@
 .tools/
 
 # NATS dirs
-.devcontainer/nats/
 .devcontainer/nsc/
