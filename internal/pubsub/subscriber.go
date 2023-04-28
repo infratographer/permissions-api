@@ -20,7 +20,11 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-var tracer = otel.Tracer("go.infratographer.com/permissions-api/internal/pubsub")
+var (
+	tracer = otel.Tracer("go.infratographer.com/permissions-api/internal/pubsub")
+
+	errUnknownEvent = errors.New("unknown event")
+)
 
 const (
 	drainTimeout = 1 * time.Second
@@ -270,9 +274,14 @@ func (c *Client) handleUpdateEvent(ctx context.Context, msg *nats.Msg, payload p
 }
 
 func (c *Client) handleUnknownEvent(ctx context.Context, msg *nats.Msg, payload pubsubx.Message) error {
-	c.logger.Warnw("unknown event - will not reprocess", payload.EventType)
+	c.logger.Warnw("unknown event - will not reprocess", "event_type", payload.EventType)
 
-	return msg.Term()
+	err := msg.Term()
+	if err != nil {
+		return err
+	}
+
+	return errUnknownEvent
 }
 
 func (c *Client) receiveMsg(msg *nats.Msg) {
