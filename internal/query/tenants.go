@@ -237,7 +237,7 @@ func (e *Engine) roleRelationships(role types.Role, resource types.Resource) []*
 
 	for _, action := range role.Actions {
 		rels = append(rels, &pb.RelationshipUpdate{
-			Operation: pb.RelationshipUpdate_OPERATION_CREATE,
+			Operation: pb.RelationshipUpdate_OPERATION_TOUCH,
 			Relationship: &pb.Relationship{
 				Resource: resourceRef,
 				Relation: actionToRelation(action),
@@ -260,7 +260,7 @@ func (e *Engine) relationshipsToUpdates(rels []types.Relationship) []*pb.Relatio
 		resRef := resourceToSpiceDBRef(e.namespace, rel.Resource)
 
 		relUpdates[i] = &pb.RelationshipUpdate{
-			Operation: pb.RelationshipUpdate_OPERATION_CREATE,
+			Operation: pb.RelationshipUpdate_OPERATION_TOUCH,
 			Relationship: &pb.Relationship{
 				Resource: resRef,
 				Relation: rel.Relation,
@@ -312,6 +312,31 @@ func (e *Engine) readRelationships(ctx context.Context, filter *pb.RelationshipF
 	}
 
 	return responses, nil
+}
+
+// DeleteRelationships deletes all relationships originating from the given resource.
+func (e *Engine) DeleteRelationships(ctx context.Context, resource types.Resource) (string, error) {
+	resType := e.namespace + "/" + resource.Type
+
+	filter := &pb.RelationshipFilter{
+		ResourceType:       resType,
+		OptionalResourceId: resource.ID.String(),
+	}
+
+	return e.deleteRelationships(ctx, filter)
+}
+
+func (e *Engine) deleteRelationships(ctx context.Context, filter *pb.RelationshipFilter) (string, error) {
+	request := &pb.DeleteRelationshipsRequest{
+		RelationshipFilter: filter,
+	}
+	r, err := e.client.DeleteRelationships(ctx, request)
+
+	if err != nil {
+		return "", err
+	}
+
+	return r.DeletedAt.GetToken(), nil
 }
 
 func relationshipsToRoles(rels []*pb.Relationship) []types.Role {

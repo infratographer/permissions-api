@@ -218,12 +218,17 @@ func (c *Client) createRelationships(ctx context.Context, msg *nats.Msg, resourc
 		return msg.Nak()
 	}
 
-	return msg.Ack()
+	return nil
 }
 
 func (c *Client) deleteRelationships(ctx context.Context, msg *nats.Msg, resource types.Resource) error {
-	c.logger.Errorw("not supported")
-	return msg.Term()
+	_, err := c.qe.DeleteRelationships(ctx, resource)
+	if err != nil {
+		c.logger.Errorw("error deleting relationships - will reprocess", "error", err.Error())
+		return msg.Term()
+	}
+
+	return nil
 }
 
 func (c *Client) handleCreateEvent(ctx context.Context, msg *nats.Msg, payload pubsubx.Message) error {
@@ -312,6 +317,12 @@ func (c *Client) receiveMsg(msg *nats.Msg) {
 
 	if err != nil {
 		c.logger.Errorw("error handling message", "error", err.Error())
+		return
+	}
+
+	err = msg.Ack()
+	if err != nil {
+		c.logger.Errorw("error acking message", "error", err.Error())
 		return
 	}
 
