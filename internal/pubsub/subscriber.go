@@ -1,21 +1,35 @@
 package pubsub
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.infratographer.com/permissions-api/internal/query"
+	"go.infratographer.com/permissions-api/internal/types"
 	"go.infratographer.com/x/pubsubx"
 	"go.infratographer.com/x/urnx"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 
 	"github.com/nats-io/nats.go"
 )
 
+var tracer = otel.Tracer("go.infratographer.com/permissions-api/internal/pubsub")
+
 const (
 	drainTimeout = 1 * time.Second
+
+	eventTypeCreate = "create"
+	eventTypeUpdate = "update"
+	eventTypeDelete = "delete"
+
+	fieldRelationshipSuffix = "_urn"
 )
 
 // Client represents a NATS JetStream client listening for resource lifecycle events.
@@ -163,7 +177,103 @@ func (c *Client) termMsg(msg *nats.Msg, err error) {
 	}
 }
 
+func (c *Client) newResourceFromString(urnStr string) (types.Resource, error) {
+	urn, err := urnx.Parse(urnStr)
+	if err != nil {
+		return types.Resource{}, err
+	}
+
+	return c.qe.NewResourceFromURN(urn)
+}
+
+func (c *Client) createRelationships(ctx context.Context, msg *nats.Msg, resource types.Resource, fields map[string]string) error {
+	var relationships []types.Relationship
+
+	// Attempt to create relationships from the message fields. If this fails, reject the message
+	for field, value := range fields {
+		relation, found := strings.CutSuffix(field, fieldRelationshipSuffix)
+		if !found {
+			continue
+		}
+
+		subjResource, err := c.newResourceFromString(value)
+		if err != nil {
+			c.logger.Errorw("error parsing field - will not reprocess", "event_type", eventTypeCreate, "field", field, "error", err.Error())
+			return msg.Term()
+		}
+
+		relationship := types.Relationship{
+			Resource: resource,
+			Relation: relation,
+			Subject:  subjResource,
+		}
+
+		relationships = append(relationships, relationship)
+	}
+
+	// Attempt to create the relationships in SpiceDB. If this fails, nak the message for reprocessing
+	_, err := c.qe.CreateRelationships(ctx, relationships)
+	if err != nil {
+		c.logger.Errorw("error creating relationships - will reprocess", "error", err.Error())
+		return msg.Nak()
+	}
+
+	return msg.Ack()
+}
+
+func (c *Client) deleteRelationships(ctx context.Context, msg *nats.Msg, resource types.Resource) error {
+	c.logger.Errorw("not supported")
+	return msg.Term()
+}
+
+func (c *Client) handleCreateEvent(ctx context.Context, msg *nats.Msg, payload pubsubx.Message) error {
+	// Attempt to create a valid resource from the URN string. If this fails, reject the message
+	resource, err := c.newResourceFromString(payload.SubjectURN)
+	if err != nil {
+		c.logger.Warnw("error parsing subject URN - will not reprocess", "event_type", eventTypeCreate, "error", err.Error())
+		return msg.Term()
+	}
+
+	return c.createRelationships(ctx, msg, resource, payload.SubjectFields)
+}
+
+func (c *Client) handleDeleteEvent(ctx context.Context, msg *nats.Msg, payload pubsubx.Message) error {
+	// Attempt to create a valid resource from the URN string. If this fails, reject the message
+	resource, err := c.newResourceFromString(payload.SubjectURN)
+	if err != nil {
+		c.logger.Warnw("error parsing subject URN - will not reprocess", "event_type", eventTypeDelete, "error", err.Error())
+		return msg.Term()
+	}
+
+	return c.deleteRelationships(ctx, msg, resource)
+}
+
+func (c *Client) handleUpdateEvent(ctx context.Context, msg *nats.Msg, payload pubsubx.Message) error {
+	// Attempt to create a valid resource from the URN string. If this fails, reject the message
+	resource, err := c.newResourceFromString(payload.SubjectURN)
+	if err != nil {
+		c.logger.Warnw("error parsing subject URN - will not reprocess", "event_type", eventTypeUpdate, "error", err.Error())
+		return msg.Term()
+	}
+
+	err = c.deleteRelationships(ctx, msg, resource)
+	if err != nil {
+		return err
+	}
+
+	return c.createRelationships(ctx, msg, resource, payload.SubjectFields)
+}
+
+func (c *Client) handleUnknownEvent(ctx context.Context, msg *nats.Msg, payload pubsubx.Message) error {
+	c.logger.Warnw("unknown event - will not reprocess", payload.EventType)
+
+	return msg.Term()
+}
+
 func (c *Client) receiveMsg(msg *nats.Msg) {
+	ctx, span := tracer.Start(context.Background(), "pubsub.receive", trace.WithAttributes(attribute.String("pubsub.subject", msg.Subject)))
+	defer span.End()
+
 	var payload pubsubx.Message
 
 	err := json.Unmarshal(msg.Data, &payload)
@@ -189,8 +299,21 @@ func (c *Client) receiveMsg(msg *nats.Msg) {
 
 	c.logger.Infow("received message", "resource_type", resource.Type, "resource_id", resource.ID.String(), "event", payload.EventType)
 
-	err = msg.Ack()
-	if err != nil {
-		c.logger.Errorw("error acking message", "error", err.Error())
+	switch payload.EventType {
+	case eventTypeCreate:
+		err = c.handleCreateEvent(ctx, msg, payload)
+	case eventTypeUpdate:
+		err = c.handleUpdateEvent(ctx, msg, payload)
+	case eventTypeDelete:
+		err = c.handleDeleteEvent(ctx, msg, payload)
+	default:
+		err = c.handleUnknownEvent(ctx, msg, payload)
 	}
+
+	if err != nil {
+		c.logger.Errorw("error handling message", "error", err.Error())
+		return
+	}
+
+	c.logger.Infow("successfully handled message", "resource_type", resource.Type, "resource_id", resource.ID.String(), "event", payload.EventType)
 }
