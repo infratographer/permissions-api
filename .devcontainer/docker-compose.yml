@@ -93,7 +93,7 @@ services:
     network_mode: service:app
 
   jaeger:
-    image: jaegertracing/all-in-one:1.44.0
+    image: jaegertracing/all-in-one:1.45.0
     network_mode: service:app
 
   mock-oauth2-server:
