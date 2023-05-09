@@ -81,7 +81,7 @@ func spiceDBRefToResource(namespace string, ref *pb.ObjectReference) (types.Reso
 }
 
 // SubjectHasPermission checks if the given subject can do the given action on the given resource
-func (e *Engine) SubjectHasPermission(ctx context.Context, subject types.Resource, action string, resource types.Resource, queryToken string) error {
+func (e *engine) SubjectHasPermission(ctx context.Context, subject types.Resource, action string, resource types.Resource, queryToken string) error {
 	req := &pb.CheckPermissionRequest{
 		Resource:   resourceToSpiceDBRef(e.namespace, resource),
 		Permission: action,
@@ -94,7 +94,7 @@ func (e *Engine) SubjectHasPermission(ctx context.Context, subject types.Resourc
 }
 
 // AssignSubjectRole assigns the given role to the given subject.
-func (e *Engine) AssignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) (string, error) {
+func (e *engine) AssignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) (string, error) {
 	request := &pb.WriteRelationshipsRequest{
 		Updates: []*pb.RelationshipUpdate{
 			e.subjectRoleRel(subject, role),
@@ -110,7 +110,7 @@ func (e *Engine) AssignSubjectRole(ctx context.Context, subject types.Resource, 
 }
 
 // ListAssignments returns the assigned subjects for a given role.
-func (e *Engine) ListAssignments(ctx context.Context, role types.Role, queryToken string) ([]types.Resource, error) {
+func (e *engine) ListAssignments(ctx context.Context, role types.Role, queryToken string) ([]types.Resource, error) {
 	roleType := e.namespace + "/role"
 	filter := &pb.RelationshipFilter{
 		ResourceType:       roleType,
@@ -137,7 +137,7 @@ func (e *Engine) ListAssignments(ctx context.Context, role types.Role, queryToke
 	return out, nil
 }
 
-func (e *Engine) subjectRoleRel(subject types.Resource, role types.Role) *pb.RelationshipUpdate {
+func (e *engine) subjectRoleRel(subject types.Resource, role types.Role) *pb.RelationshipUpdate {
 	roleResource := types.Resource{
 		Type: "role",
 		ID:   role.ID,
@@ -155,7 +155,7 @@ func (e *Engine) subjectRoleRel(subject types.Resource, role types.Role) *pb.Rel
 	}
 }
 
-func (e *Engine) checkPermission(ctx context.Context, req *pb.CheckPermissionRequest, queryToken string) error {
+func (e *engine) checkPermission(ctx context.Context, req *pb.CheckPermissionRequest, queryToken string) error {
 	if queryToken != "" {
 		req.Consistency = &pb.Consistency{Requirement: &pb.Consistency_AtLeastAsFresh{AtLeastAsFresh: &pb.ZedToken{Token: queryToken}}}
 	}
@@ -173,7 +173,7 @@ func (e *Engine) checkPermission(ctx context.Context, req *pb.CheckPermissionReq
 }
 
 // CreateRelationships atomically creates the given relationships in SpiceDB.
-func (e *Engine) CreateRelationships(ctx context.Context, rels []types.Relationship) (string, error) {
+func (e *engine) CreateRelationships(ctx context.Context, rels []types.Relationship) (string, error) {
 	for _, rel := range rels {
 		err := validateRelationship(rel)
 		if err != nil {
@@ -196,7 +196,7 @@ func (e *Engine) CreateRelationships(ctx context.Context, rels []types.Relations
 }
 
 // CreateRole creates a role scoped to the given resource with the given actions.
-func (e *Engine) CreateRole(ctx context.Context, res types.Resource, actions []string) (types.Role, string, error) {
+func (e *engine) CreateRole(ctx context.Context, res types.Resource, actions []string) (types.Role, string, error) {
 	role := newRole(actions)
 	roleRels := e.roleRelationships(role, res)
 
@@ -224,7 +224,7 @@ func relationToAction(relation string) string {
 	return action
 }
 
-func (e *Engine) roleRelationships(role types.Role, resource types.Resource) []*pb.RelationshipUpdate {
+func (e *engine) roleRelationships(role types.Role, resource types.Resource) []*pb.RelationshipUpdate {
 	var rels []*pb.RelationshipUpdate
 
 	roleResource := types.Resource{
@@ -252,7 +252,7 @@ func (e *Engine) roleRelationships(role types.Role, resource types.Resource) []*
 	return rels
 }
 
-func (e *Engine) relationshipsToUpdates(rels []types.Relationship) []*pb.RelationshipUpdate {
+func (e *engine) relationshipsToUpdates(rels []types.Relationship) []*pb.RelationshipUpdate {
 	relUpdates := make([]*pb.RelationshipUpdate, len(rels))
 
 	for i, rel := range rels {
@@ -274,7 +274,7 @@ func (e *Engine) relationshipsToUpdates(rels []types.Relationship) []*pb.Relatio
 	return relUpdates
 }
 
-func (e *Engine) readRelationships(ctx context.Context, filter *pb.RelationshipFilter, queryToken string) ([]*pb.Relationship, error) {
+func (e *engine) readRelationships(ctx context.Context, filter *pb.RelationshipFilter, queryToken string) ([]*pb.Relationship, error) {
 	var req pb.ReadRelationshipsRequest
 
 	if queryToken != "" {
@@ -315,7 +315,7 @@ func (e *Engine) readRelationships(ctx context.Context, filter *pb.RelationshipF
 }
 
 // DeleteRelationships deletes all relationships originating from the given resource.
-func (e *Engine) DeleteRelationships(ctx context.Context, resource types.Resource) (string, error) {
+func (e *engine) DeleteRelationships(ctx context.Context, resource types.Resource) (string, error) {
 	resType := e.namespace + "/" + resource.Type
 
 	filter := &pb.RelationshipFilter{
@@ -326,7 +326,7 @@ func (e *Engine) DeleteRelationships(ctx context.Context, resource types.Resourc
 	return e.deleteRelationships(ctx, filter)
 }
 
-func (e *Engine) deleteRelationships(ctx context.Context, filter *pb.RelationshipFilter) (string, error) {
+func (e *engine) deleteRelationships(ctx context.Context, filter *pb.RelationshipFilter) (string, error) {
 	request := &pb.DeleteRelationshipsRequest{
 		RelationshipFilter: filter,
 	}
@@ -369,7 +369,7 @@ func relationshipsToRoles(rels []*pb.Relationship) []types.Role {
 	return out
 }
 
-func (e *Engine) relationshipsToNonRoles(rels []*pb.Relationship, res types.Resource) ([]types.Relationship, error) {
+func (e *engine) relationshipsToNonRoles(rels []*pb.Relationship, res types.Resource) ([]types.Relationship, error) {
 	var out []types.Relationship
 
 	for _, rel := range rels {
@@ -395,7 +395,7 @@ func (e *Engine) relationshipsToNonRoles(rels []*pb.Relationship, res types.Reso
 }
 
 // ListRelationships returns all non-role relationships bound to a given resource.
-func (e *Engine) ListRelationships(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error) {
+func (e *engine) ListRelationships(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error) {
 	resType := e.namespace + "/" + resource.Type
 
 	filter := &pb.RelationshipFilter{
@@ -412,7 +412,7 @@ func (e *Engine) ListRelationships(ctx context.Context, resource types.Resource,
 }
 
 // ListRoles returns all roles bound to a given resource.
-func (e *Engine) ListRoles(ctx context.Context, resource types.Resource, queryToken string) ([]types.Role, error) {
+func (e *engine) ListRoles(ctx context.Context, resource types.Resource, queryToken string) ([]types.Role, error) {
 	resType := e.namespace + "/" + resource.Type
 	roleType := e.namespace + "/role"
 
@@ -477,7 +477,7 @@ func GetResourceTypes() []types.ResourceType {
 }
 
 // NewResourceFromURN returns a new resource struct from a given urn
-func (e *Engine) NewResourceFromURN(urn *urnx.URN) (types.Resource, error) {
+func (e *engine) NewResourceFromURN(urn *urnx.URN) (types.Resource, error) {
 	if urn.Namespace != e.namespace {
 		return types.Resource{}, errorInvalidNamespace
 	}
@@ -491,6 +491,6 @@ func (e *Engine) NewResourceFromURN(urn *urnx.URN) (types.Resource, error) {
 }
 
 // NewURNFromResource creates a new URN namespaced to the given engine from the given resource.
-func (e *Engine) NewURNFromResource(res types.Resource) (*urnx.URN, error) {
+func (e *engine) NewURNFromResource(res types.Resource) (*urnx.URN, error) {
 	return urnx.Build(e.namespace, res.Type, res.ID)
 }

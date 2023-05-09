@@ -16,7 +16,7 @@ import (
 	"go.infratographer.com/x/urnx"
 )
 
-func testEngine(ctx context.Context, t *testing.T, namespace string) *Engine {
+func testEngine(ctx context.Context, t *testing.T, namespace string) Engine {
 	config := spicedbx.Config{
 		Endpoint: "spicedb:50051",
 		Key:      "infradev",

@@ -19,7 +19,7 @@ type TestResult[U any] struct {
 type TestCase[T, U any] struct {
 	Name      string
 	Input     T
-	SetupFn   func(context.Context) context.Context
+	SetupFn   func(context.Context, *testing.T) context.Context
 	CheckFn   func(context.Context, *testing.T, TestResult[U])
 	CleanupFn func(context.Context)
 }
@@ -36,7 +36,7 @@ func RunTests[T, U any](ctx context.Context, t *testing.T, cases []TestCase[T, U
 			ctx := ctx
 
 			if testCase.SetupFn != nil {
-				ctx = testCase.SetupFn(ctx)
+				ctx = testCase.SetupFn(ctx, t)
 			}
 
 			if testCase.CleanupFn != nil {

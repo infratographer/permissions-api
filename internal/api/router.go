@@ -17,12 +17,12 @@ var tracer = otel.Tracer("go.infratographer.com/permissions-api/internal/api")
 // Router provides a router for the API
 type Router struct {
 	authMW echo.MiddlewareFunc
-	engine *query.Engine
+	engine query.Engine
 	logger *zap.SugaredLogger
 }
 
 // NewRouter returns a new api router
-func NewRouter(authCfg echojwtx.AuthConfig, engine *query.Engine, l *zap.SugaredLogger) (*Router, error) {
+func NewRouter(authCfg echojwtx.AuthConfig, engine query.Engine, l *zap.SugaredLogger) (*Router, error) {
 	// Ensure auth is skipped for default endpoints.
 	authCfg.JWTConfig.Skipper = echox.SkipDefaultEndpoints
 

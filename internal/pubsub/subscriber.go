@@ -42,10 +42,11 @@ type Client struct {
 	nc                *nats.Conn
 	js                nats.JetStreamContext
 	stream            string
+	consumer          string
 	prefix            string
 	subscriptions     []*nats.Subscription
 	resourceTypeNames []string
-	qe                *query.Engine
+	qe                query.Engine
 }
 
 // ClientOpt represents a non-config setting for a client.
@@ -66,14 +67,24 @@ func WithResourceTypeNames(typeNames []string) ClientOpt {
 }
 
 // WithQueryEngine sets the query engine for the client.
-func WithQueryEngine(e *query.Engine) ClientOpt {
+func WithQueryEngine(e query.Engine) ClientOpt {
 	return func(c *Client) {
 		c.qe = e
 	}
 }
 
-// NewClient creates a new pubsub client.
-func NewClient(cfg Config, opts ...ClientOpt) (*Client, error) {
+// WithConn reuses a NATS connection for the client instead of creating one in NewClient.
+func WithConn(nc *nats.Conn) ClientOpt {
+	return func(c *Client) {
+		c.nc = nc
+	}
+}
+
+func defaultLogger() *zap.SugaredLogger {
+	return zap.NewNop().Sugar()
+}
+
+func defaultConn(cfg Config) (*nats.Conn, error) {
 	natsOpts := []nats.Option{
 		nats.Name(cfg.Name),
 		nats.UserCredentials(cfg.Credentials),
@@ -85,23 +96,43 @@ func NewClient(cfg Config, opts ...ClientOpt) (*Client, error) {
 		return nil, err
 	}
 
-	js, err := nc.JetStream()
+	return nc, nil
+}
+
+// NewClient creates a new pubsub client.
+func NewClient(cfg Config, opts ...ClientOpt) (*Client, error) {
+	var c Client
+
+	for _, opt := range opts {
+		opt(&c)
+	}
+
+	// If we don't have an existing NATS connection, create one
+	if c.nc == nil {
+		nc, err := defaultConn(cfg)
+		if err != nil {
+			return nil, err
+		}
+
+		c.nc = nc
+	}
+
+	// If we don't have a logger, use a nop logger.
+	if c.logger == nil {
+		c.logger = defaultLogger()
+	}
+
+	js, err := c.nc.JetStream()
 	if err != nil {
 		return nil, err
 	}
 
-	c := &Client{
-		nc:     nc,
-		js:     js,
-		stream: cfg.Stream,
-		prefix: cfg.Prefix,
-	}
+	c.js = js
+	c.stream = cfg.Stream
+	c.consumer = cfg.Consumer
+	c.prefix = cfg.Prefix
 
-	for _, opt := range opts {
-		opt(c)
-	}
-
-	return c, nil
+	return &c, nil
 }
 
 func (c *Client) ensureStream() error {
@@ -142,12 +173,14 @@ func (c *Client) Listen() error {
 	// persisting the event
 	subOpts := []nats.SubOpt{
 		nats.BindStream(c.stream),
+		nats.Durable(c.consumer),
 		nats.ManualAck(),
+		nats.AckExplicit(),
 	}
 
 	for _, name := range c.resourceTypeNames {
 		subject := fmt.Sprintf("%s.%s.>", c.prefix, name)
-		queueName := fmt.Sprintf("permissions-api-worker-%s", name)
+		queueName := fmt.Sprintf("%s-%s", c.consumer, name)
 
 		subscription, err := c.js.QueueSubscribe(subject, queueName, c.receiveMsg, subOpts...)
 		if err != nil {
