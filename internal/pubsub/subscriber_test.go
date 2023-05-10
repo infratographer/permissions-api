@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"sync"
 	"testing"
 	"time"
@@ -80,7 +81,7 @@ func newNATSConn(t *testing.T, addr, name string) *nats.Conn {
 	return nc
 }
 
-func setupClient(t *testing.T, engine mock.MockEngine, addr, testName string) *Client {
+func setupClient(t *testing.T, engine *mock.Engine, addr, testName string) *Client {
 	// Create a new NATS connection
 	subConn := newNATSConn(t, addr, testName)
 
@@ -100,7 +101,7 @@ func setupClient(t *testing.T, engine mock.MockEngine, addr, testName string) *C
 				"loadbalancer",
 			},
 		),
-		WithQueryEngine(&engine),
+		WithQueryEngine(engine),
 	)
 
 	require.NoError(t, err)
@@ -119,7 +120,7 @@ func setupClient(t *testing.T, engine mock.MockEngine, addr, testName string) *C
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		client.Stop()
+		client.Stop() //nolint:errcheck
 	})
 
 	return client
@@ -132,18 +133,32 @@ func waitForAck(nc *nats.Conn, client *Client, timeout time.Duration) error {
 
 	// We should only ever receive one Ack, so we close the channel directly if we get one.
 	ackCh := make(chan struct{})
-	nc.Subscribe(ackSubject, func(m *nats.Msg) {
+	ackSub, err := nc.Subscribe(ackSubject, func(m *nats.Msg) {
 		close(ackCh)
 	})
 
+	defer ackSub.Unsubscribe() //nolint:errcheck
+
+	if err != nil {
+		return err
+	}
+
 	// We may receive many Naks in a single test, so we use a sync.Once to close the channel.
 	nakCh := make(chan struct{})
+
 	var nakOnce sync.Once
-	nc.Subscribe(nakSubject, func(m *nats.Msg) {
+
+	nakSub, err := nc.Subscribe(nakSubject, func(m *nats.Msg) {
 		nakOnce.Do(func() {
 			close(nakCh)
 		})
 	})
+
+	if err != nil {
+		return err
+	}
+
+	defer nakSub.Unsubscribe() //nolint:errcheck
 
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
@@ -162,14 +177,6 @@ func contextWithPublisher(ctx context.Context, t *testing.T, addr string) contex
 	pubConn := newNATSConn(t, addr, "publisher")
 
 	return context.WithValue(ctx, contextKeyPublisher, pubConn)
-}
-
-func makeClientSetupFn(addr, testName string) func(context.Context, *testing.T) context.Context {
-	return func(ctx context.Context, t *testing.T) context.Context {
-		client := setupClient(t, mock.MockEngine{}, addr, testName)
-
-		return context.WithValue(ctx, contextKeyClient, client)
-	}
 }
 
 func getContextPublisher(ctx context.Context) *nats.Conn {
@@ -213,17 +220,17 @@ func TestNATS(t *testing.T) {
 			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
 				ctx = contextWithPublisher(ctx, t, addr)
 
-				var engine mock.MockEngine
+				var engine mock.Engine
 				engine.On("CreateRelationships").Return("", nil)
 
-				client := setupClient(t, engine, addr, "goodcreate")
+				client := setupClient(t, &engine, addr, "goodcreate")
 
 				return context.WithValue(ctx, contextKeyClient, client)
 			},
 			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[*Client]) {
 				require.NoError(t, result.Err)
 
-				engine := result.Success.qe.(*mock.MockEngine)
+				engine := result.Success.qe.(*mock.Engine)
 				engine.AssertExpectations(t)
 			},
 		},
@@ -236,10 +243,10 @@ func TestNATS(t *testing.T) {
 			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
 				ctx = contextWithPublisher(ctx, t, addr)
 
-				var engine mock.MockEngine
-				engine.On("CreateRelationships").Return("", errors.New("eep!"))
+				var engine mock.Engine
+				engine.On("CreateRelationships").Return("", io.ErrUnexpectedEOF)
 
-				client := setupClient(t, engine, addr, "errcreate")
+				client := setupClient(t, &engine, addr, "errcreate")
 
 				return context.WithValue(ctx, contextKeyClient, client)
 			},
@@ -256,18 +263,18 @@ func TestNATS(t *testing.T) {
 			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
 				ctx = contextWithPublisher(ctx, t, addr)
 
-				var engine mock.MockEngine
+				var engine mock.Engine
 				engine.On("DeleteRelationships").Return("", nil)
 				engine.On("CreateRelationships").Return("", nil)
 
-				client := setupClient(t, engine, addr, "goodupdate")
+				client := setupClient(t, &engine, addr, "goodupdate")
 
 				return context.WithValue(ctx, contextKeyClient, client)
 			},
 			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[*Client]) {
 				require.NoError(t, result.Err)
 
-				engine := result.Success.qe.(*mock.MockEngine)
+				engine := result.Success.qe.(*mock.Engine)
 				engine.AssertExpectations(t)
 			},
 		},
@@ -280,18 +287,18 @@ func TestNATS(t *testing.T) {
 			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
 				ctx = contextWithPublisher(ctx, t, addr)
 
-				var engine mock.MockEngine
+				var engine mock.Engine
 				engine.Namespace = "gooddelete"
 				engine.On("DeleteRelationships").Return("", nil)
 
-				client := setupClient(t, engine, addr, "gooddelete")
+				client := setupClient(t, &engine, addr, "gooddelete")
 
 				return context.WithValue(ctx, contextKeyClient, client)
 			},
 			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[*Client]) {
 				require.NoError(t, result.Err)
 
-				engine := result.Success.qe.(*mock.MockEngine)
+				engine := result.Success.qe.(*mock.Engine)
 				engine.AssertExpectations(t)
 			},
 		},
@@ -304,9 +311,9 @@ func TestNATS(t *testing.T) {
 			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
 				ctx = contextWithPublisher(ctx, t, addr)
 
-				var engine mock.MockEngine
+				var engine mock.Engine
 
-				client := setupClient(t, engine, addr, "badresource")
+				client := setupClient(t, &engine, addr, "badresource")
 
 				return context.WithValue(ctx, contextKeyClient, client)
 			},
