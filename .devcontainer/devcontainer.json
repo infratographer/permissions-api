@@ -34,7 +34,6 @@
 		"PATH": "${containerEnv:PATH}:/home/vscode/.nsccli/bin"
 	},
 	"features": {
-		"ghcr.io/devcontainers/features/sshd:1": {},
-		"git": "latest"
+		"ghcr.io/devcontainers/features/sshd:1": {}
 	}
 }

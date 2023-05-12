@@ -7,6 +7,7 @@ import (
 	"go.infratographer.com/x/loggingx"
 	"go.infratographer.com/x/otelx"
 
+	"go.infratographer.com/permissions-api/internal/pubsub"
 	"go.infratographer.com/permissions-api/internal/spicedbx"
 )
 
@@ -17,4 +18,5 @@ type AppConfig struct {
 	Server  echox.Config
 	SpiceDB spicedbx.Config
 	Tracing otelx.Config
+	PubSub  pubsub.Config
 }
