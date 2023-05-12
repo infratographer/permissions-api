@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -58,9 +59,9 @@ func init() {
 	rootCmd.PersistentFlags().String("spicedb-prefix", "", "spicedb prefix")
 	viperx.MustBindFlag(viper.GetViper(), "spicedb.prefix", rootCmd.PersistentFlags().Lookup("spicedb-prefix"))
 
-	// Set up SIGINT listener
+	// Set up SIGINT/SIGTERM listener
 	sigCh = make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 }
 
 // initConfig reads in config file and ENV variables if set.

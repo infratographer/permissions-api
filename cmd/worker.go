@@ -80,7 +80,9 @@ func worker(ctx context.Context, cfg *config.AppConfig) {
 	}
 
 	// Wait until we're told to stop
-	<-sigCh
+	sig := <-sigCh
+
+	logger.Infof("received %s signal, stopping", sig)
 
 	err = client.Stop()
 	if err != nil {
