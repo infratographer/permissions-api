@@ -22,8 +22,6 @@ import (
 
 var (
 	tracer = otel.Tracer("go.infratographer.com/permissions-api/internal/pubsub")
-
-	errUnknownEvent = errors.New("unknown event")
 )
 
 const (
@@ -238,8 +236,8 @@ func (c *Client) createRelationships(ctx context.Context, msg *nats.Msg, resourc
 
 		subjResource, err := c.newResourceFromString(value)
 		if err != nil {
-			c.logger.Errorw("error parsing field - will not reprocess", "event_type", eventTypeCreate, "field", field, "error", err.Error())
-			return msg.Ack()
+			c.logger.Warnw("error parsing field - will not reprocess", "event_type", eventTypeCreate, "field", field, "error", err.Error())
+			return nil
 		}
 
 		relationship := types.Relationship{
@@ -255,7 +253,7 @@ func (c *Client) createRelationships(ctx context.Context, msg *nats.Msg, resourc
 	_, err := c.qe.CreateRelationships(ctx, relationships)
 	if err != nil {
 		c.logger.Errorw("error creating relationships - will reprocess", "error", err.Error())
-		return msg.Nak()
+		return err
 	}
 
 	return nil
@@ -265,7 +263,7 @@ func (c *Client) deleteRelationships(ctx context.Context, msg *nats.Msg, resourc
 	_, err := c.qe.DeleteRelationships(ctx, resource)
 	if err != nil {
 		c.logger.Errorw("error deleting relationships - will reprocess", "error", err.Error())
-		return msg.Nak()
+		return err
 	}
 
 	return nil
@@ -276,7 +274,7 @@ func (c *Client) handleCreateEvent(ctx context.Context, msg *nats.Msg, payload p
 	resource, err := c.newResourceFromString(payload.SubjectURN)
 	if err != nil {
 		c.logger.Warnw("error parsing subject URN - will not reprocess", "event_type", eventTypeCreate, "error", err.Error())
-		return msg.Ack()
+		return nil
 	}
 
 	return c.createRelationships(ctx, msg, resource, payload.SubjectFields)
@@ -287,7 +285,7 @@ func (c *Client) handleDeleteEvent(ctx context.Context, msg *nats.Msg, payload p
 	resource, err := c.newResourceFromString(payload.SubjectURN)
 	if err != nil {
 		c.logger.Warnw("error parsing subject URN - will not reprocess", "event_type", eventTypeDelete, "error", err.Error())
-		return msg.Ack()
+		return nil
 	}
 
 	return c.deleteRelationships(ctx, msg, resource)
@@ -298,7 +296,7 @@ func (c *Client) handleUpdateEvent(ctx context.Context, msg *nats.Msg, payload p
 	resource, err := c.newResourceFromString(payload.SubjectURN)
 	if err != nil {
 		c.logger.Warnw("error parsing subject URN - will not reprocess", "event_type", eventTypeUpdate, "error", err.Error())
-		return msg.Ack()
+		return nil
 	}
 
 	err = c.deleteRelationships(ctx, msg, resource)
@@ -312,12 +310,7 @@ func (c *Client) handleUpdateEvent(ctx context.Context, msg *nats.Msg, payload p
 func (c *Client) handleUnknownEvent(ctx context.Context, msg *nats.Msg, payload pubsubx.Message) error {
 	c.logger.Warnw("unknown event - will not reprocess", "event_type", payload.EventType)
 
-	err := msg.Ack()
-	if err != nil {
-		return err
-	}
-
-	return errUnknownEvent
+	return nil
 }
 
 func (c *Client) receiveMsg(msg *nats.Msg) {
@@ -329,21 +322,18 @@ func (c *Client) receiveMsg(msg *nats.Msg) {
 	err := json.Unmarshal(msg.Data, &payload)
 	if err != nil {
 		c.ackWithError(msg, err)
-
 		return
 	}
 
 	resourceURN, err := urnx.Parse(payload.SubjectURN)
 	if err != nil {
 		c.ackWithError(msg, err)
-
 		return
 	}
 
 	resource, err := c.qe.NewResourceFromURN(resourceURN)
 	if err != nil {
 		c.ackWithError(msg, err)
-
 		return
 	}
 
@@ -362,11 +352,15 @@ func (c *Client) receiveMsg(msg *nats.Msg) {
 
 	if err != nil {
 		c.logger.Errorw("error handling message", "error", err.Error())
+
+		if err := msg.Nak(); err != nil {
+			c.logger.Errorw("error naking message", "error", err.Error())
+		}
+
 		return
 	}
 
-	err = msg.Ack()
-	if err != nil {
+	if err := msg.Ack(); err != nil {
 		c.logger.Errorw("error acking message", "error", err.Error())
 		return
 	}
