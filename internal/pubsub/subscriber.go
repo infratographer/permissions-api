@@ -178,6 +178,9 @@ func (c *Client) Listen() error {
 		nats.AckExplicit(),
 	}
 
+	// For each resource type, we create a single subscription. This means that a single worker
+	// process exists for each resource type, which may be a limiting factor if some resource
+	// subjects are chattier than others
 	for _, name := range c.resourceTypeNames {
 		subject := fmt.Sprintf("%s.%s.>", c.prefix, name)
 		queueName := fmt.Sprintf("%s-%s", c.consumer, name)
