@@ -1,3 +1,4 @@
+![logo](https://github.com/infratographer/website/blob/main/source/theme/assets/pictures/logo.jpg?raw=true)
 # permissions-api - Permissions management service
 
 Hello, and welcome to permissions-api! permissions-api is a service designed for checking and managing permissions on resources in the Infratographer ecosystem.
