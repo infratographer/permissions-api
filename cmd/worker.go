@@ -59,7 +59,7 @@ func worker(ctx context.Context, cfg *config.AppConfig) {
 
 	logger.Infow("client config", "client_config", cfg.PubSub)
 
-	client, err := pubsub.NewClient(
+	client := pubsub.NewClient(
 		cfg.PubSub,
 		pubsub.WithQueryEngine(engine),
 		pubsub.WithResourceTypeNames(
@@ -69,13 +69,8 @@ func worker(ctx context.Context, cfg *config.AppConfig) {
 		),
 		pubsub.WithLogger(logger),
 	)
-	if err != nil {
-		logger.Fatalw("error starting NATS client", "error", err)
-	}
 
-	err = client.Listen()
-
-	if err != nil {
+	if err := client.Listen(); err != nil {
 		logger.Fatalw("error listening for events", "error", err)
 	}
 

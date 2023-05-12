@@ -82,20 +82,24 @@ func newNATSConn(t *testing.T, addr, name string) *nats.Conn {
 }
 
 func setupClient(t *testing.T, engine *mock.Engine, addr, testName string) *Client {
-	// Create a new NATS connection
-	subConn := newNATSConn(t, addr, testName)
+	// Set NATS options
+	natsOpts := []nats.Option{
+		nats.Name(testName),
+		nats.UserInfo(natsUsername, natsPassword),
+	}
 
 	// Create a new client with a stream based on the test name
 	config := Config{
 		Name:     "subscriber",
+		Server:   addr,
 		Stream:   testName,
 		Consumer: natsConsumerName,
 		Prefix:   testName,
 	}
 
-	client, err := NewClient(
+	client := NewClient(
 		config,
-		WithConn(subConn),
+		WithNATSOptions(natsOpts),
 		WithResourceTypeNames(
 			[]string{
 				"loadbalancer",
@@ -104,9 +108,7 @@ func setupClient(t *testing.T, engine *mock.Engine, addr, testName string) *Clie
 		WithQueryEngine(engine),
 	)
 
-	require.NoError(t, err)
-
-	err = client.Listen()
+	err := client.Listen()
 	require.NoError(t, err)
 
 	// Update the stream's consumer to sample all Acks for observability so we can see when a message was processed

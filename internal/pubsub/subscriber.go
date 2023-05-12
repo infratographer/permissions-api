@@ -39,6 +39,8 @@ type Client struct {
 	logger            *zap.SugaredLogger
 	nc                *nats.Conn
 	js                nats.JetStreamContext
+	natsOptions       []nats.Option
+	server            string
 	stream            string
 	consumer          string
 	prefix            string
@@ -71,10 +73,10 @@ func WithQueryEngine(e query.Engine) ClientOpt {
 	}
 }
 
-// WithConn reuses a NATS connection for the client instead of creating one in NewClient.
-func WithConn(nc *nats.Conn) ClientOpt {
+// WithNATSOptions sets custom options for the given NATS connection.
+func WithNATSOptions(opts []nats.Option) ClientOpt {
 	return func(c *Client) {
-		c.nc = nc
+		c.natsOptions = opts
 	}
 }
 
@@ -82,55 +84,49 @@ func defaultLogger() *zap.SugaredLogger {
 	return zap.NewNop().Sugar()
 }
 
-func defaultConn(cfg Config) (*nats.Conn, error) {
+func defaultNATSOptions(cfg Config) []nats.Option {
 	natsOpts := []nats.Option{
 		nats.Name(cfg.Name),
 		nats.UserCredentials(cfg.Credentials),
 		nats.DrainTimeout(drainTimeout),
 	}
 
-	nc, err := nats.Connect(cfg.Server, natsOpts...)
-	if err != nil {
-		return nil, err
-	}
-
-	return nc, nil
+	return natsOpts
 }
 
 // NewClient creates a new pubsub client.
-func NewClient(cfg Config, opts ...ClientOpt) (*Client, error) {
-	var c Client
+func NewClient(cfg Config, opts ...ClientOpt) *Client {
+	c := Client{
+		natsOptions: defaultNATSOptions(cfg),
+		logger:      defaultLogger(),
+		server:      cfg.Server,
+		stream:      cfg.Stream,
+		consumer:    cfg.Consumer,
+		prefix:      cfg.Prefix,
+	}
 
 	for _, opt := range opts {
 		opt(&c)
 	}
 
-	// If we don't have an existing NATS connection, create one
-	if c.nc == nil {
-		nc, err := defaultConn(cfg)
-		if err != nil {
-			return nil, err
-		}
+	return &c
+}
 
-		c.nc = nc
-	}
-
-	// If we don't have a logger, use a nop logger.
-	if c.logger == nil {
-		c.logger = defaultLogger()
-	}
-
-	js, err := c.nc.JetStream()
+func (c *Client) connect() error {
+	nc, err := nats.Connect(c.server, c.natsOptions...)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	c.js = js
-	c.stream = cfg.Stream
-	c.consumer = cfg.Consumer
-	c.prefix = cfg.Prefix
+	js, err := nc.JetStream()
+	if err != nil {
+		return err
+	}
 
-	return &c, nil
+	c.nc = nc
+	c.js = js
+
+	return nil
 }
 
 func (c *Client) ensureStream() error {
@@ -161,9 +157,12 @@ func (c *Client) ensureStream() error {
 
 // Listen ensures a stream exists, binds to it, and listens for resource lifecycle events on that stream.
 func (c *Client) Listen() error {
+	if err := c.connect(); err != nil {
+		return err
+	}
+
 	// Ensure stream exists before we attempt to listen on it
-	err := c.ensureStream()
-	if err != nil {
+	if err := c.ensureStream(); err != nil {
 		return err
 	}
 
