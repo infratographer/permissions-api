@@ -92,3 +92,7 @@ ingress:
   hosts: []
   # tls is the list of TLS configurations for the Ingress
   tls: []
+
+serviceMonitor:
+  # enabled adds a service monitor
+  enabled: true
