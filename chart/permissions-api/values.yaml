@@ -95,4 +95,4 @@ ingress:
 
 serviceMonitor:
   # enabled adds a service monitor
-  enabled: true
+  enabled: false
