@@ -9,5 +9,5 @@ spec:
   selector:
     matchLabels: {{- include "common.labels.matchLabels" . | nindent 6 }}
   endpoints:
-    - port: web
+    - port: http
 {{- end }}
