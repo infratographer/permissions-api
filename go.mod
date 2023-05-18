@@ -7,7 +7,7 @@ require (
 	github.com/authzed/grpcutil v0.0.0-20230524151342-4caf7fd1108a
 	github.com/google/uuid v1.3.0
 	github.com/labstack/echo/v4 v4.10.2
-	github.com/nats-io/nats-server/v2 v2.9.16
+	github.com/nats-io/nats-server/v2 v2.9.17
 	github.com/nats-io/nats.go v1.24.0
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
@@ -44,7 +44,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/jzelinskie/stringz v0.0.0-20210414224931-d6a8ce844a70 // indirect
-	github.com/klauspost/compress v1.16.4 // indirect
+	github.com/klauspost/compress v1.16.5 // indirect
 	github.com/labstack/echo-contrib v0.14.1 // indirect
 	github.com/labstack/echo-jwt/v4 v4.1.0 // indirect
 	github.com/labstack/gommon v0.4.0 // indirect
