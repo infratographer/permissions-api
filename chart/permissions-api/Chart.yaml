@@ -11,7 +11,7 @@ version: v0.0.1
 home: http://github.com/infratographer/permissions-api
 dependencies:
   - name: common
-    version: 2.2.4
+    version: 2.4.0
     repository: https://charts.bitnami.com/bitnami
 maintainers:
   - name: John Schaeffer
