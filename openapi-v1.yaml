@@ -8,14 +8,14 @@ info:
     name: Infratographer Authors
     url: http://github.com/infratographer
   license:
-    name: Apache 2.0
-    url: https://www.apache.org/licenses/LICENSE-2.0.html
+    name: Elastic License 2.0
+    url: https://github.com/infratographer/permissions-api/blob/main/LICENSE
 #servers:
 #  - url: http://localhost/api/v1
 paths:
   /allow:
     get:
-      description: 
+      description:
       operationId: allow
       parameters:
         - $ref: '#/components/parameters/tenantParam'
