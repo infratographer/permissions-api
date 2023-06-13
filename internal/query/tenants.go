@@ -46,7 +46,7 @@ func validateRelationship(rel types.Relationship) error {
 	for _, typeRel := range subjType.Relationships {
 		// If we find a relation with a name and type that matches our relationship,
 		// return
-		if rel.Relation == typeRel.Name && resType.Name == typeRel.Type {
+		if rel.Relation == typeRel.Relation && resType.Name == typeRel.Relation {
 			return nil
 		}
 	}
@@ -444,8 +444,10 @@ func GetResourceTypes() []types.ResourceType {
 			Name: "loadbalancer",
 			Relationships: []types.ResourceTypeRelationship{
 				{
-					Name: "tenant",
-					Type: "tenant",
+					Relation: "tenant",
+					Types: []string{
+						"tenant",
+					},
 				},
 			},
 		},
@@ -453,8 +455,10 @@ func GetResourceTypes() []types.ResourceType {
 			Name: "role",
 			Relationships: []types.ResourceTypeRelationship{
 				{
-					Name: "tenant",
-					Type: "tenant",
+					Relation: "tenant",
+					Types: []string{
+						"tenant",
+					},
 				},
 			},
 		},
@@ -462,8 +466,10 @@ func GetResourceTypes() []types.ResourceType {
 			Name: "tenant",
 			Relationships: []types.ResourceTypeRelationship{
 				{
-					Name: "tenant",
-					Type: "tenant",
+					Relation: "tenant",
+					Types: []string{
+						"tenant",
+					},
 				},
 			},
 		},
