@@ -63,8 +63,10 @@ func GeneratedSchema(namespace string) string {
 				IDPrefix: "idenrol",
 				Relationships: []iapl.Relationship{
 					{
-						Relation:       "subject",
-						TargetTypeName: "subject",
+						Relation: "subject",
+						TargetTypeNames: []string{
+							"subject",
+						},
 					},
 				},
 			},
@@ -81,8 +83,10 @@ func GeneratedSchema(namespace string) string {
 				IDPrefix: "identen",
 				Relationships: []iapl.Relationship{
 					{
-						Relation:       "tenant",
-						TargetTypeName: "tenant",
+						Relation: "parent",
+						TargetTypeNames: []string{
+							"tenant",
+						},
 					},
 				},
 			},
@@ -91,18 +95,26 @@ func GeneratedSchema(namespace string) string {
 				IDPrefix: "loadbal",
 				Relationships: []iapl.Relationship{
 					{
-						Relation:       "tenant",
-						TargetTypeName: "tenant",
+						Relation: "owner",
+						TargetTypeNames: []string{
+							"resourceowner",
+						},
 					},
 				},
 			},
 		},
-		TypeAliases: []iapl.TypeAlias{
+		Unions: []iapl.Union{
 			{
 				Name: "subject",
 				ResourceTypeNames: []string{
 					"user",
 					"client",
+				},
+			},
+			{
+				Name: "resourceowner",
+				ResourceTypeNames: []string{
+					"tenant",
 				},
 			},
 		},
@@ -125,120 +137,120 @@ func GeneratedSchema(namespace string) string {
 		},
 		ActionBindings: []iapl.ActionBinding{
 			{
-				ActionName:       "loadbalancer_create",
-				ResourceTypeName: "tenant",
+				ActionName: "loadbalancer_create",
+				TypeName:   "resourceowner",
 				Conditions: []iapl.Condition{
 					{
 						RoleBinding: &iapl.ConditionRoleBinding{},
 					},
 					{
 						RelationshipAction: &iapl.ConditionRelationshipAction{
-							Relation:   "tenant",
+							Relation:   "parent",
 							ActionName: "loadbalancer_create",
 						},
 					},
 				},
 			},
 			{
-				ActionName:       "loadbalancer_get",
-				ResourceTypeName: "tenant",
+				ActionName: "loadbalancer_get",
+				TypeName:   "resourceowner",
 				Conditions: []iapl.Condition{
 					{
 						RoleBinding: &iapl.ConditionRoleBinding{},
 					},
 					{
 						RelationshipAction: &iapl.ConditionRelationshipAction{
-							Relation:   "tenant",
+							Relation:   "parent",
 							ActionName: "loadbalancer_get",
 						},
 					},
 				},
 			},
 			{
-				ActionName:       "loadbalancer_update",
-				ResourceTypeName: "tenant",
+				ActionName: "loadbalancer_update",
+				TypeName:   "resourceowner",
 				Conditions: []iapl.Condition{
 					{
 						RoleBinding: &iapl.ConditionRoleBinding{},
 					},
 					{
 						RelationshipAction: &iapl.ConditionRelationshipAction{
-							Relation:   "tenant",
+							Relation:   "parent",
 							ActionName: "loadbalancer_update",
 						},
 					},
 				},
 			},
 			{
-				ActionName:       "loadbalancer_list",
-				ResourceTypeName: "tenant",
+				ActionName: "loadbalancer_list",
+				TypeName:   "resourceowner",
 				Conditions: []iapl.Condition{
 					{
 						RoleBinding: &iapl.ConditionRoleBinding{},
 					},
 					{
 						RelationshipAction: &iapl.ConditionRelationshipAction{
-							Relation:   "tenant",
+							Relation:   "parent",
 							ActionName: "loadbalancer_list",
 						},
 					},
 				},
 			},
 			{
-				ActionName:       "loadbalancer_delete",
-				ResourceTypeName: "tenant",
+				ActionName: "loadbalancer_delete",
+				TypeName:   "resourceowner",
 				Conditions: []iapl.Condition{
 					{
 						RoleBinding: &iapl.ConditionRoleBinding{},
 					},
 					{
 						RelationshipAction: &iapl.ConditionRelationshipAction{
-							Relation:   "tenant",
+							Relation:   "parent",
 							ActionName: "loadbalancer_delete",
 						},
 					},
 				},
 			},
 			{
-				ActionName:       "loadbalancer_get",
-				ResourceTypeName: "loadbalancer",
+				ActionName: "loadbalancer_get",
+				TypeName:   "loadbalancer",
 				Conditions: []iapl.Condition{
 					{
 						RoleBinding: &iapl.ConditionRoleBinding{},
 					},
 					{
 						RelationshipAction: &iapl.ConditionRelationshipAction{
-							Relation:   "tenant",
+							Relation:   "owner",
 							ActionName: "loadbalancer_get",
 						},
 					},
 				},
 			},
 			{
-				ActionName:       "loadbalancer_update",
-				ResourceTypeName: "loadbalancer",
+				ActionName: "loadbalancer_update",
+				TypeName:   "loadbalancer",
 				Conditions: []iapl.Condition{
 					{
 						RoleBinding: &iapl.ConditionRoleBinding{},
 					},
 					{
 						RelationshipAction: &iapl.ConditionRelationshipAction{
-							Relation:   "tenant",
+							Relation:   "owner",
 							ActionName: "loadbalancer_update",
 						},
 					},
 				},
 			},
 			{
-				ActionName:       "loadbalancer_delete",
-				ResourceTypeName: "loadbalancer",
+				ActionName: "loadbalancer_delete",
+				TypeName:   "loadbalancer",
 				Conditions: []iapl.Condition{
 					{
 						RoleBinding: &iapl.ConditionRoleBinding{},
 					},
 					{
 						RelationshipAction: &iapl.ConditionRelationshipAction{
-							Relation:   "tenant",
+							Relation:   "owner",
 							ActionName: "loadbalancer_delete",
 						},
 					},

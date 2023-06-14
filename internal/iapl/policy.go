@@ -9,7 +9,7 @@ import (
 // PolicyDocument represents a partial authorization policy.
 type PolicyDocument struct {
 	ResourceTypes  []ResourceType
-	TypeAliases    []TypeAlias
+	Unions         []Union
 	Actions        []Action
 	ActionBindings []ActionBinding
 }
@@ -23,12 +23,12 @@ type ResourceType struct {
 
 // Relationship represents a named relation between two resources.
 type Relationship struct {
-	Relation       string
-	TargetTypeName string
+	Relation        string
+	TargetTypeNames []string
 }
 
-// TypeAlias represents a named alias to multiple concrete resource types.
-type TypeAlias struct {
+// Union represents a named union of multiple concrete resource types.
+type Union struct {
 	Name              string
 	ResourceTypeNames []string
 }
@@ -38,11 +38,11 @@ type Action struct {
 	Name string
 }
 
-// ActionBinding represents a binding of an action to a resource type.
+// ActionBinding represents a binding of an action to a resource type or union.
 type ActionBinding struct {
-	ActionName       string
-	ResourceTypeName string
-	Conditions       []Condition
+	ActionName string
+	TypeName   string
+	Conditions []Condition
 }
 
 // Condition represents a necessary condition for performing an action.
@@ -72,9 +72,10 @@ var _ Policy = &policy{}
 
 type policy struct {
 	rt map[string]ResourceType
-	ta map[string]TypeAlias
+	un map[string]Union
 	ac map[string]Action
 	rb map[string]map[string]struct{}
+	bn []ActionBinding
 	p  PolicyDocument
 }
 
@@ -85,9 +86,9 @@ func NewPolicy(p PolicyDocument) Policy {
 		rt[r.Name] = r
 	}
 
-	ta := make(map[string]TypeAlias, len(p.TypeAliases))
-	for _, t := range p.TypeAliases {
-		ta[t.Name] = t
+	un := make(map[string]Union, len(p.Unions))
+	for _, t := range p.Unions {
+		un[t.Name] = t
 	}
 
 	ac := make(map[string]Action, len(p.Actions))
@@ -95,30 +96,18 @@ func NewPolicy(p PolicyDocument) Policy {
 		ac[a.Name] = a
 	}
 
-	rb := make(map[string]map[string]struct{}, len(p.ResourceTypes))
-	for _, ab := range p.ActionBindings {
-		b, ok := rb[ab.ResourceTypeName]
-		if !ok {
-			b = make(map[string]struct{})
-			rb[ab.ResourceTypeName] = b
-		}
-
-		b[ab.ActionName] = struct{}{}
-	}
-
 	out := policy{
 		rt: rt,
-		ta: ta,
+		un: un,
 		ac: ac,
-		rb: rb,
 		p:  p,
 	}
 
 	return &out
 }
 
-func (v *policy) validateTypeAliases() error {
-	for _, typeAlias := range v.p.TypeAliases {
+func (v *policy) validateUnions() error {
+	for _, typeAlias := range v.p.Unions {
 		if _, ok := v.rt[typeAlias.Name]; ok {
 			return fmt.Errorf("%s: %w", typeAlias.Name, ErrorInvalidAlias)
 		}
@@ -136,15 +125,11 @@ func (v *policy) validateTypeAliases() error {
 func (v *policy) validateResourceTypes() error {
 	for _, resourceType := range v.p.ResourceTypes {
 		for _, rel := range resourceType.Relationships {
-			if _, ok := v.rt[rel.TargetTypeName]; ok {
-				continue
+			for _, name := range rel.TargetTypeNames {
+				if _, ok := v.rt[name]; !ok {
+					return fmt.Errorf("%s: relationships: %s: %w", resourceType.Name, name, ErrorUnknownType)
+				}
 			}
-
-			if _, ok := v.ta[rel.TargetTypeName]; ok {
-				continue
-			}
-
-			return fmt.Errorf("%s: relationships: %s: %w", resourceType.Name, rel.TargetTypeName, ErrorUnknownType)
 		}
 	}
 
@@ -170,17 +155,7 @@ func (v *policy) validateConditionRelationshipAction(rt ResourceType, c Conditio
 		return fmt.Errorf("%s: %w", c.Relation, ErrorUnknownRelation)
 	}
 
-	var typeNames []string
-
-	if _, ok := v.rt[rel.TargetTypeName]; ok {
-		typeNames = []string{
-			rel.TargetTypeName,
-		}
-	} else {
-		typeNames = v.ta[rel.TargetTypeName].ResourceTypeNames
-	}
-
-	for _, tn := range typeNames {
+	for _, tn := range rel.TargetTypeNames {
 		if _, ok := v.rb[tn][c.ActionName]; !ok {
 			return fmt.Errorf("%s: %s: %s: %w", c.Relation, tn, c.ActionName, ErrorUnknownAction)
 		}
@@ -215,14 +190,14 @@ func (v *policy) validateConditions(rt ResourceType, conds []Condition) error {
 }
 
 func (v *policy) validateActionBindings() error {
-	for i, binding := range v.p.ActionBindings {
+	for i, binding := range v.bn {
 		if _, ok := v.ac[binding.ActionName]; !ok {
 			return fmt.Errorf("%d: %s: %w", i, binding.ActionName, ErrorUnknownAction)
 		}
 
-		rt, ok := v.rt[binding.ResourceTypeName]
+		rt, ok := v.rt[binding.TypeName]
 		if !ok {
-			return fmt.Errorf("%d: %s: %w", i, binding.ResourceTypeName, ErrorUnknownType)
+			return fmt.Errorf("%d: %s: %w", i, binding.TypeName, ErrorUnknownType)
 		}
 
 		if err := v.validateConditions(rt, binding.Conditions); err != nil {
@@ -233,8 +208,58 @@ func (v *policy) validateActionBindings() error {
 	return nil
 }
 
+func (v *policy) expandActionBindings() {
+	for _, bn := range v.p.ActionBindings {
+		if u, ok := v.un[bn.TypeName]; ok {
+			for _, typeName := range u.ResourceTypeNames {
+				binding := ActionBinding{
+					TypeName:   typeName,
+					ActionName: bn.ActionName,
+					Conditions: bn.Conditions,
+				}
+				v.bn = append(v.bn, binding)
+			}
+		} else {
+			v.bn = append(v.bn, bn)
+		}
+	}
+
+	v.rb = make(map[string]map[string]struct{}, len(v.p.ResourceTypes))
+	for _, ab := range v.bn {
+		b, ok := v.rb[ab.TypeName]
+		if !ok {
+			b = make(map[string]struct{})
+			v.rb[ab.TypeName] = b
+		}
+
+		b[ab.ActionName] = struct{}{}
+	}
+}
+
+func (v *policy) expandResourceTypes() {
+	for name, resourceType := range v.rt {
+		for i, rel := range resourceType.Relationships {
+			var typeNames []string
+			for _, typeName := range rel.TargetTypeNames {
+				if u, ok := v.un[typeName]; ok {
+					typeNames = append(typeNames, u.ResourceTypeNames...)
+				} else {
+					typeNames = append(typeNames, typeName)
+				}
+			}
+
+			resourceType.Relationships[i].TargetTypeNames = typeNames
+		}
+
+		v.rt[name] = resourceType
+	}
+}
+
 func (v *policy) Validate() error {
-	if err := v.validateTypeAliases(); err != nil {
+	v.expandActionBindings()
+	v.expandResourceTypes()
+
+	if err := v.validateUnions(); err != nil {
 		return fmt.Errorf("typeAliases: %w", err)
 	}
 
@@ -260,14 +285,7 @@ func (v *policy) Schema() []types.ResourceType {
 		for _, rel := range rt.Relationships {
 			outRel := types.ResourceTypeRelationship{
 				Relation: rel.Relation,
-			}
-
-			if alias, ok := v.ta[rel.TargetTypeName]; ok {
-				outRel.Types = alias.ResourceTypeNames
-			} else {
-				outRel.Types = []string{
-					rel.TargetTypeName,
-				}
+				Types:    rel.TargetTypeNames,
 			}
 
 			out.Relationships = append(out.Relationships, outRel)
@@ -276,7 +294,7 @@ func (v *policy) Schema() []types.ResourceType {
 		typeMap[n] = &out
 	}
 
-	for _, b := range v.p.ActionBindings {
+	for _, b := range v.bn {
 		action := types.Action{
 			Name: b.ActionName,
 		}
@@ -288,7 +306,7 @@ func (v *policy) Schema() []types.ResourceType {
 
 			action.Conditions = append(action.Conditions, condition)
 		}
-		typeMap[b.ResourceTypeName].Actions = append(typeMap[b.ResourceTypeName].Actions, action)
+		typeMap[b.TypeName].Actions = append(typeMap[b.TypeName].Actions, action)
 	}
 
 	out := make([]types.ResourceType, len(v.p.ResourceTypes))
