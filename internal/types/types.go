@@ -15,18 +15,23 @@ type ResourceTypeRelationship struct {
 	Types    []string
 }
 
+// ConditionRoleBinding represents a condition where a role binding is necessary to perform an action.
 type ConditionRoleBinding struct{}
 
+// ConditionRelationshipAction represents a condition where an action must be able to be performed
+// on another resource along a relation to perform an action.
 type ConditionRelationshipAction struct {
 	Relation   string
 	ActionName string
 }
 
+// Condition represents a required condition for performing an action.
 type Condition struct {
 	RoleBinding        *ConditionRoleBinding
 	RelationshipAction *ConditionRelationshipAction
 }
 
+// Action represents a named thing a subject can do.
 type Action struct {
 	Name       string
 	Conditions []Condition

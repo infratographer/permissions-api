@@ -240,6 +240,7 @@ func (v *policy) expandResourceTypes() {
 	for name, resourceType := range v.rt {
 		for i, rel := range resourceType.Relationships {
 			var typeNames []string
+
 			for _, typeName := range rel.TargetTypeNames {
 				if u, ok := v.un[typeName]; ok {
 					typeNames = append(typeNames, u.ResourceTypeNames...)
@@ -298,6 +299,7 @@ func (v *policy) Schema() []types.ResourceType {
 		action := types.Action{
 			Name: b.ActionName,
 		}
+
 		for _, c := range b.Conditions {
 			condition := types.Condition{
 				RoleBinding:        (*types.ConditionRoleBinding)(c.RoleBinding),
@@ -306,6 +308,7 @@ func (v *policy) Schema() []types.ResourceType {
 
 			action.Conditions = append(action.Conditions, condition)
 		}
+
 		typeMap[b.TypeName].Actions = append(typeMap[b.TypeName].Actions, action)
 	}
 

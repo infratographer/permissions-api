@@ -53,6 +53,7 @@ func GenerateSchema(namespace string, resourceTypes []types.ResourceType) (strin
 	return out.String(), nil
 }
 
+// GeneratedSchema produces a namespaced SpiceDB schema based on the default IAPL policy.
 func GeneratedSchema(namespace string) string {
 	policy := iapl.DefaultPolicy()
 
