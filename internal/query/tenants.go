@@ -20,10 +20,8 @@ var (
 	errorInvalidRelationship = errors.New("invalid relationship")
 )
 
-func getTypeForResource(res types.Resource) (types.ResourceType, error) {
-	resTypes := GetResourceTypes()
-
-	for _, resType := range resTypes {
+func (e *engine) getTypeForResource(res types.Resource) (types.ResourceType, error) {
+	for _, resType := range e.schema {
 		if res.Type == resType.Name {
 			return resType, nil
 		}
@@ -32,13 +30,13 @@ func getTypeForResource(res types.Resource) (types.ResourceType, error) {
 	return types.ResourceType{}, errorInvalidType
 }
 
-func validateRelationship(rel types.Relationship) error {
-	subjType, err := getTypeForResource(rel.Subject)
+func (e *engine) validateRelationship(rel types.Relationship) error {
+	subjType, err := e.getTypeForResource(rel.Subject)
 	if err != nil {
 		return err
 	}
 
-	resType, err := getTypeForResource(rel.Resource)
+	resType, err := e.getTypeForResource(rel.Resource)
 	if err != nil {
 		return err
 	}
@@ -46,8 +44,12 @@ func validateRelationship(rel types.Relationship) error {
 	for _, typeRel := range subjType.Relationships {
 		// If we find a relation with a name and type that matches our relationship,
 		// return
-		if rel.Relation == typeRel.Relation && resType.Name == typeRel.Relation {
-			return nil
+		if rel.Relation == typeRel.Relation {
+			for _, typeName := range typeRel.Types {
+				if resType.Name == typeName {
+					return nil
+				}
+			}
 		}
 	}
 
@@ -175,7 +177,7 @@ func (e *engine) checkPermission(ctx context.Context, req *pb.CheckPermissionReq
 // CreateRelationships atomically creates the given relationships in SpiceDB.
 func (e *engine) CreateRelationships(ctx context.Context, rels []types.Relationship) (string, error) {
 	for _, rel := range rels {
-		err := validateRelationship(rel)
+		err := e.validateRelationship(rel)
 		if err != nil {
 			return "", err
 		}
@@ -435,51 +437,6 @@ func (e *engine) ListRoles(ctx context.Context, resource types.Resource, queryTo
 	out := relationshipsToRoles(relationships)
 
 	return out, nil
-}
-
-// GetResourceTypes returns the list of resource types.
-func GetResourceTypes() []types.ResourceType {
-	return []types.ResourceType{
-		{
-			Name: "loadbalancer",
-			Relationships: []types.ResourceTypeRelationship{
-				{
-					Relation: "tenant",
-					Types: []string{
-						"tenant",
-					},
-				},
-			},
-		},
-		{
-			Name: "role",
-			Relationships: []types.ResourceTypeRelationship{
-				{
-					Relation: "tenant",
-					Types: []string{
-						"tenant",
-					},
-				},
-			},
-		},
-		{
-			Name: "tenant",
-			Relationships: []types.ResourceTypeRelationship{
-				{
-					Relation: "tenant",
-					Types: []string{
-						"tenant",
-					},
-				},
-			},
-		},
-		{
-			Name: "user",
-		},
-		{
-			Name: "client",
-		},
-	}
 }
 
 // NewResourceFromURN returns a new resource struct from a given urn
