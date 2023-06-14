@@ -26,7 +26,6 @@ definition {{$namespace}}/{{.Name}} {
     permission {{ $actionName }} = {{ range $index, $cond := .Conditions -}}{{ if $index }} + {{end}}{{ if $cond.RoleBinding }}{{ $actionName }}_rel{{ end }}{{ if $cond.RelationshipAction }}{{ $cond.RelationshipAction.Relation}}->{{ $cond.RelationshipAction.ActionName }}{{ end }}{{- end }}
 {{- end }}
 }
-
 {{end}}`))
 )
 
