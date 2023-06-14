@@ -52,8 +52,7 @@ type Condition struct {
 }
 
 // ConditionRoleBinding represents a condition where a role binding is necessary to perform an action.
-type ConditionRoleBinding struct {
-}
+type ConditionRoleBinding struct {}
 
 // ConditionRelationshipAction represents a condition where another action must be allowed on a resource
 // along a relation to perform an action.
