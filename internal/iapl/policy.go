@@ -109,14 +109,14 @@ func NewPolicy(p PolicyDocument) Policy {
 }
 
 func (v *policy) validateUnions() error {
-	for _, typeAlias := range v.p.Unions {
-		if _, ok := v.rt[typeAlias.Name]; ok {
-			return fmt.Errorf("%s: %w", typeAlias.Name, ErrorTypeExists)
+	for _, union := range v.p.Unions {
+		if _, ok := v.rt[union.Name]; ok {
+			return fmt.Errorf("%s: %w", union.Name, ErrorTypeExists)
 		}
 
-		for _, rtName := range typeAlias.ResourceTypeNames {
+		for _, rtName := range union.ResourceTypeNames {
 			if _, ok := v.rt[rtName]; !ok {
-				return fmt.Errorf("%s: resourceTypeNames: %s: %w", typeAlias.Name, rtName, ErrorUnknownType)
+				return fmt.Errorf("%s: resourceTypeNames: %s: %w", union.Name, rtName, ErrorUnknownType)
 			}
 		}
 	}
@@ -260,7 +260,7 @@ func (v *policy) expandResourceTypes() {
 
 func (v *policy) Validate() error {
 	if err := v.validateUnions(); err != nil {
-		return fmt.Errorf("typeAliases: %w", err)
+		return fmt.Errorf("unions: %w", err)
 	}
 
 	if err := v.validateResourceTypes(); err != nil {
