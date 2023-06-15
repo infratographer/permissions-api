@@ -11,18 +11,37 @@ type Role struct {
 
 // ResourceTypeRelationship is a relationship for a resource type.
 type ResourceTypeRelationship struct {
-	Name string
-	Type string
+	Relation string
+	Types    []string
+}
+
+// ConditionRoleBinding represents a condition where a role binding is necessary to perform an action.
+type ConditionRoleBinding struct{}
+
+// ConditionRelationshipAction represents a condition where an action must be able to be performed
+// on another resource along a relation to perform an action.
+type ConditionRelationshipAction struct {
+	Relation   string
+	ActionName string
+}
+
+// Condition represents a required condition for performing an action.
+type Condition struct {
+	RoleBinding        *ConditionRoleBinding
+	RelationshipAction *ConditionRelationshipAction
+}
+
+// Action represents a named thing a subject can do.
+type Action struct {
+	Name       string
+	Conditions []Condition
 }
 
 // ResourceType defines a type of resource managed by the api
 type ResourceType struct {
 	Name          string
 	Relationships []ResourceTypeRelationship
-	// Actions represents actions that can be taken on the resource directly
-	Actions []string
-	// TenantActions represents actions that can be taken on the resource's tenant context
-	TenantActions []string
+	Actions       []Action
 }
 
 // Resource is the object to be acted upon by an subject

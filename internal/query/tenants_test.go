@@ -199,7 +199,7 @@ func TestRelationships(t *testing.T) {
 			Input: []types.Relationship{
 				{
 					Resource: childRes,
-					Relation: "tenant",
+					Relation: "parent",
 					Subject:  parentRes,
 				},
 			},
@@ -207,12 +207,12 @@ func TestRelationships(t *testing.T) {
 				expRels := []types.Relationship{
 					{
 						Resource: childRes,
-						Relation: "tenant",
+						Relation: "parent",
 						Subject:  parentRes,
 					},
 				}
 
-				assert.NoError(t, res.Err)
+				require.NoError(t, res.Err)
 				assert.Equal(t, expRels, res.Success)
 			},
 		},

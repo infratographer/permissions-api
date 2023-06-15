@@ -6,6 +6,7 @@ import (
 	"github.com/authzed/authzed-go/v1"
 	"go.infratographer.com/x/urnx"
 
+	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/types"
 )
 
@@ -26,12 +27,16 @@ type Engine interface {
 type engine struct {
 	namespace string
 	client    *authzed.Client
+	schema    []types.ResourceType
 }
 
 // NewEngine returns a new client for making permissions queries.
 func NewEngine(namespace string, client *authzed.Client) Engine {
+	policy := iapl.DefaultPolicy()
+
 	return &engine{
 		namespace: namespace,
 		client:    client,
+		schema:    policy.Schema(),
 	}
 }

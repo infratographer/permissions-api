@@ -1,3 +1,4 @@
+// Package main provides the executable logic for permissions-api.
 package main
 
 //go:generate sqlboiler crdb --add-soft-deletes
