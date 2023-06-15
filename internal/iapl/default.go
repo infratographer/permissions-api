@@ -6,7 +6,7 @@ func DefaultPolicy() Policy {
 		ResourceTypes: []ResourceType{
 			{
 				Name:     "role",
-				IDPrefix: "idenrol",
+				IDPrefix: "permrol",
 				Relationships: []Relationship{
 					{
 						Relation: "subject",
@@ -18,15 +18,15 @@ func DefaultPolicy() Policy {
 			},
 			{
 				Name:     "user",
-				IDPrefix: "idenusr",
+				IDPrefix: "idntusr",
 			},
 			{
 				Name:     "client",
-				IDPrefix: "idencli",
+				IDPrefix: "idntcli",
 			},
 			{
 				Name:     "tenant",
-				IDPrefix: "identen",
+				IDPrefix: "tnntten",
 				Relationships: []Relationship{
 					{
 						Relation: "parent",
