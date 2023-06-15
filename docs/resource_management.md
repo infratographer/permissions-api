@@ -16,9 +16,9 @@ permissions-api consumes resource lifecycle events over [NATS][nats]. This secti
 
 permission-api expects lifecycle event messages in the format described in [`go.infratographer.com/x/pubsubx`][pubsubx], and interprets the message fields as follows:
 
-* `subject_urn`: The URN of the resource the event is about
+* `subject_id`: The Prefixed ID of the resource the event is about
 * `event_type`: The type of lifecyle event for the resouce. Must match one of the defined lifecycle events
-* `fields`: Information related to the resource. A field's value will be persisted in permissions-api if the field is of the form `{foo}_urn` and a defined relationship exists on the resource with relation `{foo}`
+* `fields`: Information related to the resource. A field's value will be persisted in permissions-api if the field is of the form `{foo}_id` and a defined relationship exists on the resource with relation `{foo}`
 
 [pubsubx]: https://github.com/infratographer/x/blob/v0.0.7/pubsubx/message.go
 
@@ -48,18 +48,18 @@ As an example, consider the following lifecycle event for a resource of type `lo
 
 ```json
 {
-  "subject_urn": "urn:infratographer:loadbalancer:0e919c70-6d04-4050-a474-073ab8b58ffe",
+  "subject_urn": "loadbal-1vzGV0jqpeKlbMBZzq3uf",
   "event_type": "create",
   "additional_subjects": [
-    "urn:infratographer:tenant:42f0e8f2-4b81-4e5a-86f2-62d78ed35dca",
-    "urn:infratographer:loadbalancerport:db25eabd-30eb-4654-9bb6-a22c140eac97",
-    "urn:infratographer:loadbalancerassignment:44cadf84-c626-4428-8910-3a699a78b898"
+    "tnntten-RNsrsfboJb_r6OyXHxBzN",
+    "loadprt-j3UjvKqoRyMUicC7pWatJ",
+    "loadpvd-tvedEoZ2d_vkoTjjdLK76"
   ],
-  "actor_urn": "urn:infratographer:user:35464f0b-a7b4-47db-b446-01e61987db6c",
+  "actor_urn": "idntusr-xbNJrq0updKVkgiaDOxtY",
   "source": "loadbalancer-api",
   "timestamp": "2023-05-06T17:30:00Z",
   "fields": {
-    "tenant_urn": "urn:infratographer:tenant:42f0e8f2-4b81-4e5a-86f2-62d78ed35dca"
+    "tenant_id": "tnntten-RNsrsfboJb_r6OyXHxBzN"
   },
   "additional_data": {}
 }

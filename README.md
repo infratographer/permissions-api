@@ -20,7 +20,7 @@ The concepts necessary to accomplish this are described in this section.
 
 ### Resource
 
-A resource is any uniquely identifiable thing in the Infratographer ecosystem. Resources have types and are identified using URNs in permissions-api. For example, the URN `urn:infratographer:loadbalancer:a69e79ce-ac05-4a3e-b9b3-f371255e8e99` corresponds to a resource of type `loadbalancer` and ID `a69e79ce-ac05-4a3e-b9b3-f371255e8e99`.
+A resource is any uniquely identifiable thing in the Infratographer ecosystem. Resources have types and are identified using Prefixed IDs in permissions-api. For example, the Prefixed ID `loadbal-hWV_xTSoYqIkXXWyK6eco` corresponds to a resource of type `loadbalancer`.
 
 ### Subject
 
@@ -68,7 +68,7 @@ $ ./permissions-api server --config permissions-api.example.yaml
 
 ### Generating access tokens
 
-permissions-api requests are authenticated using JWT access tokens. If you are using the provided [dev container](#development), permissions-api is already configured to accept JWTs from the included [mock-oauth2-server][mock-oauth2-server] service. A UI to manually create access tokens is available at http://localhost:8081/default/debugger. Tokens must be configured with a "scope" value in the UI set to `openid permissions-api` (which maps to an audience in the JWT of `permissions-api`) and a subject value of `urn:infratographer:subject:$SOME_UUID`.
+permissions-api requests are authenticated using JWT access tokens. If you are using the provided [dev container](#development), permissions-api is already configured to accept JWTs from the included [mock-oauth2-server][mock-oauth2-server] service. A UI to manually create access tokens is available at http://localhost:8081/default/debugger. Tokens must be configured with a "scope" value in the UI set to `openid permissions-api` (which maps to an audience in the JWT of `permissions-api`) and a Prefixed ID (ex: `idntusr-0xqwVtYKHjjuLfjSItHLU`).
 
 [mock-oauth2-server]: https://github.com/navikt/mock-oauth2-server
 
@@ -78,8 +78,8 @@ Resources are defined in terms of their relationships to other resources using t
 
 ```
 $ curl --oauth2-bearer "$AUTH_TOKEN" \
-    -d '{"relationships": [{"relation": "tenant", "subject_urn": "urn:infratographer:tenant:075b8c8c-1214-49ac-a7ed-ec102f165568"}]}' \
-    http://localhost:7602/api/v1/resources/urn:infratographer:tenant:3fc4e4e0-6030-4e36-83d6-09ae2d58fee8/relationships
+    -d '{"relationships": [{"relation": "tenant", "subject_id": "tnntten-OJrD-JdCFThZiRgqk6vs6"}]}' \
+    http://localhost:7602/api/v1/resources/tnntten-MCR3xIIMWfVpVM22w82NZ/relationships
 ```
 
 ### Creating roles
@@ -89,17 +89,17 @@ Roles are created using the `/roles` API endpoint. For example, the following cu
 ```
 $ curl --oauth2-bearer "$AUTH_TOKEN" \
     -d '{"actions": ["loadbalancer_create"]}' \
-    http://localhost:7602/api/v1/resources/urn:infratographer:tenant:3fc4e4e0-6030-4e36-83d6-09ae2d58fee8/roles
+    http://localhost:7602/api/v1/resources/tnntten-MCR3xIIMWfVpVM22w82NZ/roles
 ```
 
 ### Assigning roles to subjects
 
-Roles are assigned to subjects using the `/assignments` API endpoint. The curl command below will assign the subject with the given URN to the given role:
+Roles are assigned to subjects using the `/assignments` API endpoint. The curl command below will assign the subject with the given ID to the given role:
 
 ```
 $ curl --oauth2-bearer "$AUTH_TOKEN" \
-    -d '{"subject_urn": "urn:infratographer:user:e0a97b60-af68-4376-828c-78c6c2ab04a9"}' \
-    http://localhost:7602/api/v1/roles/7a5ccbfb-6838-478e-9d61-cffd38ceb5a3/assignments
+    -d '{"subject_id": "idntusr-0xqwVtYKHjjuLfjSItHLU"}' \
+    http://localhost:7602/api/v1/roles/permrol-XqGKCT8L5CikBuIpbFQEt/assignments
 ```
 
 ### Checking permissions
@@ -108,7 +108,7 @@ The `/has` API endpoint is used to check whether the authenticated subject in th
 
 ```
 $ curl --oauth2-bearer "$AUTH_TOKEN" \
-    http://localhost:7602/api/v1/has/loadbalancer_create/on/urn:infratographer:tenant:3fc4e4e0-6030-4e36-83d6-09ae2d58fee8
+    http://localhost:7602/api/v1/has/loadbalancer_create/on/tnntten-MCR3xIIMWfVpVM22w82NZ
 ```
 
 ## Development
