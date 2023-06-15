@@ -1,11 +1,13 @@
 // Package types exposes domain types for permissions-api.
 package types
 
-import "github.com/google/uuid"
+import (
+	"go.infratographer.com/x/gidx"
+)
 
 // Role is a collection of permissions.
 type Role struct {
-	ID      uuid.UUID
+	ID      gidx.PrefixedID
 	Actions []string
 }
 
@@ -40,6 +42,7 @@ type Action struct {
 // ResourceType defines a type of resource managed by the api
 type ResourceType struct {
 	Name          string
+	IDPrefix      string
 	Relationships []ResourceTypeRelationship
 	Actions       []Action
 }
@@ -47,7 +50,7 @@ type ResourceType struct {
 // Resource is the object to be acted upon by an subject
 type Resource struct {
 	Type string
-	ID   uuid.UUID
+	ID   gidx.PrefixedID
 }
 
 // Relationship represents a named association between a resource and a subject.

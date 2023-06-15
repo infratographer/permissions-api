@@ -6,14 +6,13 @@ import (
 
 	pb "github.com/authzed/authzed-go/proto/authzed/api/v1"
 	"github.com/authzed/authzed-go/v1"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"go.infratographer.com/permissions-api/internal/spicedbx"
 	"go.infratographer.com/permissions-api/internal/testingx"
 	"go.infratographer.com/permissions-api/internal/types"
-	"go.infratographer.com/x/urnx"
+	"go.infratographer.com/x/gidx"
 )
 
 func testEngine(ctx context.Context, t *testing.T, namespace string) Engine {
@@ -87,9 +86,9 @@ func TestRoles(t *testing.T) {
 	}
 
 	testFn := func(ctx context.Context, actions []string) testingx.TestResult[[]types.Role] {
-		tenURN, err := urnx.Build(namespace, "tenant", uuid.New())
+		tenID, err := gidx.NewID("tnntten")
 		require.NoError(t, err)
-		tenRes, err := e.NewResourceFromURN(tenURN)
+		tenRes, err := e.NewResourceFromID(tenID)
 		require.NoError(t, err)
 
 		_, queryToken, err := e.CreateRole(ctx, tenRes, actions)
@@ -115,13 +114,13 @@ func TestAssignments(t *testing.T) {
 	ctx := context.Background()
 	e := testEngine(ctx, t, namespace)
 
-	tenURN, err := urnx.Build(namespace, "tenant", uuid.New())
+	tenID, err := gidx.NewID("tnntten")
 	require.NoError(t, err)
-	tenRes, err := e.NewResourceFromURN(tenURN)
+	tenRes, err := e.NewResourceFromID(tenID)
 	require.NoError(t, err)
-	subjURN, err := urnx.Build(namespace, "user", uuid.New())
+	subjID, err := gidx.NewID("idntusr")
 	require.NoError(t, err)
-	subjRes, err := e.NewResourceFromURN(subjURN)
+	subjRes, err := e.NewResourceFromID(subjID)
 	require.NoError(t, err)
 	role, _, err := e.CreateRole(
 		ctx,
@@ -171,13 +170,13 @@ func TestRelationships(t *testing.T) {
 	ctx := context.Background()
 	e := testEngine(ctx, t, namespace)
 
-	parentURN, err := urnx.Build(namespace, "tenant", uuid.New())
+	parentID, err := gidx.NewID("tnntten")
 	require.NoError(t, err)
-	parentRes, err := e.NewResourceFromURN(parentURN)
+	parentRes, err := e.NewResourceFromID(parentID)
 	require.NoError(t, err)
-	childURN, err := urnx.Build(namespace, "tenant", uuid.New())
+	childID, err := gidx.NewID("tnntten")
 	require.NoError(t, err)
-	childRes, err := e.NewResourceFromURN(childURN)
+	childRes, err := e.NewResourceFromID(childID)
 	require.NoError(t, err)
 
 	testCases := []testingx.TestCase[[]types.Relationship, []types.Relationship]{
@@ -191,7 +190,7 @@ func TestRelationships(t *testing.T) {
 				},
 			},
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Relationship]) {
-				assert.ErrorIs(t, errorInvalidRelationship, res.Err)
+				assert.ErrorIs(t, res.Err, errorInvalidRelationship)
 			},
 		},
 		{
@@ -242,17 +241,17 @@ func TestSubjectActions(t *testing.T) {
 	ctx := context.Background()
 	e := testEngine(ctx, t, namespace)
 
-	tenURN, err := urnx.Build(namespace, "tenant", uuid.New())
+	tenID, err := gidx.NewID("tnntten")
 	require.NoError(t, err)
-	tenRes, err := e.NewResourceFromURN(tenURN)
+	tenRes, err := e.NewResourceFromID(tenID)
 	require.NoError(t, err)
-	otherURN, err := urnx.Build(namespace, "tenant", uuid.New())
+	otherID, err := gidx.NewID("tnntten")
 	require.NoError(t, err)
-	otherRes, err := e.NewResourceFromURN(otherURN)
+	otherRes, err := e.NewResourceFromID(otherID)
 	require.NoError(t, err)
-	subjURN, err := urnx.Build(namespace, "user", uuid.New())
+	subjID, err := gidx.NewID("idntusr")
 	require.NoError(t, err)
-	subjRes, err := e.NewResourceFromURN(subjURN)
+	subjRes, err := e.NewResourceFromID(subjID)
 	require.NoError(t, err)
 	role, _, err := e.CreateRole(
 		ctx,
@@ -278,7 +277,7 @@ func TestSubjectActions(t *testing.T) {
 				action:   "loadbalancer_update",
 			},
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[any]) {
-				assert.ErrorIs(t, ErrActionNotAssigned, res.Err)
+				assert.ErrorIs(t, res.Err, ErrActionNotAssigned)
 			},
 		},
 		{
@@ -288,7 +287,7 @@ func TestSubjectActions(t *testing.T) {
 				action:   "loadbalancer_delete",
 			},
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[any]) {
-				assert.ErrorIs(t, ErrActionNotAssigned, res.Err)
+				assert.ErrorIs(t, res.Err, ErrActionNotAssigned)
 			},
 		},
 		{

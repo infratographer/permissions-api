@@ -7,7 +7,7 @@ import (
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/x/echojwtx"
 	"go.infratographer.com/x/echox"
-	"go.infratographer.com/x/urnx"
+	"go.infratographer.com/x/gidx"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 )
@@ -46,10 +46,10 @@ func (r *Router) Routes(rg *echo.Group) {
 	{
 		v1.Use(r.authMW)
 
-		v1.POST("/resources/:urn/roles", r.roleCreate)
-		v1.GET("/resources/:urn/roles", r.rolesList)
-		v1.POST("/resources/:urn/relationships", r.relationshipsCreate)
-		v1.GET("/resources/:urn/relationships", r.relationshipsList)
+		v1.POST("/resources/:id/roles", r.roleCreate)
+		v1.GET("/resources/:id/roles", r.rolesList)
+		v1.POST("/resources/:id/relationships", r.relationshipsCreate)
+		v1.GET("/resources/:id/relationships", r.relationshipsList)
 		v1.POST("/roles/:role_id/assignments", r.assignmentCreate)
 		v1.GET("/roles/:role_id/assignments", r.assignmentsList)
 
@@ -58,8 +58,8 @@ func (r *Router) Routes(rg *echo.Group) {
 	}
 }
 
-func currentSubject(c echo.Context) (*urnx.URN, error) {
+func currentSubject(c echo.Context) (gidx.PrefixedID, error) {
 	subject := echojwtx.Actor(c)
 
-	return urnx.Parse(subject)
+	return gidx.Parse(subject)
 }

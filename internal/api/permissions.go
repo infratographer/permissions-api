@@ -7,7 +7,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"go.infratographer.com/permissions-api/internal/query"
-	"go.infratographer.com/x/urnx"
+	"go.infratographer.com/x/gidx"
 )
 
 // checkAction will check if a subject is allowed to perform an action on a resource.
@@ -19,7 +19,7 @@ import (
 // contain the subject of the request in the "sub" claim.
 //
 // The following query parameters are required:
-// - resource: the resource URN to check
+// - resource: the resource ID to check
 // - action: the action to check
 func (r *Router) checkAction(c echo.Context) error {
 	ctx, span := tracer.Start(c.Request().Context(), "api.checkAction")
@@ -31,20 +31,20 @@ func (r *Router) checkAction(c echo.Context) error {
 	}
 
 	// Optional query parameters
-	resourceURNStr, hasResourceParam := getParam(c, "resource")
+	resourceIDStr, hasResourceParam := getParam(c, "resource")
 	if !hasResourceParam {
 		return echo.NewHTTPError(http.StatusBadRequest, "missing resource query parameter")
 	}
 
 	// Query parameter validation
-	resourceURN, err := urnx.Parse(resourceURNStr)
+	resourceID, err := gidx.Parse(resourceIDStr)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "error processing resource URN").SetInternal(err)
+		return echo.NewHTTPError(http.StatusBadRequest, "error processing resource ID").SetInternal(err)
 	}
 
-	resource, err := r.engine.NewResourceFromURN(resourceURN)
+	resource, err := r.engine.NewResourceFromID(resourceID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "error processing tenant resource URN").SetInternal(err)
+		return echo.NewHTTPError(http.StatusBadRequest, "error processing tenant resource ID").SetInternal(err)
 	}
 
 	// Subject validation
@@ -53,16 +53,16 @@ func (r *Router) checkAction(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "failed to get the subject").SetInternal(err)
 	}
 
-	subjectResource, err := r.engine.NewResourceFromURN(subject)
+	subjectResource, err := r.engine.NewResourceFromID(subject)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "error processing subject URN").SetInternal(err)
+		return echo.NewHTTPError(http.StatusBadRequest, "error processing subject ID").SetInternal(err)
 	}
 
 	// Check the permissions
 	err = r.engine.SubjectHasPermission(ctx, subjectResource, action, resource, "")
 	if err != nil && errors.Is(err, query.ErrActionNotAssigned) {
 		msg := fmt.Sprintf("subject '%s' does not have permission to perform action '%s' on resource '%s'",
-			subject, action, resourceURNStr)
+			subject, action, resourceIDStr)
 
 		return echo.NewHTTPError(http.StatusForbidden, msg).SetInternal(err)
 	} else if err != nil {
