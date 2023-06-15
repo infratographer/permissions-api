@@ -102,6 +102,9 @@ func NewPolicy(p PolicyDocument) Policy {
 		p:  p,
 	}
 
+	out.expandActionBindings()
+	out.expandResourceTypes()
+
 	return &out
 }
 
@@ -256,9 +259,6 @@ func (v *policy) expandResourceTypes() {
 }
 
 func (v *policy) Validate() error {
-	v.expandActionBindings()
-	v.expandResourceTypes()
-
 	if err := v.validateUnions(); err != nil {
 		return fmt.Errorf("typeAliases: %w", err)
 	}
