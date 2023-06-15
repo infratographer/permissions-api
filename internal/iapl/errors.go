@@ -3,6 +3,8 @@ package iapl
 import "errors"
 
 var (
+	// ErrorTypeExists represents an error where a duplicate type or union was declared.
+	ErrorTypeExists = errors.New("type already exists")
 	// ErrorUnknownType represents an error where a resource type is unknown in the authorization policy.
 	ErrorUnknownType = errors.New("unknown resource type")
 	// ErrorInvalidAlias represents an error where a type alias is invalid.

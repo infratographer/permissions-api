@@ -111,7 +111,7 @@ func NewPolicy(p PolicyDocument) Policy {
 func (v *policy) validateUnions() error {
 	for _, typeAlias := range v.p.Unions {
 		if _, ok := v.rt[typeAlias.Name]; ok {
-			return fmt.Errorf("%s: %w", typeAlias.Name, ErrorInvalidAlias)
+			return fmt.Errorf("%s: %w", typeAlias.Name, ErrorTypeExists)
 		}
 
 		for _, rtName := range typeAlias.ResourceTypeNames {
