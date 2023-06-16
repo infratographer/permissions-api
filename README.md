@@ -104,11 +104,11 @@ $ curl --oauth2-bearer "$AUTH_TOKEN" \
 
 ### Checking permissions
 
-The `/has` API endpoint is used to check whether the authenticated subject in the given bearer token has permission to perform the requested action on the given resource. The following example checks to see whether a subject can perform the `loadbalancer_create` operation on a tenant:
+The `/allow` API endpoint is used to check whether the authenticated subject in the given bearer token has permission to perform the requested action on the given resource. The following example checks to see whether a subject can perform the `loadbalancer_create` operation on a tenant:
 
 ```
 $ curl --oauth2-bearer "$AUTH_TOKEN" \
-    http://localhost:7602/api/v1/has/loadbalancer_create/on/tnntten-MCR3xIIMWfVpVM22w82NZ
+    http://localhost:7602/api/v1/allow?action=loadbalancer_create&resource=tnntten-MCR3xIIMWfVpVM22w82NZ
 ```
 
 ## Development
