@@ -2,246 +2,171 @@ package pubsub
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"strings"
-	"time"
+	"sync"
 
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/permissions-api/internal/types"
+	"go.infratographer.com/x/events"
 	"go.infratographer.com/x/gidx"
-	"go.infratographer.com/x/pubsubx"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 
-	"github.com/nats-io/nats.go"
+	"github.com/ThreeDotsLabs/watermill/message"
 )
 
 var (
 	tracer = otel.Tracer("go.infratographer.com/permissions-api/internal/pubsub")
 )
 
-const (
-	drainTimeout = 1 * time.Second
-
-	eventTypeCreate = "create"
-	eventTypeUpdate = "update"
-	eventTypeDelete = "delete"
-
-	fieldRelationshipSuffix = "_id"
-)
-
-// Client represents a NATS JetStream client listening for resource lifecycle events.
-type Client struct {
-	logger            *zap.SugaredLogger
-	nc                *nats.Conn
-	js                nats.JetStreamContext
-	natsOptions       []nats.Option
-	server            string
-	stream            string
-	consumer          string
-	prefix            string
-	subscriptions     []*nats.Subscription
-	resourceTypeNames []string
-	qe                query.Engine
+// Subscriber is the subscriber client
+type Subscriber struct {
+	ctx            context.Context
+	changeChannels []<-chan *message.Message
+	logger         *zap.SugaredLogger
+	subscriber     *events.Subscriber
+	qe             query.Engine
 }
 
-// ClientOpt represents a non-config setting for a client.
-type ClientOpt func(*Client)
+// SubscriberOption is a functional option for the Subscriber
+type SubscriberOption func(s *Subscriber)
 
-// WithLogger sets the client logger to the given logger.
-func WithLogger(l *zap.SugaredLogger) ClientOpt {
-	return func(c *Client) {
-		c.logger = l
+// WithLogger sets the logger for the Subscriber
+func WithLogger(l *zap.SugaredLogger) SubscriberOption {
+	return func(s *Subscriber) {
+		s.logger = l
 	}
 }
 
-// WithResourceTypeNames sets the resource type names for the client to listen for.
-func WithResourceTypeNames(typeNames []string) ClientOpt {
-	return func(c *Client) {
-		c.resourceTypeNames = typeNames
-	}
-}
-
-// WithQueryEngine sets the query engine for the client.
-func WithQueryEngine(e query.Engine) ClientOpt {
-	return func(c *Client) {
-		c.qe = e
-	}
-}
-
-// WithNATSOptions sets custom options for the given NATS connection.
-func WithNATSOptions(opts []nats.Option) ClientOpt {
-	return func(c *Client) {
-		c.natsOptions = opts
-	}
-}
-
-func defaultLogger() *zap.SugaredLogger {
-	return zap.NewNop().Sugar()
-}
-
-func defaultNATSOptions(cfg Config) []nats.Option {
-	natsOpts := []nats.Option{
-		nats.Name(cfg.Name),
-		nats.UserCredentials(cfg.Credentials),
-		nats.DrainTimeout(drainTimeout),
+// NewSubscriber creates a new Subscriber
+func NewSubscriber(ctx context.Context, cfg events.SubscriberConfig, engine query.Engine, opts ...SubscriberOption) (*Subscriber, error) {
+	sub, err := events.NewSubscriber(cfg)
+	if err != nil {
+		return nil, err
 	}
 
-	return natsOpts
-}
-
-// NewClient creates a new pubsub client.
-func NewClient(cfg Config, opts ...ClientOpt) *Client {
-	c := Client{
-		natsOptions: defaultNATSOptions(cfg),
-		logger:      defaultLogger(),
-		server:      cfg.Server,
-		stream:      cfg.Stream,
-		consumer:    cfg.Consumer,
-		prefix:      cfg.Prefix,
+	s := &Subscriber{
+		ctx:        ctx,
+		logger:     zap.NewNop().Sugar(),
+		subscriber: sub,
+		qe:         engine,
 	}
 
 	for _, opt := range opts {
-		opt(&c)
+		opt(s)
 	}
 
-	return &c
+	s.logger.Debugw("subscriber configuration", cfg)
+
+	return s, nil
 }
 
-func (c *Client) connect() error {
-	nc, err := nats.Connect(c.server, c.natsOptions...)
+// Subscribe subscribes to a nats subject
+func (s *Subscriber) Subscribe(topic string) error {
+	msgChan, err := s.subscriber.SubscribeChanges(s.ctx, topic)
 	if err != nil {
 		return err
 	}
 
-	js, err := nc.JetStream()
-	if err != nil {
-		return err
-	}
-
-	c.nc = nc
-	c.js = js
+	s.changeChannels = append(s.changeChannels, msgChan)
 
 	return nil
 }
 
-func (c *Client) ensureStream() error {
-	c.logger.Debugw("checking that NATS stream exists", "stream_name", c.stream)
+// Listen start listening for messages on registered subjects and calls the registered message handler
+func (s Subscriber) Listen() error {
+	wg := &sync.WaitGroup{}
 
-	_, err := c.js.StreamInfo(c.stream)
-	if err == nil {
-		c.logger.Debugw("stream exists, not recreating", "stream_name", c.stream)
-		return nil
+	// goroutine for each change channel
+	for _, ch := range s.changeChannels {
+		wg.Add(1)
+
+		go s.listen(ch, wg)
 	}
 
-	if !errors.Is(err, nats.ErrStreamNotFound) {
-		return err
-	}
-
-	_, err = c.js.AddStream(&nats.StreamConfig{
-		Name: c.stream,
-		Subjects: []string{
-			c.prefix + ".>",
-		},
-		Storage:   nats.FileStorage,
-		Retention: nats.LimitsPolicy,
-		Discard:   nats.DiscardNew,
-	})
-
-	return err
-}
-
-// Listen ensures a stream exists, binds to it, and listens for resource lifecycle events on that stream.
-func (c *Client) Listen() error {
-	if err := c.connect(); err != nil {
-		return err
-	}
-
-	// Ensure stream exists before we attempt to listen on it
-	if err := c.ensureStream(); err != nil {
-		return err
-	}
-
-	// Set subscription options. We specifically want manual acks in case something goes wrong
-	// persisting the event
-	subOpts := []nats.SubOpt{
-		nats.BindStream(c.stream),
-		nats.Durable(c.consumer),
-		nats.ManualAck(),
-		nats.AckExplicit(),
-	}
-
-	// For each resource type, we create a single subscription. This means that a single worker
-	// process exists for each resource type, which may be a limiting factor if some resource
-	// subjects are chattier than others
-	for _, name := range c.resourceTypeNames {
-		subject := fmt.Sprintf("%s.%s.>", c.prefix, name)
-		queueName := fmt.Sprintf("%s-%s", c.consumer, name)
-
-		subscription, err := c.js.QueueSubscribe(subject, queueName, c.receiveMsg, subOpts...)
-		if err != nil {
-			return err
-		}
-
-		c.subscriptions = append(c.subscriptions, subscription)
-	}
+	wg.Wait()
 
 	return nil
 }
 
-// Stop drains all subscriptions for the client.
-func (c *Client) Stop() error {
-	for _, sub := range c.subscriptions {
-		err := sub.Drain()
-		if err != nil {
-			return err
+// listen listens for messages on a channel and calls the registered message handler
+func (s Subscriber) listen(messages <-chan *message.Message, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	for msg := range messages {
+		if err := s.processEvent(msg); err != nil {
+			s.logger.Warn("Failed to process msg: ", err)
+
+			msg.Nack()
+		} else {
+			msg.Ack()
 		}
 	}
+}
+
+// Close closes the subscriber connection and unsubscribes from all subscriptions
+func (s *Subscriber) Close() error {
+	return s.subscriber.Close()
+}
+
+// processEvent event message handler
+func (s *Subscriber) processEvent(msg *message.Message) error {
+	changeMsg, err := events.UnmarshalChangeMessage(msg.Payload)
+	if err != nil {
+		s.logger.Errorw("failed to process data in msg", zap.Error(err))
+
+		return err
+	}
+
+	ctx, span := tracer.Start(context.Background(), "pubsub.receive", trace.WithAttributes(attribute.String("pubsub.subject", changeMsg.SubjectID.String())))
+
+	defer span.End()
+
+	resource, err := s.qe.NewResourceFromID(changeMsg.SubjectID)
+	if err != nil {
+		s.logger.Warnw("invalid subject id", "error", err.Error())
+
+		msg.Ack()
+
+		return err
+	}
+
+	s.logger.Infow("received message", "resource_type", resource.Type, "resource_id", resource.ID.String(), "event", changeMsg.EventType)
+
+	switch events.ChangeType(changeMsg.EventType) {
+	case events.CreateChangeType:
+		err = s.handleCreateEvent(ctx, msg, changeMsg)
+	case events.UpdateChangeType:
+		err = s.handleUpdateEvent(ctx, msg, changeMsg)
+	case events.DeleteChangeType:
+		err = s.handleDeleteEvent(ctx, msg, changeMsg)
+	default:
+		s.logger.Debugw("ignoring msg, not a create, update or delete event", zap.String("event-type", changeMsg.EventType))
+	}
+
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
-func (c *Client) ackWithError(msg *nats.Msg, err error) {
-	c.logger.Warnw("invalid message - will not reprocess", "error", err.Error())
-
-	err = msg.Ack()
-	if err != nil {
-		c.logger.Errorw("error acking message", "error", err.Error())
-	}
-}
-
-func (c *Client) newResourceFromString(idStr string) (types.Resource, error) {
-	id, err := gidx.Parse(idStr)
-	if err != nil {
-		return types.Resource{}, err
-	}
-
-	return c.qe.NewResourceFromID(id)
-}
-
-func (c *Client) createRelationships(ctx context.Context, msg *nats.Msg, resource types.Resource, fields map[string]string) error {
+func (s *Subscriber) createRelationships(ctx context.Context, msg *message.Message, resource types.Resource, additionalSubjectIDs []gidx.PrefixedID) error {
 	var relationships []types.Relationship
 
 	// Attempt to create relationships from the message fields. If this fails, reject the message
-	for field, value := range fields {
-		relation, found := strings.CutSuffix(field, fieldRelationshipSuffix)
-		if !found {
-			continue
-		}
-
-		subjResource, err := c.newResourceFromString(value)
+	for _, id := range additionalSubjectIDs {
+		subjResource, err := s.qe.NewResourceFromID(id)
 		if err != nil {
-			c.logger.Warnw("error parsing field - will not reprocess", "event_type", eventTypeCreate, "field", field, "error", err.Error())
+			s.logger.Warnw("error parsing additional subject id - will not reprocess", "event_type", events.CreateChangeType, "id", id.String(), "error", err.Error())
+
 			return nil
 		}
 
 		relationship := types.Relationship{
 			Resource: resource,
-			Relation: relation,
+			Relation: subjResource.Type,
 			Subject:  subjResource,
 		}
 
@@ -249,120 +174,60 @@ func (c *Client) createRelationships(ctx context.Context, msg *nats.Msg, resourc
 	}
 
 	// Attempt to create the relationships in SpiceDB. If this fails, nak the message for reprocessing
-	_, err := c.qe.CreateRelationships(ctx, relationships)
+	_, err := s.qe.CreateRelationships(ctx, relationships)
 	if err != nil {
-		c.logger.Errorw("error creating relationships - will reprocess", "error", err.Error())
+		s.logger.Errorw("error creating relationships - will reprocess", "error", err.Error())
+
 		return err
 	}
 
 	return nil
 }
 
-func (c *Client) deleteRelationships(ctx context.Context, msg *nats.Msg, resource types.Resource) error {
-	_, err := c.qe.DeleteRelationships(ctx, resource)
+func (s *Subscriber) deleteRelationships(ctx context.Context, msg *message.Message, resource types.Resource) error {
+	_, err := s.qe.DeleteRelationships(ctx, resource)
 	if err != nil {
-		c.logger.Errorw("error deleting relationships - will reprocess", "error", err.Error())
+		s.logger.Errorw("error deleting relationships - will reprocess", "error", err.Error())
 		return err
 	}
 
 	return nil
 }
 
-func (c *Client) handleCreateEvent(ctx context.Context, msg *nats.Msg, payload pubsubx.Message) error {
-	// Attempt to create a valid resource from the ID string. If this fails, reject the message
-	resource, err := c.newResourceFromString(payload.SubjectURN)
+func (s *Subscriber) handleCreateEvent(ctx context.Context, msg *message.Message, changeMsg events.ChangeMessage) error {
+	resource, err := s.qe.NewResourceFromID(changeMsg.SubjectID)
 	if err != nil {
-		c.logger.Warnw("error parsing subject ID - will not reprocess", "event_type", eventTypeCreate, "error", err.Error())
+		s.logger.Warnw("error parsing subject ID - will not reprocess", "event_type", changeMsg.EventType, "error", err.Error())
+
 		return nil
 	}
 
-	return c.createRelationships(ctx, msg, resource, payload.SubjectFields)
+	return s.createRelationships(ctx, msg, resource, changeMsg.AdditionalSubjectIDs)
 }
 
-func (c *Client) handleDeleteEvent(ctx context.Context, msg *nats.Msg, payload pubsubx.Message) error {
-	// Attempt to create a valid resource from the ID string. If this fails, reject the message
-	resource, err := c.newResourceFromString(payload.SubjectURN)
+func (s *Subscriber) handleDeleteEvent(ctx context.Context, msg *message.Message, changeMsg events.ChangeMessage) error {
+	resource, err := s.qe.NewResourceFromID(changeMsg.SubjectID)
 	if err != nil {
-		c.logger.Warnw("error parsing subject ID - will not reprocess", "event_type", eventTypeDelete, "error", err.Error())
+		s.logger.Warnw("error parsing subject ID - will not reprocess", "event_type", changeMsg.EventType, "error", err.Error())
+
 		return nil
 	}
 
-	return c.deleteRelationships(ctx, msg, resource)
+	return s.deleteRelationships(ctx, msg, resource)
 }
 
-func (c *Client) handleUpdateEvent(ctx context.Context, msg *nats.Msg, payload pubsubx.Message) error {
-	// Attempt to create a valid resource from the ID string. If this fails, reject the message
-	resource, err := c.newResourceFromString(payload.SubjectURN)
+func (s *Subscriber) handleUpdateEvent(ctx context.Context, msg *message.Message, changeMsg events.ChangeMessage) error {
+	resource, err := s.qe.NewResourceFromID(changeMsg.SubjectID)
 	if err != nil {
-		c.logger.Warnw("error parsing subject ID - will not reprocess", "event_type", eventTypeUpdate, "error", err.Error())
+		s.logger.Warnw("error parsing subject ID - will not reprocess", "event_type", changeMsg.EventType, "error", err.Error())
+
 		return nil
 	}
 
-	err = c.deleteRelationships(ctx, msg, resource)
+	err = s.deleteRelationships(ctx, msg, resource)
 	if err != nil {
 		return err
 	}
 
-	return c.createRelationships(ctx, msg, resource, payload.SubjectFields)
-}
-
-func (c *Client) handleUnknownEvent(ctx context.Context, msg *nats.Msg, payload pubsubx.Message) error {
-	c.logger.Warnw("unknown event - will not reprocess", "event_type", payload.EventType)
-
-	return nil
-}
-
-func (c *Client) receiveMsg(msg *nats.Msg) {
-	ctx, span := tracer.Start(context.Background(), "pubsub.receive", trace.WithAttributes(attribute.String("pubsub.subject", msg.Subject)))
-	defer span.End()
-
-	var payload pubsubx.Message
-
-	err := json.Unmarshal(msg.Data, &payload)
-	if err != nil {
-		c.ackWithError(msg, err)
-		return
-	}
-
-	resourceID, err := gidx.Parse(payload.SubjectURN)
-	if err != nil {
-		c.ackWithError(msg, err)
-		return
-	}
-
-	resource, err := c.qe.NewResourceFromID(resourceID)
-	if err != nil {
-		c.ackWithError(msg, err)
-		return
-	}
-
-	c.logger.Infow("received message", "resource_type", resource.Type, "resource_id", resource.ID.String(), "event", payload.EventType)
-
-	switch payload.EventType {
-	case eventTypeCreate:
-		err = c.handleCreateEvent(ctx, msg, payload)
-	case eventTypeUpdate:
-		err = c.handleUpdateEvent(ctx, msg, payload)
-	case eventTypeDelete:
-		err = c.handleDeleteEvent(ctx, msg, payload)
-	default:
-		err = c.handleUnknownEvent(ctx, msg, payload)
-	}
-
-	if err != nil {
-		c.logger.Errorw("error handling message", "error", err.Error())
-
-		if err := msg.Nak(); err != nil {
-			c.logger.Errorw("error naking message", "error", err.Error())
-		}
-
-		return
-	}
-
-	if err := msg.Ack(); err != nil {
-		c.logger.Errorw("error acking message", "error", err.Error())
-		return
-	}
-
-	c.logger.Infow("successfully handled message", "resource_type", resource.Type, "resource_id", resource.ID.String(), "event", payload.EventType)
+	return s.createRelationships(ctx, msg, resource, changeMsg.AdditionalSubjectIDs)
 }
