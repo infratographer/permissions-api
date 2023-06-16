@@ -137,9 +137,7 @@ func (s *Subscriber) processEvent(msg *message.Message) error {
 	if err != nil {
 		s.logger.Warnw("invalid subject id", "error", err.Error())
 
-		msg.Ack()
-
-		return err
+		return nil
 	}
 
 	s.logger.Infow("received message", "resource_type", resource.Type, "resource_id", resource.ID.String(), "event", changeMsg.EventType)
@@ -152,7 +150,7 @@ func (s *Subscriber) processEvent(msg *message.Message) error {
 	case events.DeleteChangeType:
 		err = s.handleDeleteEvent(ctx, msg, changeMsg)
 	default:
-		s.logger.Debugw("ignoring msg, not a create, update or delete event", zap.String("event-type", changeMsg.EventType))
+		s.logger.Warnw("ignoring msg, not a create, update or delete event", zap.String("event-type", changeMsg.EventType))
 	}
 
 	if err != nil {
