@@ -2,7 +2,9 @@ package mock
 
 import (
 	"context"
+	"errors"
 
+	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/permissions-api/internal/types"
 
@@ -11,13 +13,16 @@ import (
 )
 
 var (
-	_ query.Engine = &Engine{}
+	errorInvalidNamespace = errors.New("invalid namespace")
 )
+
+var _ query.Engine = &Engine{}
 
 // Engine represents an engine that does nothing and accepts all resource types.
 type Engine struct {
 	mock.Mock
 	Namespace string
+	schema    []types.ResourceType
 }
 
 // AssignSubjectRole does nothing but satisfies the Engine interface.
@@ -71,8 +76,28 @@ func (e *Engine) DeleteRelationships(ctx context.Context, resource types.Resourc
 
 // NewResourceFromID creates a new resource object based on the given ID.
 func (e *Engine) NewResourceFromID(id gidx.PrefixedID) (types.Resource, error) {
+	prefix := id.Prefix()
+
+	var rType *types.ResourceType
+
+	if e.schema == nil {
+		e.schema = iapl.DefaultPolicy().Schema()
+	}
+
+	for _, resourceType := range e.schema {
+		if resourceType.IDPrefix == prefix {
+			rType = &resourceType
+
+			break
+		}
+	}
+
+	if rType == nil {
+		return types.Resource{}, errorInvalidNamespace
+	}
+
 	out := types.Resource{
-		Type: id.Prefix(),
+		Type: rType.Name,
 		ID:   id,
 	}
 

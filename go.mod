@@ -7,6 +7,7 @@ require (
 	github.com/authzed/authzed-go v0.8.0
 	github.com/authzed/grpcutil v0.0.0-20230524151342-4caf7fd1108a
 	github.com/labstack/echo/v4 v4.10.2
+	github.com/nats-io/nats.go v1.26.0
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.16.0
@@ -61,7 +62,6 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/nats-io/jwt/v2 v2.4.1 // indirect
 	github.com/nats-io/nats-server/v2 v2.9.17 // indirect
-	github.com/nats-io/nats.go v1.26.0 // indirect
 	github.com/nats-io/nkeys v0.4.4 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
@@ -102,3 +102,5 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace go.infratographer.com/x => github.com/mikemrm/infratographer-x v0.0.0-20230616223549-b56a454f0fdf

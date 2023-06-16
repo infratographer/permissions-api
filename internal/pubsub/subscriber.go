@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	nc "github.com/nats-io/nats.go"
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/permissions-api/internal/types"
 	"go.infratographer.com/x/events"
@@ -26,6 +27,7 @@ type Subscriber struct {
 	changeChannels []<-chan *message.Message
 	logger         *zap.SugaredLogger
 	subscriber     *events.Subscriber
+	subOpts        []nc.SubOpt
 	qe             query.Engine
 }
 
@@ -39,25 +41,33 @@ func WithLogger(l *zap.SugaredLogger) SubscriberOption {
 	}
 }
 
+// WithNatsSubOpts sets the logger for the Subscriber
+func WithNatsSubOpts(options ...nc.SubOpt) SubscriberOption {
+	return func(s *Subscriber) {
+		s.subOpts = append(s.subOpts, options...)
+	}
+}
+
 // NewSubscriber creates a new Subscriber
 func NewSubscriber(ctx context.Context, cfg events.SubscriberConfig, engine query.Engine, opts ...SubscriberOption) (*Subscriber, error) {
-	sub, err := events.NewSubscriber(cfg)
-	if err != nil {
-		return nil, err
-	}
-
 	s := &Subscriber{
-		ctx:        ctx,
-		logger:     zap.NewNop().Sugar(),
-		subscriber: sub,
-		qe:         engine,
+		ctx:    ctx,
+		logger: zap.NewNop().Sugar(),
+		qe:     engine,
 	}
 
 	for _, opt := range opts {
 		opt(s)
 	}
 
-	s.logger.Debugw("subscriber configuration", cfg)
+	sub, err := events.NewSubscriber(cfg, s.subOpts...)
+	if err != nil {
+		return nil, err
+	}
+
+	s.subscriber = sub
+
+	s.logger.Debugw("subscriber configuration", "config", cfg)
 
 	return s, nil
 }
