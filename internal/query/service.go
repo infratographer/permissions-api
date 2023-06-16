@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/authzed/authzed-go/v1"
-	"go.infratographer.com/x/urnx"
+	"go.infratographer.com/x/gidx"
 
 	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/types"
@@ -19,8 +19,7 @@ type Engine interface {
 	ListRelationships(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error)
 	ListRoles(ctx context.Context, resource types.Resource, queryToken string) ([]types.Role, error)
 	DeleteRelationships(ctx context.Context, resource types.Resource) (string, error)
-	NewResourceFromURN(urn *urnx.URN) (types.Resource, error)
-	NewURNFromResource(res types.Resource) (*urnx.URN, error)
+	NewResourceFromID(id gidx.PrefixedID) (types.Resource, error)
 	SubjectHasPermission(ctx context.Context, subject types.Resource, action string, resource types.Resource, queryToken string) error
 }
 

@@ -198,10 +198,10 @@ func TestNATS(t *testing.T) {
 		msgBytes []byte
 	}
 
-	createBytes := []byte(`{"subject_urn": "urn:infratographer:loadbalancer:fc065394-5486-4731-93b4-2726ca7e669f", "event_type": "create", "fields": {"tenant_urn": "urn:infratographer:tenant:75c8ec25-86e8-4fa7-93e2-6167684c3fb6"}}`)
-	updateBytes := []byte(`{"subject_urn": "urn:infratographer:loadbalancer:fc065394-5486-4731-93b4-2726ca7e669f", "event_type": "update", "fields": {"tenant_urn": "urn:infratographer:tenant:75c8ec25-86e8-4fa7-93e2-6167684c3fb6"}}`)
-	deleteBytes := []byte(`{"subject_urn": "urn:infratographer:loadbalancer:fc065394-5486-4731-93b4-2726ca7e669f", "event_type": "delete"}`)
-	unknownResourceBytes := []byte(`{"subject_urn": "urn:infratographer:badresource:fc065394-5486-4731-93b4-2726ca7e669f", "event_type": "create"}`)
+	createBytes := []byte(`{"subject_id": "loadbal-UCN7pxJO57BV_5pNiV95B", "event_type": "create", "fields": {"tenant_id": "tnntten-gd6RExwAz353UqHLzjC1n"}}`)
+	updateBytes := []byte(`{"subject_id": "loadbal-UCN7pxJO57BV_5pNiV95B", "event_type": "update", "fields": {"tenant_id": "tnntten-gd6RExwAz353UqHLzjC1n"}}`)
+	deleteBytes := []byte(`{"subject_id": "loadbal-UCN7pxJO57BV_5pNiV95B", "event_type": "delete"}`)
+	unknownResourceBytes := []byte(`{"subject_id": "baddres-BfqAzfYxtFNlpKPGYLmra", "event_type": "create"}`)
 
 	// Each of these tests works as follows:
 	// - A publisher NATS connection is created

@@ -4,10 +4,9 @@ import (
 	"net/http"
 
 	"go.infratographer.com/permissions-api/internal/types"
+	"go.infratographer.com/x/gidx"
 
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
-	"go.infratographer.com/x/urnx"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -15,7 +14,7 @@ import (
 func (r *Router) assignmentCreate(c echo.Context) error {
 	roleIDStr := c.Param("role_id")
 
-	roleID, err := uuid.Parse(roleIDStr)
+	roleID, err := gidx.Parse(roleIDStr)
 	if err != nil {
 		return echo.ErrNotFound
 	}
@@ -30,12 +29,12 @@ func (r *Router) assignmentCreate(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "error parsing request body").SetInternal(err)
 	}
 
-	subjURN, err := urnx.Parse(reqBody.SubjectURN)
+	subjID, err := gidx.Parse(reqBody.SubjectID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "error parsing subject URN").SetInternal(err)
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing subject ID").SetInternal(err)
 	}
 
-	subjResource, err := r.engine.NewResourceFromURN(subjURN)
+	subjResource, err := r.engine.NewResourceFromID(subjID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "error creating resource").SetInternal(err)
 	}
@@ -59,7 +58,7 @@ func (r *Router) assignmentCreate(c echo.Context) error {
 func (r *Router) assignmentsList(c echo.Context) error {
 	roleIDStr := c.Param("role_id")
 
-	roleID, err := uuid.Parse(roleIDStr)
+	roleID, err := gidx.Parse(roleIDStr)
 	if err != nil {
 		return echo.ErrNotFound
 	}
@@ -79,13 +78,8 @@ func (r *Router) assignmentsList(c echo.Context) error {
 	items := make([]assignmentItem, len(assignments))
 
 	for i, res := range assignments {
-		subjURN, err := r.engine.NewURNFromResource(res)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "error listing assignments").SetInternal(err)
-		}
-
 		item := assignmentItem{
-			SubjectURN: subjURN.String(),
+			SubjectID: res.ID.String(),
 		}
 
 		items[i] = item

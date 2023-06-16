@@ -6,9 +6,8 @@ import (
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/permissions-api/internal/types"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
-	"go.infratographer.com/x/urnx"
+	"go.infratographer.com/x/gidx"
 )
 
 var (
@@ -41,7 +40,7 @@ func (e *Engine) CreateRole(ctx context.Context, res types.Resource, actions []s
 	copy(outActions, actions)
 
 	role := types.Role{
-		ID:      uuid.New(),
+		ID:      gidx.MustNewID(query.ApplicationPrefix),
 		Actions: outActions,
 	}
 
@@ -70,19 +69,14 @@ func (e *Engine) DeleteRelationships(ctx context.Context, resource types.Resourc
 	return args.String(0), args.Error(1)
 }
 
-// NewResourceFromURN creates a new resource object based on the given URN.
-func (e *Engine) NewResourceFromURN(urn *urnx.URN) (types.Resource, error) {
+// NewResourceFromID creates a new resource object based on the given ID.
+func (e *Engine) NewResourceFromID(id gidx.PrefixedID) (types.Resource, error) {
 	out := types.Resource{
-		Type: urn.ResourceType,
-		ID:   urn.ResourceID,
+		Type: id.Prefix(),
+		ID:   id,
 	}
 
 	return out, nil
-}
-
-// NewURNFromResource creates a new URN from the given resource.
-func (e *Engine) NewURNFromResource(res types.Resource) (*urnx.URN, error) {
-	return urnx.Build(e.Namespace, res.Type, res.ID)
 }
 
 // SubjectHasPermission returns nil to satisfy the Engine interface.

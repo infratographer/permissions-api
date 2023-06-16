@@ -58,16 +58,16 @@ func New(url string, doerClient Doer) (*Client, error) {
 }
 
 // Allowed checks if the client subject is permitted exec the action on the resource
-func (c *Client) Allowed(ctx context.Context, action string, resourceURN string) (bool, error) {
+func (c *Client) Allowed(ctx context.Context, action string, resourceID string) (bool, error) {
 	ctx, span := tracer.Start(ctx, "SubjectHasAction", trace.WithAttributes(
 		attribute.String("action", action),
-		attribute.String("resource", resourceURN),
+		attribute.String("resource", resourceID),
 	))
 	defer span.End()
 
 	values := url.Values{}
 	values.Add("action", action)
-	values.Add("resource", resourceURN)
+	values.Add("resource", resourceID)
 
 	err := c.get(ctx, "/allow", values, map[string]string{})
 	if err != nil {

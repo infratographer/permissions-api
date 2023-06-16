@@ -1,14 +1,16 @@
 package api
 
-import "github.com/google/uuid"
+import (
+	"go.infratographer.com/x/gidx"
+)
 
 type createRoleRequest struct {
 	Actions []string `json:"actions" binding:"required"`
 }
 
 type roleResponse struct {
-	ID      uuid.UUID `json:"id"`
-	Actions []string  `json:"actions"`
+	ID      gidx.PrefixedID `json:"id"`
+	Actions []string        `json:"actions"`
 }
 
 type listRolesResponse struct {
@@ -16,8 +18,8 @@ type listRolesResponse struct {
 }
 
 type createRelationshipItem struct {
-	Relation   string `json:"relation" binding:"required"`
-	SubjectURN string `json:"subject_urn" binding:"required"`
+	Relation  string `json:"relation" binding:"required"`
+	SubjectID string `json:"subject_id" binding:"required"`
 }
 
 type createRelationshipsRequest struct {
@@ -29,8 +31,8 @@ type createRelationshipsResponse struct {
 }
 
 type relationshipItem struct {
-	Relation   string `json:"relation"`
-	SubjectURN string `json:"subject_urn"`
+	Relation  string `json:"relation"`
+	SubjectID string `json:"subject_id"`
 }
 
 type listRelationshipsResponse struct {
@@ -38,7 +40,7 @@ type listRelationshipsResponse struct {
 }
 
 type createAssignmentRequest struct {
-	SubjectURN string `json:"subject_urn" binding:"required"`
+	SubjectID string `json:"subject_id" binding:"required"`
 }
 
 type createAssignmentResponse struct {
@@ -46,7 +48,7 @@ type createAssignmentResponse struct {
 }
 
 type assignmentItem struct {
-	SubjectURN string `json:"subject_urn"`
+	SubjectID string `json:"subject_id"`
 }
 
 type listAssignmentsResponse struct {

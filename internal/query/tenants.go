@@ -7,9 +7,8 @@ import (
 	"strings"
 
 	pb "github.com/authzed/authzed-go/proto/authzed/api/v1"
-	"github.com/google/uuid"
 	"go.infratographer.com/permissions-api/internal/types"
-	"go.infratographer.com/x/urnx"
+	"go.infratographer.com/x/gidx"
 )
 
 var roleSubjectRelation = "subject"
@@ -64,24 +63,6 @@ func resourceToSpiceDBRef(namespace string, r types.Resource) *pb.ObjectReferenc
 	}
 }
 
-func spiceDBRefToResource(namespace string, ref *pb.ObjectReference) (types.Resource, error) {
-	sep := namespace + "/"
-	before, typeName, found := strings.Cut(ref.ObjectType, sep)
-
-	if !found || before != "" {
-		return types.Resource{}, ErrInvalidReference
-	}
-
-	resUUID := uuid.MustParse(ref.ObjectId)
-
-	out := types.Resource{
-		Type: typeName,
-		ID:   resUUID,
-	}
-
-	return out, nil
-}
-
 // SubjectHasPermission checks if the given subject can do the given action on the given resource
 func (e *engine) SubjectHasPermission(ctx context.Context, subject types.Resource, action string, resource types.Resource, queryToken string) error {
 	req := &pb.CheckPermissionRequest{
@@ -128,12 +109,17 @@ func (e *engine) ListAssignments(ctx context.Context, role types.Role, queryToke
 	out := make([]types.Resource, len(relationships))
 
 	for i, rel := range relationships {
-		subjRes, err := spiceDBRefToResource(e.namespace, rel.Subject.Object)
+		id, err := gidx.Parse(rel.Subject.Object.ObjectId)
 		if err != nil {
 			return nil, err
 		}
 
-		out[i] = subjRes
+		res, err := e.NewResourceFromID(id)
+		if err != nil {
+			return nil, err
+		}
+
+		out[i] = res
 	}
 
 	return out, nil
@@ -229,9 +215,9 @@ func relationToAction(relation string) string {
 func (e *engine) roleRelationships(role types.Role, resource types.Resource) []*pb.RelationshipUpdate {
 	var rels []*pb.RelationshipUpdate
 
-	roleResource := types.Resource{
-		Type: "role",
-		ID:   role.ID,
+	roleResource, err := e.NewResourceFromID(role.ID)
+	if err != nil {
+		panic(err)
 	}
 
 	resourceRef := resourceToSpiceDBRef(e.namespace, resource)
@@ -342,13 +328,18 @@ func (e *engine) deleteRelationships(ctx context.Context, filter *pb.Relationshi
 }
 
 func relationshipsToRoles(rels []*pb.Relationship) []types.Role {
-	var roleIDs []uuid.UUID
+	var roleIDs []gidx.PrefixedID
 
-	roleMap := make(map[uuid.UUID]*types.Role)
+	roleMap := make(map[gidx.PrefixedID]*types.Role)
 
 	for _, rel := range rels {
 		roleIDStr := rel.Subject.Object.ObjectId
-		roleID := uuid.MustParse(roleIDStr)
+
+		roleID, err := gidx.Parse(roleIDStr)
+		if err != nil {
+			panic(err)
+		}
+
 		action := relationToAction(rel.Relation)
 
 		_, ok := roleMap[roleID]
@@ -379,7 +370,12 @@ func (e *engine) relationshipsToNonRoles(rels []*pb.Relationship, res types.Reso
 			continue
 		}
 
-		subjRes, err := spiceDBRefToResource(e.namespace, rel.Subject.Object)
+		id, err := gidx.Parse(rel.Subject.Object.ObjectId)
+		if err != nil {
+			return nil, err
+		}
+
+		subj, err := e.NewResourceFromID(id)
 		if err != nil {
 			return nil, err
 		}
@@ -387,7 +383,7 @@ func (e *engine) relationshipsToNonRoles(rels []*pb.Relationship, res types.Reso
 		item := types.Relationship{
 			Resource: res,
 			Relation: rel.Relation,
-			Subject:  subjRes,
+			Subject:  subj,
 		}
 
 		out = append(out, item)
@@ -439,21 +435,28 @@ func (e *engine) ListRoles(ctx context.Context, resource types.Resource, queryTo
 	return out, nil
 }
 
-// NewResourceFromURN returns a new resource struct from a given urn
-func (e *engine) NewResourceFromURN(urn *urnx.URN) (types.Resource, error) {
-	if urn.Namespace != e.namespace {
+// NewResourceFromID returns a new resource struct from a given id
+func (e *engine) NewResourceFromID(id gidx.PrefixedID) (types.Resource, error) {
+	prefix := id.Prefix()
+
+	var rType *types.ResourceType
+
+	for _, resourceType := range e.schema {
+		if resourceType.IDPrefix == prefix {
+			rType = &resourceType
+
+			break
+		}
+	}
+
+	if rType == nil {
 		return types.Resource{}, errorInvalidNamespace
 	}
 
 	out := types.Resource{
-		Type: urn.ResourceType,
-		ID:   urn.ResourceID,
+		Type: rType.Name,
+		ID:   id,
 	}
 
 	return out, nil
-}
-
-// NewURNFromResource creates a new URN namespaced to the given engine from the given resource.
-func (e *engine) NewURNFromResource(res types.Resource) (*urnx.URN, error) {
-	return urnx.Build(e.namespace, res.Type, res.ID)
 }

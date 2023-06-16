@@ -10,8 +10,8 @@ import (
 
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/permissions-api/internal/types"
+	"go.infratographer.com/x/gidx"
 	"go.infratographer.com/x/pubsubx"
-	"go.infratographer.com/x/urnx"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -31,7 +31,7 @@ const (
 	eventTypeUpdate = "update"
 	eventTypeDelete = "delete"
 
-	fieldRelationshipSuffix = "_urn"
+	fieldRelationshipSuffix = "_id"
 )
 
 // Client represents a NATS JetStream client listening for resource lifecycle events.
@@ -214,13 +214,13 @@ func (c *Client) ackWithError(msg *nats.Msg, err error) {
 	}
 }
 
-func (c *Client) newResourceFromString(urnStr string) (types.Resource, error) {
-	urn, err := urnx.Parse(urnStr)
+func (c *Client) newResourceFromString(idStr string) (types.Resource, error) {
+	id, err := gidx.Parse(idStr)
 	if err != nil {
 		return types.Resource{}, err
 	}
 
-	return c.qe.NewResourceFromURN(urn)
+	return c.qe.NewResourceFromID(id)
 }
 
 func (c *Client) createRelationships(ctx context.Context, msg *nats.Msg, resource types.Resource, fields map[string]string) error {
@@ -269,10 +269,10 @@ func (c *Client) deleteRelationships(ctx context.Context, msg *nats.Msg, resourc
 }
 
 func (c *Client) handleCreateEvent(ctx context.Context, msg *nats.Msg, payload pubsubx.Message) error {
-	// Attempt to create a valid resource from the URN string. If this fails, reject the message
+	// Attempt to create a valid resource from the ID string. If this fails, reject the message
 	resource, err := c.newResourceFromString(payload.SubjectURN)
 	if err != nil {
-		c.logger.Warnw("error parsing subject URN - will not reprocess", "event_type", eventTypeCreate, "error", err.Error())
+		c.logger.Warnw("error parsing subject ID - will not reprocess", "event_type", eventTypeCreate, "error", err.Error())
 		return nil
 	}
 
@@ -280,10 +280,10 @@ func (c *Client) handleCreateEvent(ctx context.Context, msg *nats.Msg, payload p
 }
 
 func (c *Client) handleDeleteEvent(ctx context.Context, msg *nats.Msg, payload pubsubx.Message) error {
-	// Attempt to create a valid resource from the URN string. If this fails, reject the message
+	// Attempt to create a valid resource from the ID string. If this fails, reject the message
 	resource, err := c.newResourceFromString(payload.SubjectURN)
 	if err != nil {
-		c.logger.Warnw("error parsing subject URN - will not reprocess", "event_type", eventTypeDelete, "error", err.Error())
+		c.logger.Warnw("error parsing subject ID - will not reprocess", "event_type", eventTypeDelete, "error", err.Error())
 		return nil
 	}
 
@@ -291,10 +291,10 @@ func (c *Client) handleDeleteEvent(ctx context.Context, msg *nats.Msg, payload p
 }
 
 func (c *Client) handleUpdateEvent(ctx context.Context, msg *nats.Msg, payload pubsubx.Message) error {
-	// Attempt to create a valid resource from the URN string. If this fails, reject the message
+	// Attempt to create a valid resource from the ID string. If this fails, reject the message
 	resource, err := c.newResourceFromString(payload.SubjectURN)
 	if err != nil {
-		c.logger.Warnw("error parsing subject URN - will not reprocess", "event_type", eventTypeUpdate, "error", err.Error())
+		c.logger.Warnw("error parsing subject ID - will not reprocess", "event_type", eventTypeUpdate, "error", err.Error())
 		return nil
 	}
 
@@ -324,13 +324,13 @@ func (c *Client) receiveMsg(msg *nats.Msg) {
 		return
 	}
 
-	resourceURN, err := urnx.Parse(payload.SubjectURN)
+	resourceID, err := gidx.Parse(payload.SubjectURN)
 	if err != nil {
 		c.ackWithError(msg, err)
 		return
 	}
 
-	resource, err := c.qe.NewResourceFromURN(resourceURN)
+	resource, err := c.qe.NewResourceFromID(resourceID)
 	if err != nil {
 		c.ackWithError(msg, err)
 		return

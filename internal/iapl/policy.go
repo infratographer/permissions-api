@@ -279,7 +279,8 @@ func (v *policy) Schema() []types.ResourceType {
 
 	for n, rt := range v.rt {
 		out := types.ResourceType{
-			Name: rt.Name,
+			Name:     rt.Name,
+			IDPrefix: rt.IDPrefix,
 		}
 
 		for _, rel := range rt.Relationships {

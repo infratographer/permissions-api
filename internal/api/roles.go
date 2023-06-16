@@ -4,20 +4,20 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	"go.infratographer.com/x/urnx"
+	"go.infratographer.com/x/gidx"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
 func (r *Router) roleCreate(c echo.Context) error {
-	resourceURNStr := c.Param("urn")
+	resourceIDStr := c.Param("id")
 
-	ctx, span := tracer.Start(c.Request().Context(), "api.roleCreate", trace.WithAttributes(attribute.String("urn", resourceURNStr)))
+	ctx, span := tracer.Start(c.Request().Context(), "api.roleCreate", trace.WithAttributes(attribute.String("id", resourceIDStr)))
 	defer span.End()
 
-	resourceURN, err := urnx.Parse(resourceURNStr)
+	resourceID, err := gidx.Parse(resourceIDStr)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "error parsing resource URN").SetInternal(err)
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing resource ID").SetInternal(err)
 	}
 
 	var reqBody createRoleRequest
@@ -27,7 +27,7 @@ func (r *Router) roleCreate(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "error parsing request body").SetInternal(err)
 	}
 
-	resource, err := r.engine.NewResourceFromURN(resourceURN)
+	resource, err := r.engine.NewResourceFromID(resourceID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "error creating resource").SetInternal(err)
 	}
@@ -46,17 +46,17 @@ func (r *Router) roleCreate(c echo.Context) error {
 }
 
 func (r *Router) rolesList(c echo.Context) error {
-	resourceURNStr := c.Param("urn")
+	resourceIDStr := c.Param("id")
 
-	ctx, span := tracer.Start(c.Request().Context(), "api.roleGet", trace.WithAttributes(attribute.String("urn", resourceURNStr)))
+	ctx, span := tracer.Start(c.Request().Context(), "api.roleGet", trace.WithAttributes(attribute.String("id", resourceIDStr)))
 	defer span.End()
 
-	resourceURN, err := urnx.Parse(resourceURNStr)
+	resourceID, err := gidx.Parse(resourceIDStr)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "error parsing resource URN").SetInternal(err)
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing resource ID").SetInternal(err)
 	}
 
-	resource, err := r.engine.NewResourceFromURN(resourceURN)
+	resource, err := r.engine.NewResourceFromID(resourceID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "error creating resource").SetInternal(err)
 	}
