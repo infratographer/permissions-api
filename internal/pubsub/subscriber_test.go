@@ -77,7 +77,16 @@ func TestNATS(t *testing.T) {
 		SubjectID: gidx.PrefixedID("loadbal-UCN7pxJO57BV_5pNiV95B"),
 		EventType: string(events.CreateChangeType),
 		AdditionalSubjectIDs: []gidx.PrefixedID{
+			gidx.PrefixedID("othrsid-kXboa2UZbaNzMhng9vVha"),
 			gidx.PrefixedID("tnntten-gd6RExwAz353UqHLzjC1n"),
+		},
+	}
+
+	noCreateMsg := events.ChangeMessage{
+		SubjectID: gidx.PrefixedID("loadbal-EA8CJagJPM4J-yw6_skd1"),
+		EventType: string(events.CreateChangeType),
+		AdditionalSubjectIDs: []gidx.PrefixedID{
+			gidx.PrefixedID("othrsid-kXboa2UZbaNzMhng9vVha"),
 		},
 	}
 
@@ -85,6 +94,7 @@ func TestNATS(t *testing.T) {
 		SubjectID: gidx.PrefixedID("loadbal-UCN7pxJO57BV_5pNiV95B"),
 		EventType: string(events.UpdateChangeType),
 		AdditionalSubjectIDs: []gidx.PrefixedID{
+			gidx.PrefixedID("othrsid-kXboa2UZbaNzMhng9vVha"),
 			gidx.PrefixedID("tnntten-gd6RExwAz353UqHLzjC1n"),
 		},
 	}
@@ -142,6 +152,21 @@ func TestNATS(t *testing.T) {
 			},
 			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[*Subscriber]) {
 				require.ErrorIs(t, result.Err, eventtools.ErrNack)
+			},
+		},
+		{
+			Name: "nocreate",
+			Input: testInput{
+				subject:       "nocreate.loadbalancer",
+				changeMessage: noCreateMsg,
+			},
+			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+				var engine mock.Engine
+
+				return context.WithValue(ctx, contextKeyEngine, &engine)
+			},
+			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[*Subscriber]) {
+				require.NoError(t, result.Err)
 			},
 		},
 		{

@@ -169,7 +169,7 @@ func (s *Subscriber) createRelationships(ctx context.Context, msg *message.Messa
 		if err != nil {
 			s.logger.Warnw("error parsing additional subject id - will not reprocess", "event_type", events.CreateChangeType, "id", id.String(), "error", err.Error())
 
-			return nil
+			continue
 		}
 
 		relationship := types.Relationship{
@@ -179,6 +179,12 @@ func (s *Subscriber) createRelationships(ctx context.Context, msg *message.Messa
 		}
 
 		relationships = append(relationships, relationship)
+	}
+
+	if len(relationships) == 0 {
+		s.logger.Warnw("no relations to create for resource", "resource_type", resource.Type, "resource_id", resource.ID.String())
+
+		return nil
 	}
 
 	// Attempt to create the relationships in SpiceDB. If this fails, nak the message for reprocessing
@@ -196,6 +202,7 @@ func (s *Subscriber) deleteRelationships(ctx context.Context, msg *message.Messa
 	_, err := s.qe.DeleteRelationships(ctx, resource)
 	if err != nil {
 		s.logger.Errorw("error deleting relationships - will reprocess", "error", err.Error())
+
 		return err
 	}
 
