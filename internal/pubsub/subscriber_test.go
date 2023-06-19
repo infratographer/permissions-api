@@ -250,12 +250,17 @@ func TestNATS(t *testing.T) {
 
 		require.NoError(t, err)
 
+		ackErr := make(chan error, 1)
+
+		go func() {
+			ackErr <- nats.WaitForAck(consumerName, 5*time.Second)
+		}()
+
 		err = pub.PublishChange(ctx, input.subject, input.changeMessage)
 
 		require.NoError(t, err)
 
-		err = nats.WaitForAck(consumerName, time.Second)
-		if err != nil {
+		if err = <-ackErr; err != nil {
 			return testingx.TestResult[*Subscriber]{
 				Err: err,
 			}

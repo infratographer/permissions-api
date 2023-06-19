@@ -13,6 +13,7 @@ import (
 
 	"go.infratographer.com/permissions-api/internal/api"
 	"go.infratographer.com/permissions-api/internal/config"
+	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/permissions-api/internal/spicedbx"
 )
@@ -50,7 +51,24 @@ func serve(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("unable to initialize spicedb client", "error", err)
 	}
 
-	engine := query.NewEngine("infratographer", spiceClient)
+	var policy iapl.Policy
+
+	if cfg.SpiceDB.PolicyFile != "" {
+		policy, err = iapl.NewPolicyFromFile(cfg.SpiceDB.PolicyFile)
+		if err != nil {
+			logger.Fatalw("unable to load new policy from schema file", "policy_file", cfg.SpiceDB.PolicyFile, "error", err)
+		}
+	} else {
+		logger.Warn("no spicedb policy file defined, using default policy")
+
+		policy = iapl.DefaultPolicy()
+	}
+
+	if err = policy.Validate(); err != nil {
+		logger.Fatalw("invalid spicedb policy", "error", err)
+	}
+
+	engine := query.NewEngine("infratographer", spiceClient, query.WithPolicy(policy))
 
 	srv, err := echox.NewServer(
 		logger.Desugar(),

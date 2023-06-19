@@ -42,20 +42,21 @@ func (e *engine) cacheSchemaPrefixes() {
 
 // NewEngine returns a new client for making permissions queries.
 func NewEngine(namespace string, client *authzed.Client, options ...Option) Engine {
-	policy := iapl.DefaultPolicy()
-
 	e := &engine{
 		logger:    zap.NewNop().Sugar(),
 		namespace: namespace,
 		client:    client,
-		schema:    policy.Schema(),
 	}
 
 	for _, fn := range options {
 		fn(e)
 	}
 
-	e.cacheSchemaPrefixes()
+	if e.schema == nil {
+		e.schema = iapl.DefaultPolicy().Schema()
+
+		e.cacheSchemaPrefixes()
+	}
 
 	return e
 }
@@ -67,5 +68,14 @@ type Option func(*engine)
 func WithLogger(logger *zap.SugaredLogger) Option {
 	return func(e *engine) {
 		e.logger = logger
+	}
+}
+
+// WithPolicy sets the policy for the engine
+func WithPolicy(policy iapl.Policy) Option {
+	return func(e *engine) {
+		e.schema = policy.Schema()
+
+		e.cacheSchemaPrefixes()
 	}
 }

@@ -65,7 +65,7 @@ lint: golint  ## Runs all lint checks.
 
 golint: | vendor $(TOOLS_DIR)/golangci-lint  ## Runs Go lint checks.
 	@echo Linting Go files...
-	@$(TOOLS_DIR)/golangci-lint run
+	@$(TOOLS_DIR)/golangci-lint run --timeout 5m
 
 clean:  ## Cleans generated files.
 	@echo Cleaning...

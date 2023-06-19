@@ -35,6 +35,8 @@ config:
     caSecretName: ""
     # pskSecretName is the name of the secret containing the pre-shared key for connecting to SpiceDB. This must contain a key, PERMISSIONSAPI_SPICEDB_KEY, that contains the PSK value
     pskSecretName: ""
+    # policySecretName is the name of the secret containing the policy file configuration
+    policySecretName: ""
 
   events:
     # url is the event server connection url

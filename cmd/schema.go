@@ -9,6 +9,7 @@ import (
 	"go.infratographer.com/x/otelx"
 
 	"go.infratographer.com/permissions-api/internal/config"
+	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/spicedbx"
 )
 
@@ -31,14 +32,37 @@ func init() {
 }
 
 func writeSchema(ctx context.Context, dryRun bool, cfg *config.AppConfig) {
-	schemaStr := spicedbx.GeneratedSchema("infratographer")
+	var (
+		err    error
+		policy iapl.Policy
+	)
+
+	if cfg.SpiceDB.PolicyFile != "" {
+		policy, err = iapl.NewPolicyFromFile(cfg.SpiceDB.PolicyFile)
+		if err != nil {
+			logger.Fatalw("unable to load new policy from schema file", "policy_file", cfg.SpiceDB.PolicyFile, "error", err)
+		}
+	} else {
+		logger.Warn("no spicedb policy file defined, using default policy")
+
+		policy = iapl.DefaultPolicy()
+	}
+
+	if err = policy.Validate(); err != nil {
+		logger.Fatalw("invalid spicedb policy", "error", err)
+	}
+
+	schemaStr, err := spicedbx.GenerateSchema("infratographer", policy.Schema())
+	if err != nil {
+		logger.Fatalw("failed to generate schema from policy", "error", err)
+	}
 
 	if dryRun {
 		fmt.Printf("%s", schemaStr)
 		return
 	}
 
-	err := otelx.InitTracer(cfg.Tracing, appName, logger)
+	err = otelx.InitTracer(cfg.Tracing, appName, logger)
 	if err != nil {
 		logger.Fatalw("unable to initialize tracing system", "error", err)
 	}

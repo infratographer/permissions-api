@@ -14,11 +14,12 @@ import (
 
 // Config values for a SpiceDB connection
 type Config struct {
-	Endpoint string
-	Key      string
-	Insecure bool
-	VerifyCA bool `mapstruct:"verifyca"`
-	Prefix   string
+	Endpoint   string
+	Key        string
+	Insecure   bool
+	VerifyCA   bool `mapstruct:"verifyca"`
+	Prefix     string
+	PolicyFile string
 }
 
 // NewClient returns a new spicedb/authzed client
