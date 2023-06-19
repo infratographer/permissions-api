@@ -6,7 +6,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/x/echojwtx"
-	"go.infratographer.com/x/echox"
 	"go.infratographer.com/x/gidx"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
@@ -23,9 +22,6 @@ type Router struct {
 
 // NewRouter returns a new api router
 func NewRouter(authCfg echojwtx.AuthConfig, engine query.Engine, l *zap.SugaredLogger) (*Router, error) {
-	// Ensure auth is skipped for default endpoints.
-	authCfg.JWTConfig.Skipper = echox.SkipDefaultEndpoints
-
 	auth, err := echojwtx.NewAuth(context.Background(), authCfg)
 	if err != nil {
 		return nil, err

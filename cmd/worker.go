@@ -5,7 +5,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"go.infratographer.com/x/events"
 	"go.infratographer.com/x/otelx"
+	"go.infratographer.com/x/viperx"
 
 	"go.infratographer.com/permissions-api/internal/config"
 	"go.infratographer.com/permissions-api/internal/pubsub"
@@ -25,7 +27,10 @@ func init() {
 	rootCmd.AddCommand(workerCmd)
 
 	otelx.MustViperFlags(viper.GetViper(), workerCmd.Flags())
-	pubsub.MustViperFlags(viper.GetViper(), workerCmd.Flags())
+	events.MustViperFlagsForSubscriber(viper.GetViper(), workerCmd.Flags())
+
+	workerCmd.PersistentFlags().StringSlice("events-topics", []string{}, "event topics to subscribe to")
+	viperx.MustBindFlag(viper.GetViper(), "events.topics", workerCmd.PersistentFlags().Lookup("events-topics"))
 }
 
 func worker(ctx context.Context, cfg *config.AppConfig) {
@@ -41,20 +46,18 @@ func worker(ctx context.Context, cfg *config.AppConfig) {
 
 	engine := query.NewEngine("infratographer", spiceClient)
 
-	logger.Infow("client config", "client_config", cfg.PubSub)
+	subscriber, err := pubsub.NewSubscriber(ctx, cfg.Events.Subscriber, engine)
+	if err != nil {
+		logger.Fatalw("unable to initialize subscriber", "error", err)
+	}
 
-	client := pubsub.NewClient(
-		cfg.PubSub,
-		pubsub.WithQueryEngine(engine),
-		pubsub.WithResourceTypeNames(
-			[]string{
-				"tenant",
-			},
-		),
-		pubsub.WithLogger(logger),
-	)
+	for _, topic := range viper.GetStringSlice("events.topics") {
+		if err := subscriber.Subscribe(topic); err != nil {
+			logger.Fatalw("failed to subscribe to changes topic", "topic", topic, "error", err)
+		}
+	}
 
-	if err := client.Listen(); err != nil {
+	if err := subscriber.Listen(); err != nil {
 		logger.Fatalw("error listening for events", "error", err)
 	}
 
@@ -63,7 +66,7 @@ func worker(ctx context.Context, cfg *config.AppConfig) {
 
 	logger.Infof("received %s signal, stopping", sig)
 
-	err = client.Stop()
+	err = subscriber.Close()
 	if err != nil {
 		logger.Fatalw("error stopping NATS client", "error", err)
 	}

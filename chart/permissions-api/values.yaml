@@ -20,10 +20,10 @@ config:
   oidc:
     # issuer is the OIDC issuer to use when validating Bearer JWTs
     issuer: ""
-    # jwksuri is the URI containing the JWKS for the Bearer JWTs' signing keys
-    jwksuri: ""
     # audience is the audience to validate when accepting requests
     audience: ""
+    # refreshTimeout is the limit a refresh of jwks can take
+    refreshTimeout: ""
   spicedb:
     # endpoint is the address of the SpiceDB cluster containing permissions-api data
     endpoint: ""
@@ -35,6 +35,27 @@ config:
     caSecretName: ""
     # pskSecretName is the name of the secret containing the pre-shared key for connecting to SpiceDB. This must contain a key, PERMISSIONSAPI_SPICEDB_KEY, that contains the PSK value
     pskSecretName: ""
+
+  events:
+    # url is the event server connection url
+    url: ""
+    # timeout is event connection timeout
+    timeout: ""
+    # prefix is the subscribe event prefix
+    prefix: ""
+    # queueGroup defines the events queue group
+    queueGroup: ""
+    # topics are the list of topics to subscribe to
+    topics: []
+    # nats contains nats specific configuration
+    nats:
+      # token is the nats auth token
+      token: ""
+      # credsSecretName is the secret to load the creds auth file from
+      credsSecretName: ""
+      # credsFile is the location to read the creds file from
+      credsFile: "/nats/creds"
+
   tracing:
     # enabled is true if OpenTelemetry tracing should be enabled for permissions-api
     enabled: false
@@ -54,8 +75,10 @@ config:
       insecure: false
     
 deployment:
-  # replicas is the number of replicas to deploy in the deployment
-  replicas: 1
+  # serverReplicas is the number of replicas to deploy in the deployment for the server container
+  serverReplicas: 1
+  # workerReplicas is the number of replicas to deploy in the deployment for the worker container
+  workerReplicas: 1
   # imagePullSecrets is the list of image pull secrets to use when fetching the image
   imagePullSecrets: []
   # podSecurityContext is the pod security context for the deployment

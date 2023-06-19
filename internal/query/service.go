@@ -5,6 +5,7 @@ import (
 
 	"github.com/authzed/authzed-go/v1"
 	"go.infratographer.com/x/gidx"
+	"go.uber.org/zap"
 
 	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/types"
@@ -24,18 +25,47 @@ type Engine interface {
 }
 
 type engine struct {
-	namespace string
-	client    *authzed.Client
-	schema    []types.ResourceType
+	logger          *zap.SugaredLogger
+	namespace       string
+	client          *authzed.Client
+	schema          []types.ResourceType
+	schemaPrefixMap map[string]types.ResourceType
+}
+
+func (e *engine) cacheSchemaPrefixes() {
+	e.schemaPrefixMap = make(map[string]types.ResourceType, len(e.schema))
+
+	for _, res := range e.schema {
+		e.schemaPrefixMap[res.IDPrefix] = res
+	}
 }
 
 // NewEngine returns a new client for making permissions queries.
-func NewEngine(namespace string, client *authzed.Client) Engine {
+func NewEngine(namespace string, client *authzed.Client, options ...Option) Engine {
 	policy := iapl.DefaultPolicy()
 
-	return &engine{
+	e := &engine{
+		logger:    zap.NewNop().Sugar(),
 		namespace: namespace,
 		client:    client,
 		schema:    policy.Schema(),
+	}
+
+	for _, fn := range options {
+		fn(e)
+	}
+
+	e.cacheSchemaPrefixes()
+
+	return e
+}
+
+// Option is a functional option for the engine
+type Option func(*engine)
+
+// WithLogger sets the logger for the engine
+func WithLogger(logger *zap.SugaredLogger) Option {
+	return func(e *engine) {
+		e.logger = logger
 	}
 }

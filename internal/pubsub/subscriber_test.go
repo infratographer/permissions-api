@@ -2,209 +2,115 @@ package pubsub
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
-	"sync"
+	"math/rand"
 	"testing"
 	"time"
 
+	nc "github.com/nats-io/nats.go"
+	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/permissions-api/internal/query/mock"
 	"go.infratographer.com/permissions-api/internal/testingx"
+	"go.infratographer.com/x/events"
+	"go.infratographer.com/x/gidx"
+	"go.infratographer.com/x/testing/eventtools"
 
-	natsserver "github.com/nats-io/nats-server/v2/server"
-	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/require"
 )
 
-type contextKey int
-
-var (
-	errNoAck = errors.New("no Ack received within time limit")
-	errNak   = errors.New("received Nak")
-)
-
 const (
-	startTimeout     = 5 * time.Second
-	natsUsername     = "natsuser"
-	natsPassword     = "natspassword"
-	natsConsumerName = "worker"
-
-	contextKeyClient contextKey = iota
-	contextKeyPublisher
+	charSet         = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	consumerLen     = 8
+	sampleFrequency = "100"
 )
 
-func newNATSServer(t *testing.T) *natsserver.Server {
-	opts := natsserver.Options{
-		Host:     "127.0.0.1",
-		Port:     natsserver.RANDOM_PORT,
-		Username: natsUsername,
-		Password: natsPassword,
+var contextKeyEngine = struct{}{}
+
+func newConsumerName() string {
+	b := make([]byte, consumerLen)
+
+	for i := range b {
+		b[i] = charSet[rand.Intn(len(charSet))]
 	}
 
-	server := natsserver.New(&opts)
-
-	go server.Start()
-
-	t.Cleanup(func() {
-		server.Shutdown()
-	})
-
-	if !server.ReadyForConnections(startTimeout) {
-		require.Fail(t, "NATS server failed to start")
-	}
-
-	jsConfig := natsserver.JetStreamConfig{
-		StoreDir: t.TempDir(),
-	}
-
-	err := server.EnableJetStream(&jsConfig)
-	require.NoError(t, err)
-
-	return server
+	return fmt.Sprintf("consumer-%s", string(b))
 }
 
-func newNATSConn(t *testing.T, addr, name string) *nats.Conn {
-	natsOpts := []nats.Option{
-		nats.Name(name),
-		nats.UserInfo(natsUsername, natsPassword),
-	}
-
-	nc, err := nats.Connect(addr, natsOpts...)
+func setupEvents(t *testing.T, engine query.Engine) (*eventtools.TestNats, *events.Publisher, *Subscriber, string) {
+	nats, err := eventtools.NewNatsServer()
 
 	require.NoError(t, err)
 
-	t.Cleanup(func() {
-		nc.Close()
-	})
+	publisher, err := events.NewPublisher(nats.PublisherConfig)
 
-	return nc
-}
+	require.NoError(t, err)
 
-func setupClient(t *testing.T, engine *mock.Engine, addr, testName string) *Client {
-	// Set NATS options
-	natsOpts := []nats.Option{
-		nats.Name(testName),
-		nats.UserInfo(natsUsername, natsPassword),
-	}
+	consumerName := newConsumerName()
 
-	// Create a new client with a stream based on the test name
-	config := Config{
-		Name:     "subscriber",
-		Server:   addr,
-		Stream:   testName,
-		Consumer: natsConsumerName,
-		Prefix:   testName,
-	}
-
-	client := NewClient(
-		config,
-		WithNATSOptions(natsOpts),
-		WithResourceTypeNames(
-			[]string{
-				"loadbalancer",
-			},
+	subscriber, err := NewSubscriber(context.Background(), nats.SubscriberConfig, engine,
+		WithNatsSubOpts(
+			nc.ManualAck(),
+			nc.AckExplicit(),
+			nc.Durable(consumerName),
 		),
-		WithQueryEngine(engine),
 	)
 
-	err := client.Listen()
-	require.NoError(t, err)
-
-	// Update the stream's consumer to sample all Acks for observability so we can see when a message was processed
-	info, err := client.js.ConsumerInfo(testName, natsConsumerName)
-	require.NoError(t, err)
-
-	cfg := info.Config
-	cfg.SampleFrequency = "100"
-
-	_, err = client.js.UpdateConsumer(testName, &cfg)
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		client.Stop() //nolint:errcheck
+		nats.Close()
+		publisher.Close()  //nolint:errcheck
+		subscriber.Close() //nolint:errcheck
 	})
 
-	return client
-}
-
-func waitForAck(nc *nats.Conn, client *Client, timeout time.Duration) error {
-	ackSubject := fmt.Sprintf("$JS.EVENT.METRIC.CONSUMER.ACK.%s.%s", client.stream, client.consumer)
-
-	nakSubject := fmt.Sprintf("$JS.EVENT.ADVISORY.CONSUMER.MSG_NAKED.%s.%s", client.stream, client.consumer)
-
-	// We should only ever receive one Ack, so we close the channel directly if we get one.
-	ackCh := make(chan struct{})
-	ackSub, err := nc.Subscribe(ackSubject, func(m *nats.Msg) {
-		close(ackCh)
-	})
-
-	defer ackSub.Unsubscribe() //nolint:errcheck
-
-	if err != nil {
-		return err
-	}
-
-	// We may receive many Naks in a single test, so we use a sync.Once to close the channel.
-	nakCh := make(chan struct{})
-
-	var nakOnce sync.Once
-
-	nakSub, err := nc.Subscribe(nakSubject, func(m *nats.Msg) {
-		nakOnce.Do(func() {
-			close(nakCh)
-		})
-	})
-
-	if err != nil {
-		return err
-	}
-
-	defer nakSub.Unsubscribe() //nolint:errcheck
-
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
-
-	select {
-	case <-ackCh:
-		return nil
-	case <-nakCh:
-		return errNak
-	case <-timer.C:
-		return errNoAck
-	}
-}
-
-func contextWithPublisher(ctx context.Context, t *testing.T, addr string) context.Context {
-	pubConn := newNATSConn(t, addr, "publisher")
-
-	return context.WithValue(ctx, contextKeyPublisher, pubConn)
-}
-
-func getContextPublisher(ctx context.Context) *nats.Conn {
-	return ctx.Value(contextKeyPublisher).(*nats.Conn)
-}
-
-func getContextClient(ctx context.Context) *Client {
-	return ctx.Value(contextKeyClient).(*Client)
+	return nats, publisher, subscriber, consumerName
 }
 
 func TestNATS(t *testing.T) {
-	server := newNATSServer(t)
-	addr := server.Addr().String()
-
 	type testInput struct {
-		subject  string
-		msgBytes []byte
+		subject       string
+		changeMessage events.ChangeMessage
 	}
 
-	createBytes := []byte(`{"subject_id": "loadbal-UCN7pxJO57BV_5pNiV95B", "event_type": "create", "fields": {"tenant_id": "tnntten-gd6RExwAz353UqHLzjC1n"}}`)
-	updateBytes := []byte(`{"subject_id": "loadbal-UCN7pxJO57BV_5pNiV95B", "event_type": "update", "fields": {"tenant_id": "tnntten-gd6RExwAz353UqHLzjC1n"}}`)
-	deleteBytes := []byte(`{"subject_id": "loadbal-UCN7pxJO57BV_5pNiV95B", "event_type": "delete"}`)
-	unknownResourceBytes := []byte(`{"subject_id": "baddres-BfqAzfYxtFNlpKPGYLmra", "event_type": "create"}`)
+	createMsg := events.ChangeMessage{
+		SubjectID: gidx.PrefixedID("loadbal-UCN7pxJO57BV_5pNiV95B"),
+		EventType: string(events.CreateChangeType),
+		AdditionalSubjectIDs: []gidx.PrefixedID{
+			gidx.PrefixedID("othrsid-kXboa2UZbaNzMhng9vVha"),
+			gidx.PrefixedID("tnntten-gd6RExwAz353UqHLzjC1n"),
+		},
+	}
+
+	noCreateMsg := events.ChangeMessage{
+		SubjectID: gidx.PrefixedID("loadbal-EA8CJagJPM4J-yw6_skd1"),
+		EventType: string(events.CreateChangeType),
+		AdditionalSubjectIDs: []gidx.PrefixedID{
+			gidx.PrefixedID("othrsid-kXboa2UZbaNzMhng9vVha"),
+		},
+	}
+
+	updateMsg := events.ChangeMessage{
+		SubjectID: gidx.PrefixedID("loadbal-UCN7pxJO57BV_5pNiV95B"),
+		EventType: string(events.UpdateChangeType),
+		AdditionalSubjectIDs: []gidx.PrefixedID{
+			gidx.PrefixedID("othrsid-kXboa2UZbaNzMhng9vVha"),
+			gidx.PrefixedID("tnntten-gd6RExwAz353UqHLzjC1n"),
+		},
+	}
+
+	deleteMsg := events.ChangeMessage{
+		SubjectID: gidx.PrefixedID("loadbal-UCN7pxJO57BV_5pNiV95B"),
+		EventType: string(events.DeleteChangeType),
+	}
+
+	unknownResourceMsg := events.ChangeMessage{
+		SubjectID: gidx.PrefixedID("baddres-BfqAzfYxtFNlpKPGYLmra"),
+		EventType: string(events.CreateChangeType),
+	}
 
 	// Each of these tests works as follows:
-	// - A publisher NATS connection is created
+	// - A publisher connection is created
 	// - A client is created with a mocked engine that has its own dedicated stream and subject prefix
 	// - The client's consumer is updated to emit events for all message Acks
 	// - The publisher publishes a message
@@ -212,24 +118,20 @@ func TestNATS(t *testing.T) {
 	//
 	// When writing tests, make sure the subject prefix in the test input matches the prefix provided in
 	// setupClient, or else you will get undefined, racy behavior.
-	testCases := []testingx.TestCase[testInput, *Client]{
+	testCases := []testingx.TestCase[testInput, *Subscriber]{
 		{
 			Name: "goodcreate",
 			Input: testInput{
-				subject:  "goodcreate.loadbalancer.create",
-				msgBytes: createBytes,
+				subject:       "goodcreate.loadbalancer",
+				changeMessage: createMsg,
 			},
 			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
-				ctx = contextWithPublisher(ctx, t, addr)
-
 				var engine mock.Engine
 				engine.On("CreateRelationships").Return("", nil)
 
-				client := setupClient(t, &engine, addr, "goodcreate")
-
-				return context.WithValue(ctx, contextKeyClient, client)
+				return context.WithValue(ctx, contextKeyEngine, &engine)
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[*Client]) {
+			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[*Subscriber]) {
 				require.NoError(t, result.Err)
 
 				engine := result.Success.qe.(*mock.Engine)
@@ -239,41 +141,48 @@ func TestNATS(t *testing.T) {
 		{
 			Name: "errcreate",
 			Input: testInput{
-				subject:  "errcreate.loadbalancer.create",
-				msgBytes: createBytes,
+				subject:       "errcreate.loadbalancer",
+				changeMessage: createMsg,
 			},
 			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
-				ctx = contextWithPublisher(ctx, t, addr)
-
 				var engine mock.Engine
 				engine.On("CreateRelationships").Return("", io.ErrUnexpectedEOF)
 
-				client := setupClient(t, &engine, addr, "errcreate")
-
-				return context.WithValue(ctx, contextKeyClient, client)
+				return context.WithValue(ctx, contextKeyEngine, &engine)
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[*Client]) {
-				require.ErrorIs(t, result.Err, errNak)
+			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[*Subscriber]) {
+				require.ErrorIs(t, result.Err, eventtools.ErrNack)
+			},
+		},
+		{
+			Name: "nocreate",
+			Input: testInput{
+				subject:       "nocreate.loadbalancer",
+				changeMessage: noCreateMsg,
+			},
+			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+				var engine mock.Engine
+
+				return context.WithValue(ctx, contextKeyEngine, &engine)
+			},
+			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[*Subscriber]) {
+				require.NoError(t, result.Err)
 			},
 		},
 		{
 			Name: "goodupdate",
 			Input: testInput{
-				subject:  "goodupdate.loadbalancer.update",
-				msgBytes: updateBytes,
+				subject:       "goodupdate.loadbalancer",
+				changeMessage: updateMsg,
 			},
 			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
-				ctx = contextWithPublisher(ctx, t, addr)
-
 				var engine mock.Engine
 				engine.On("DeleteRelationships").Return("", nil)
 				engine.On("CreateRelationships").Return("", nil)
 
-				client := setupClient(t, &engine, addr, "goodupdate")
-
-				return context.WithValue(ctx, contextKeyClient, client)
+				return context.WithValue(ctx, contextKeyEngine, &engine)
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[*Client]) {
+			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[*Subscriber]) {
 				require.NoError(t, result.Err)
 
 				engine := result.Success.qe.(*mock.Engine)
@@ -283,21 +192,17 @@ func TestNATS(t *testing.T) {
 		{
 			Name: "gooddelete",
 			Input: testInput{
-				subject:  "gooddelete.loadbalancer.delete",
-				msgBytes: deleteBytes,
+				subject:       "gooddelete.loadbalancer",
+				changeMessage: deleteMsg,
 			},
 			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
-				ctx = contextWithPublisher(ctx, t, addr)
-
 				var engine mock.Engine
 				engine.Namespace = "gooddelete"
 				engine.On("DeleteRelationships").Return("", nil)
 
-				client := setupClient(t, &engine, addr, "gooddelete")
-
-				return context.WithValue(ctx, contextKeyClient, client)
+				return context.WithValue(ctx, contextKeyEngine, &engine)
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[*Client]) {
+			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[*Subscriber]) {
 				require.NoError(t, result.Err)
 
 				engine := result.Success.qe.(*mock.Engine)
@@ -307,51 +212,57 @@ func TestNATS(t *testing.T) {
 		{
 			Name: "badresource",
 			Input: testInput{
-				subject:  "badresource.fakeresource.create",
-				msgBytes: unknownResourceBytes,
+				subject:       "badresource.fakeresource",
+				changeMessage: unknownResourceMsg,
 			},
 			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
-				ctx = contextWithPublisher(ctx, t, addr)
-
 				var engine mock.Engine
 
-				client := setupClient(t, &engine, addr, "badresource")
-
-				return context.WithValue(ctx, contextKeyClient, client)
+				return context.WithValue(ctx, contextKeyEngine, &engine)
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[*Client]) {
-				require.ErrorIs(t, result.Err, errNoAck)
+			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[*Subscriber]) {
+				require.NoError(t, result.Err)
 			},
 		},
 	}
 
-	testFn := func(ctx context.Context, input testInput) testingx.TestResult[*Client] {
-		pubConn := getContextPublisher(ctx)
-		client := getContextClient(ctx)
+	testFn := func(ctx context.Context, input testInput) testingx.TestResult[*Subscriber] {
+		engine := ctx.Value(contextKeyEngine).(query.Engine)
 
-		js, err := pubConn.JetStream()
+		nats, pub, sub, consumerName := setupEvents(t, engine)
+
+		err := sub.Subscribe("*." + input.subject)
+
+		require.NoError(t, err)
+
+		go func() {
+			defer sub.Close()
+
+			err = sub.Listen()
+
+			require.NoError(t, err)
+		}()
+
+		// Allow time for the listener to to start
+		time.Sleep(time.Second)
+
+		err = nats.SetConsumerSampleFrequency(consumerName, sampleFrequency)
+
+		require.NoError(t, err)
+
+		err = pub.PublishChange(ctx, input.subject, input.changeMessage)
+
+		require.NoError(t, err)
+
+		err = nats.WaitForAck(consumerName, time.Second)
 		if err != nil {
-			return testingx.TestResult[*Client]{
+			return testingx.TestResult[*Subscriber]{
 				Err: err,
 			}
 		}
 
-		_, err = js.PublishAsync(input.subject, input.msgBytes)
-		if err != nil {
-			return testingx.TestResult[*Client]{
-				Err: err,
-			}
-		}
-
-		err = waitForAck(pubConn, client, 3*time.Second)
-		if err != nil {
-			return testingx.TestResult[*Client]{
-				Err: err,
-			}
-		}
-
-		return testingx.TestResult[*Client]{
-			Success: client,
+		return testingx.TestResult[*Subscriber]{
+			Success: sub,
 		}
 	}
 

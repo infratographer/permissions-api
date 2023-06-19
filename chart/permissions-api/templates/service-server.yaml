@@ -1,9 +1,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "common.names.fullname" . }}
+  name: {{ include "common.names.fullname" . }}-server
   namespace: {{ .Release.Namespace }}
   labels:
+    service: server
     {{- include "common.labels.standard" . | nindent 4 }}
   {{- with .Values.service.annotations }}
   annotations:
@@ -17,4 +18,5 @@ spec:
       protocol: TCP
       name: http
   selector:
+    service: server
     {{- include "common.labels.matchLabels" . | nindent 4 }}

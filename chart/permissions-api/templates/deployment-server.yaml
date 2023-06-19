@@ -1,9 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ template "common.names.fullname" . }}
+  name: {{ template "common.names.fullname" . }}-server
   namespace: {{ .Release.Namespace }}
   labels:
+    service: server
     {{- include "common.labels.standard" . | nindent 4 }}
     {{- with .Values.deployment.extraLabels }}
     {{- toYaml . | nindent 4 }}
@@ -13,14 +14,16 @@ metadata:
     {{ toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  replicas: {{ .Values.deployment.replicas }}
+  replicas: {{ .Values.deployment.serverReplicas }}
   revisionHistoryLimit: 3
   selector:
     matchLabels:
+      service: server
       {{- include "common.labels.matchLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
+        service: server
         {{- include "common.labels.standard" . | nindent 8 }}
         {{- with .Values.deployment.extraLabels }}
         {{- toYaml . | nindent 8 }}
@@ -53,12 +56,20 @@ spec:
             - name: PERMISSIONSAPI_SERVER_TRUSTED_PROXIES
               value: "{{ join " " . }}"
           {{- end }}
-            - name: PERMISSIONSAPI_OIDC_ISSUER
-              value: "{{ .Values.config.oidc.issuer }}"
-            - name: PERMISSIONSAPI_OIDC_JWKSURI
-              value: "{{ .Values.config.oidc.jwksuri }}"
+          {{- if .Values.config.oidc.issuer }}
+          {{- with .Values.config.oidc.audience }}
             - name: PERMISSIONSAPI_OIDC_AUDIENCE
-              value: "{{ .Values.config.oidc.audience }}"
+              value: "{{ . }}"
+          {{- end }}
+          {{- with .Values.config.oidc.issuer }}
+            - name: PERMISSIONSAPI_OIDC_ISSUER
+              value: "{{ . }}"
+          {{- end }}
+          {{- with .Values.config.oidc.refreshTimeout }}
+            - name: PERMISSIONSAPI_OIDC_REFRESH_TIMEOUT
+              value: "{{ . }}"
+          {{- end }}
+          {{- end }}
             - name: PERMISSIONSAPI_SPICEDB_ENDPOINT
               value: "{{ .Values.config.spicedb.endpoint }}"
             - name: PERMISSIONSAPI_SPICEDB_INSECURE

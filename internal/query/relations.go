@@ -439,17 +439,8 @@ func (e *engine) ListRoles(ctx context.Context, resource types.Resource, queryTo
 func (e *engine) NewResourceFromID(id gidx.PrefixedID) (types.Resource, error) {
 	prefix := id.Prefix()
 
-	var rType *types.ResourceType
-
-	for _, resourceType := range e.schema {
-		if resourceType.IDPrefix == prefix {
-			rType = &resourceType
-
-			break
-		}
-	}
-
-	if rType == nil {
+	rType, ok := e.schemaPrefixMap[prefix]
+	if !ok {
 		return types.Resource{}, errorInvalidNamespace
 	}
 
