@@ -1,0 +1,20 @@
+name: Lint - Helm
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+  pull-requests: read
+jobs:
+  helm-lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v3.5
+
+      - name: Run helm lint
+        run: helm lint chart/permissions-api
