@@ -25,10 +25,19 @@ type Engine interface {
 }
 
 type engine struct {
-	logger    *zap.SugaredLogger
-	namespace string
-	client    *authzed.Client
-	schema    []types.ResourceType
+	logger          *zap.SugaredLogger
+	namespace       string
+	client          *authzed.Client
+	schema          []types.ResourceType
+	schemaPrefixMap map[string]types.ResourceType
+}
+
+func (e *engine) cacheSchemaPrefixes() {
+	e.schemaPrefixMap = make(map[string]types.ResourceType, len(e.schema))
+
+	for _, res := range e.schema {
+		e.schemaPrefixMap[res.IDPrefix] = res
+	}
 }
 
 // NewEngine returns a new client for making permissions queries.
@@ -45,6 +54,8 @@ func NewEngine(namespace string, client *authzed.Client, options ...Option) Engi
 	for _, fn := range options {
 		fn(e)
 	}
+
+	e.cacheSchemaPrefixes()
 
 	return e
 }
