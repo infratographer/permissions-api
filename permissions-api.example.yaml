@@ -1,4 +1,3 @@
 oidc:
-  issuer: http://localhost:8081/default
+  issuer: http://mock-oauth2-server:8081/default
   audience: permissions-api
-  jwksuri: http://mock-oauth2-server:8081/default/jwks

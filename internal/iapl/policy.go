@@ -2,8 +2,10 @@ package iapl
 
 import (
 	"fmt"
+	"os"
 
 	"go.infratographer.com/permissions-api/internal/types"
+	"gopkg.in/yaml.v3"
 )
 
 // PolicyDocument represents a partial authorization policy.
@@ -106,6 +108,22 @@ func NewPolicy(p PolicyDocument) Policy {
 	out.expandResourceTypes()
 
 	return &out
+}
+
+// NewPolicyFromFile reads the provided file path and returns a new Policy.
+func NewPolicyFromFile(filePath string) (Policy, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	var policy PolicyDocument
+
+	if err := yaml.NewDecoder(file).Decode(&policy); err != nil {
+		return nil, err
+	}
+
+	return NewPolicy(policy), nil
 }
 
 func (v *policy) validateUnions() error {

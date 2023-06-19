@@ -58,6 +58,8 @@ func init() {
 	viperx.MustBindFlag(viper.GetViper(), "spicedb.verifyca", rootCmd.PersistentFlags().Lookup("spicedb-verifyca"))
 	rootCmd.PersistentFlags().String("spicedb-prefix", "", "spicedb prefix")
 	viperx.MustBindFlag(viper.GetViper(), "spicedb.prefix", rootCmd.PersistentFlags().Lookup("spicedb-prefix"))
+	rootCmd.PersistentFlags().String("spicedb-policy", "", "spicedb policy file")
+	viperx.MustBindFlag(viper.GetViper(), "spicedb.policyFile", rootCmd.PersistentFlags().Lookup("spicedb-policy"))
 
 	// Set up SIGINT/SIGTERM listener
 	sigCh = make(chan os.Signal, 1)
