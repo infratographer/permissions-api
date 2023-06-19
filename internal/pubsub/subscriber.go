@@ -140,7 +140,7 @@ func (s *Subscriber) processEvent(msg *message.Message) error {
 		return nil
 	}
 
-	s.logger.Infow("received message", "resource_type", resource.Type, "resource_id", resource.ID.String(), "event", changeMsg.EventType)
+	s.logger.Debugw("received message", "resource_type", resource.Type, "resource_id", resource.ID.String(), "event_type", changeMsg.EventType)
 
 	switch events.ChangeType(changeMsg.EventType) {
 	case events.CreateChangeType:
@@ -150,7 +150,7 @@ func (s *Subscriber) processEvent(msg *message.Message) error {
 	case events.DeleteChangeType:
 		err = s.handleDeleteEvent(ctx, msg, changeMsg)
 	default:
-		s.logger.Warnw("ignoring msg, not a create, update or delete event", zap.String("event-type", changeMsg.EventType))
+		s.logger.Warnw("ignoring msg, not a create, update or delete event", "event_type", changeMsg.EventType)
 	}
 
 	if err != nil {
