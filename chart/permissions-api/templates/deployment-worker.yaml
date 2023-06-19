@@ -98,6 +98,10 @@ spec:
               value: "{{ .Values.config.spicedb.insecure }}"
             - name: PERMISSIONSAPI_SPICEDB_VERIFYCA
               value: "{{ .Values.config.spicedb.verifyCA }}"
+          {{- if .Values.config.spicedb.policySecretName }}
+            - name: PERMISSIONSAPI_SPICEDB_POLICYFILE
+              value: /policy/policy.yaml
+          {{- end }}
             - name: PERMISSIONSAPI_TRACING_ENABLED
               value: "{{ .Values.config.tracing.enabled }}"
             - name: PERMISSIONSAPI_TRACING_PROVIDER
@@ -143,10 +147,8 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+      volumeMounts: {{ include "permapi.volumeMounts" . | nindent 8 }}
       {{- with .Values.deployment.nodeSelector }}
-      volumeMounts:
-        - name: spicedb-ca
-          mountPath: /etc/ssl/spicedb/
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -158,9 +160,4 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-    {{- with .Values.config.spicedb.caSecretName }}  
-    volumes:
-      - name: spicedb-ca
-        secret:
-          secretName: {{ . }}
-    {{- end }}
+    volumes: {{ include "permapi.volumes" . | nindent 6 }}
