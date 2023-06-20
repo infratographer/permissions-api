@@ -98,7 +98,7 @@ spec:
               value: "{{ .Values.config.spicedb.insecure }}"
             - name: PERMISSIONSAPI_SPICEDB_VERIFYCA
               value: "{{ .Values.config.spicedb.verifyCA }}"
-          {{- if .Values.config.spicedb.policySecretName }}
+          {{- if .Values.config.spicedb.policyConfigMapName }}
             - name: PERMISSIONSAPI_SPICEDB_POLICYFILE
               value: /policy/policy.yaml
           {{- end }}
@@ -147,7 +147,7 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-      volumeMounts: {{ include "permapi.volumeMounts" . | nindent 8 }}
+          volumeMounts: {{ include "permapi.volumeMounts" . | nindent 12 }}
       {{- with .Values.deployment.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -160,4 +160,4 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-    volumes: {{ include "permapi.volumes" . | nindent 6 }}
+      volumes: {{ include "permapi.volumes" . | nindent 8 }}

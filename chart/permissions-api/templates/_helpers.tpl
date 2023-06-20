@@ -5,16 +5,16 @@
 {{- end }}
 
 {{- define "permapi.volumes" }}
-{{- if or .Values.config.spicedb.caSecretName .Values.config.spicedb.policySecretName }}
+{{- if or .Values.config.spicedb.caSecretName .Values.config.spicedb.policyConfigMapName }}
 {{- with .Values.config.spicedb.caSecretName }}
 - name: spicedb-ca
   secret:
     secretName: {{ . }}
 {{- end }}
-{{- with .Values.config.spicedb.policySecretName }}
+{{- with .Values.config.spicedb.policyConfigMapName }}
 - name: policy-file
-  secret:
-    secretName: {{ . }}
+  configMap:
+    name: {{ . }}
 {{- end }}
 {{- else -}}
 []
@@ -22,14 +22,14 @@
 {{- end }}
 
 {{- define "permapi.volumeMounts" }}
-{{- if or .Values.config.spicedb.caSecretName .Values.config.spicedb.policySecretName }}
+{{- if or .Values.config.spicedb.caSecretName .Values.config.spicedb.policyConfigMapName }}
 {{- if .Values.config.spicedb.caSecretName }}
 - name: spicedb-ca
   mountPath: /etc/ssl/spicedb/
 {{- end }}
-{{- if .Values.config.spicedb.policySecretName }}
+{{- if .Values.config.spicedb.policyConfigMapName }}
 - name: policy-file
-  mountPath: /policy/policy.yaml
+  mountPath: /policy
 {{- end }}
 {{- else -}}
 []
