@@ -1,8 +1,8 @@
 package iapl
 
-// DefaultPolicy generates the default policy for permissions-api.
-func DefaultPolicy() Policy {
-	policyDocument := PolicyDocument{
+// DefaultPolicyDocument returns the default policy document for permissions-api.
+func DefaultPolicyDocument() PolicyDocument {
+	return PolicyDocument{
 		ResourceTypes: []ResourceType{
 			{
 				Name:     "role",
@@ -204,6 +204,11 @@ func DefaultPolicy() Policy {
 			},
 		},
 	}
+}
+
+// DefaultPolicy generates the default policy for permissions-api.
+func DefaultPolicy() Policy {
+	policyDocument := DefaultPolicyDocument()
 
 	policy := NewPolicy(policyDocument)
 	if err := policy.Validate(); err != nil {

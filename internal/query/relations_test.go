@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/spicedbx"
 	"go.infratographer.com/permissions-api/internal/testingx"
 	"go.infratographer.com/permissions-api/internal/types"
@@ -25,7 +26,12 @@ func testEngine(ctx context.Context, t *testing.T, namespace string) Engine {
 	client, err := spicedbx.NewClient(config, false)
 	require.NoError(t, err)
 
-	request := &pb.WriteSchemaRequest{Schema: spicedbx.GeneratedSchema(namespace)}
+	policy := testPolicy()
+
+	schema, err := spicedbx.GenerateSchema(namespace, policy.Schema())
+	require.NoError(t, err)
+
+	request := &pb.WriteSchemaRequest{Schema: schema}
 	_, err = client.WriteSchema(ctx, request)
 	require.NoError(t, err)
 
@@ -33,9 +39,35 @@ func testEngine(ctx context.Context, t *testing.T, namespace string) Engine {
 		cleanDB(ctx, t, client, namespace)
 	})
 
-	out := NewEngine(namespace, client)
+	out := NewEngine(namespace, client, WithPolicy(policy))
 
 	return out
+}
+
+func testPolicy() iapl.Policy {
+	policyDocument := iapl.DefaultPolicyDocument()
+
+	policyDocument.ResourceTypes = append(policyDocument.ResourceTypes,
+		iapl.ResourceType{
+			Name:     "child",
+			IDPrefix: "chldten",
+			Relationships: []iapl.Relationship{
+				{
+					Relation: "parent",
+					TargetTypeNames: []string{
+						"tenant",
+					},
+				},
+			},
+		},
+	)
+
+	policy := iapl.NewPolicy(policyDocument)
+	if err := policy.Validate(); err != nil {
+		panic(err)
+	}
+
+	return policy
 }
 
 func cleanDB(ctx context.Context, t *testing.T, client *authzed.Client, namespace string) {
@@ -178,16 +210,18 @@ func TestRelationships(t *testing.T) {
 	require.NoError(t, err)
 	childRes, err := e.NewResourceFromID(childID)
 	require.NoError(t, err)
+	child2ID, err := gidx.NewID("chldten")
+	require.NoError(t, err)
+	child2Res, err := e.NewResourceFromID(child2ID)
+	require.NoError(t, err)
 
-	testCases := []testingx.TestCase[[]types.Relationship, []types.Relationship]{
+	testCases := []testingx.TestCase[types.Relationship, []types.Relationship]{
 		{
 			Name: "InvalidRelationship",
-			Input: []types.Relationship{
-				{
-					Resource: childRes,
-					Relation: "foo",
-					Subject:  parentRes,
-				},
+			Input: types.Relationship{
+				Resource: childRes,
+				Relation: "foo",
+				Subject:  parentRes,
 			},
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Relationship]) {
 				assert.ErrorIs(t, res.Err, errorInvalidRelationship)
@@ -195,12 +229,10 @@ func TestRelationships(t *testing.T) {
 		},
 		{
 			Name: "Success",
-			Input: []types.Relationship{
-				{
-					Resource: childRes,
-					Relation: "parent",
-					Subject:  parentRes,
-				},
+			Input: types.Relationship{
+				Resource: childRes,
+				Relation: "parent",
+				Subject:  parentRes,
 			},
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Relationship]) {
 				expRels := []types.Relationship{
@@ -215,17 +247,37 @@ func TestRelationships(t *testing.T) {
 				assert.Equal(t, expRels, res.Success)
 			},
 		},
+		{
+			Name: "Different Success",
+			Input: types.Relationship{
+				Resource: child2Res,
+				Relation: "parent",
+				Subject:  parentRes,
+			},
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Relationship]) {
+				expRels := []types.Relationship{
+					{
+						Resource: child2Res,
+						Relation: "parent",
+						Subject:  parentRes,
+					},
+				}
+
+				require.NoError(t, res.Err)
+				assert.Equal(t, expRels, res.Success)
+			},
+		},
 	}
 
-	testFn := func(ctx context.Context, input []types.Relationship) testingx.TestResult[[]types.Relationship] {
-		queryToken, err := e.CreateRelationships(ctx, input)
+	testFn := func(ctx context.Context, input types.Relationship) testingx.TestResult[[]types.Relationship] {
+		queryToken, err := e.CreateRelationships(ctx, []types.Relationship{input})
 		if err != nil {
 			return testingx.TestResult[[]types.Relationship]{
 				Err: err,
 			}
 		}
 
-		rels, err := e.ListRelationships(ctx, childRes, queryToken)
+		rels, err := e.ListRelationships(ctx, input.Resource, queryToken)
 
 		return testingx.TestResult[[]types.Relationship]{
 			Success: rels,
