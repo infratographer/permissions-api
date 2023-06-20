@@ -40,12 +40,12 @@ func (e *engine) validateRelationship(rel types.Relationship) error {
 		return err
 	}
 
-	for _, typeRel := range subjType.Relationships {
+	for _, typeRel := range resType.Relationships {
 		// If we find a relation with a name and type that matches our relationship,
 		// return
 		if rel.Relation == typeRel.Relation {
 			for _, typeName := range typeRel.Types {
-				if resType.Name == typeName {
+				if subjType.Name == typeName {
 					return nil
 				}
 			}
