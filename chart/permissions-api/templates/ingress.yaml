@@ -1,14 +1,14 @@
 {{- if .Values.ingress.enabled -}}
-{{- $fullName := include "common.names.fullname" . -}}
 {{- if empty .Values.ingress.hosts }}
 {{- fail ".Values.ingress.hosts must contain at least one entry" }}
 {{- end }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ $fullName }}
+  name: {{ include "common.names.fullname" . }}-server
   namespace: {{ .Release.Namespace }}
   labels:
+    service: server
     {{- include "common.labels.standard" . | nindent 4 }}
   {{- with .Values.ingress.annotations }}
   annotations:
@@ -36,7 +36,7 @@ spec:
             pathType: {{ .pathType }}
             backend:
               service:
-                name: {{ $fullName }}
+                name: {{ include "common.names.fullname" $ }}-server
                 port:
                   name: http
           {{- end }}
