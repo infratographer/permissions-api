@@ -7,7 +7,7 @@ require (
 	github.com/authzed/authzed-go v0.8.0
 	github.com/authzed/grpcutil v0.0.0-20230524151342-4caf7fd1108a
 	github.com/labstack/echo/v4 v4.10.2
-	github.com/nats-io/nats.go v1.26.0
+	github.com/nats-io/nats.go v1.27.0
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.16.0
 	github.com/stretchr/testify v1.8.4
