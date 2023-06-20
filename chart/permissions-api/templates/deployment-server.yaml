@@ -125,7 +125,7 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          volumeMounts: {{ include "permapi.volumeMounts" . | nindent 12 }}
+          volumeMounts: {{ include "permapi.server.volumeMounts" . | nindent 12 }}
       {{- with .Values.deployment.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -138,4 +138,4 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      volumes: {{ include "permapi.volumes" . | nindent 8 }}
+      volumes: {{ include "permapi.server.volumes" . | nindent 8 }}
