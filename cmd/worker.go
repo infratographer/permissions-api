@@ -75,9 +75,13 @@ func worker(ctx context.Context, cfg *config.AppConfig) {
 		}
 	}
 
-	if err := subscriber.Listen(); err != nil {
-		logger.Fatalw("error listening for events", "error", err)
-	}
+	logger.Info("Listening for events")
+
+	go func() {
+		if err := subscriber.Listen(); err != nil {
+			logger.Fatalw("error listening for events", "error", err)
+		}
+	}()
 
 	// Wait until we're told to stop
 	sig := <-sigCh
