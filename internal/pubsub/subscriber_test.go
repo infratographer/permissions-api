@@ -151,7 +151,7 @@ func TestNATS(t *testing.T) {
 				return context.WithValue(ctx, contextKeyEngine, &engine)
 			},
 			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[*Subscriber]) {
-				require.ErrorIs(t, result.Err, eventtools.ErrNack)
+				require.NoError(t, result.Err)
 			},
 		},
 		{

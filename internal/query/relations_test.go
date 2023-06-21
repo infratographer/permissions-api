@@ -224,7 +224,7 @@ func TestRelationships(t *testing.T) {
 				Subject:  parentRes,
 			},
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Relationship]) {
-				assert.ErrorIs(t, res.Err, errorInvalidRelationship)
+				assert.ErrorIs(t, res.Err, ErrInvalidRelationship)
 			},
 		},
 		{

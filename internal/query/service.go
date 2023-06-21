@@ -21,6 +21,7 @@ type Engine interface {
 	ListRoles(ctx context.Context, resource types.Resource, queryToken string) ([]types.Role, error)
 	DeleteRelationships(ctx context.Context, resource types.Resource) (string, error)
 	NewResourceFromID(id gidx.PrefixedID) (types.Resource, error)
+	GetResourceType(name string) *types.ResourceType
 	SubjectHasPermission(ctx context.Context, subject types.Resource, action string, resource types.Resource, queryToken string) error
 }
 
@@ -30,13 +31,16 @@ type engine struct {
 	client          *authzed.Client
 	schema          []types.ResourceType
 	schemaPrefixMap map[string]types.ResourceType
+	schemaTypeMap   map[string]types.ResourceType
 }
 
-func (e *engine) cacheSchemaPrefixes() {
+func (e *engine) cacheSchemaResources() {
 	e.schemaPrefixMap = make(map[string]types.ResourceType, len(e.schema))
+	e.schemaTypeMap = make(map[string]types.ResourceType, len(e.schema))
 
 	for _, res := range e.schema {
 		e.schemaPrefixMap[res.IDPrefix] = res
+		e.schemaTypeMap[res.Name] = res
 	}
 }
 
@@ -55,7 +59,7 @@ func NewEngine(namespace string, client *authzed.Client, options ...Option) Engi
 	if e.schema == nil {
 		e.schema = iapl.DefaultPolicy().Schema()
 
-		e.cacheSchemaPrefixes()
+		e.cacheSchemaResources()
 	}
 
 	return e
@@ -76,6 +80,6 @@ func WithPolicy(policy iapl.Policy) Option {
 	return func(e *engine) {
 		e.schema = policy.Schema()
 
-		e.cacheSchemaPrefixes()
+		e.cacheSchemaResources()
 	}
 }

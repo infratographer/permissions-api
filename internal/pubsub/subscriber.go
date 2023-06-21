@@ -81,6 +81,8 @@ func (s *Subscriber) Subscribe(topic string) error {
 
 	s.changeChannels = append(s.changeChannels, msgChan)
 
+	s.logger.Infof("Subscribing to topic %s", topic)
+
 	return nil
 }
 
@@ -163,6 +165,13 @@ func (s *Subscriber) processEvent(msg *message.Message) error {
 func (s *Subscriber) createRelationships(ctx context.Context, msg *message.Message, resource types.Resource, additionalSubjectIDs []gidx.PrefixedID) error {
 	var relationships []types.Relationship
 
+	rType := s.qe.GetResourceType(resource.Type)
+	if rType == nil {
+		s.logger.Warnw("no resource type found for", "resource_type", resource.Type)
+
+		return nil
+	}
+
 	// Attempt to create relationships from the message fields. If this fails, reject the message
 	for _, id := range additionalSubjectIDs {
 		subjResource, err := s.qe.NewResourceFromID(id)
@@ -172,13 +181,27 @@ func (s *Subscriber) createRelationships(ctx context.Context, msg *message.Messa
 			continue
 		}
 
-		relationship := types.Relationship{
-			Resource: resource,
-			Relation: subjResource.Type,
-			Subject:  subjResource,
-		}
+		for _, rel := range rType.Relationships {
+			var relation string
 
-		relationships = append(relationships, relationship)
+			for _, tName := range rel.Types {
+				if tName == subjResource.Type {
+					relation = rel.Relation
+
+					break
+				}
+			}
+
+			if relation != "" {
+				relationship := types.Relationship{
+					Resource: resource,
+					Relation: relation,
+					Subject:  subjResource,
+				}
+
+				relationships = append(relationships, relationship)
+			}
+		}
 	}
 
 	if len(relationships) == 0 {
@@ -190,9 +213,7 @@ func (s *Subscriber) createRelationships(ctx context.Context, msg *message.Messa
 	// Attempt to create the relationships in SpiceDB. If this fails, nak the message for reprocessing
 	_, err := s.qe.CreateRelationships(ctx, relationships)
 	if err != nil {
-		s.logger.Errorw("error creating relationships - will reprocess", "error", err.Error())
-
-		return err
+		s.logger.Errorw("error creating relationships - will not reprocess", "error", err.Error())
 	}
 
 	return nil
@@ -201,9 +222,7 @@ func (s *Subscriber) createRelationships(ctx context.Context, msg *message.Messa
 func (s *Subscriber) deleteRelationships(ctx context.Context, msg *message.Message, resource types.Resource) error {
 	_, err := s.qe.DeleteRelationships(ctx, resource)
 	if err != nil {
-		s.logger.Errorw("error deleting relationships - will reprocess", "error", err.Error())
-
-		return err
+		s.logger.Errorw("error deleting relationships - will not reprocess", "error", err.Error())
 	}
 
 	return nil
