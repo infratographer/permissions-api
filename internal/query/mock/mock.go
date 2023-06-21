@@ -104,6 +104,21 @@ func (e *Engine) NewResourceFromID(id gidx.PrefixedID) (types.Resource, error) {
 	return out, nil
 }
 
+// GetResourceType returns the resource type by name
+func (e *Engine) GetResourceType(name string) *types.ResourceType {
+	if e.schema == nil {
+		e.schema = iapl.DefaultPolicy().Schema()
+	}
+
+	for _, resourceType := range e.schema {
+		if resourceType.Name == name {
+			return &resourceType
+		}
+	}
+
+	return nil
+}
+
 // SubjectHasPermission returns nil to satisfy the Engine interface.
 func (e *Engine) SubjectHasPermission(ctx context.Context, subject types.Resource, action string, resource types.Resource, queryToken string) error {
 	e.Called()

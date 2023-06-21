@@ -165,6 +165,13 @@ func (s *Subscriber) processEvent(msg *message.Message) error {
 func (s *Subscriber) createRelationships(ctx context.Context, msg *message.Message, resource types.Resource, additionalSubjectIDs []gidx.PrefixedID) error {
 	var relationships []types.Relationship
 
+	rType := s.qe.GetResourceType(resource.Type)
+	if rType == nil {
+		s.logger.Warnw("no resource type found for", "resource_type", resource.Type)
+
+		return nil
+	}
+
 	// Attempt to create relationships from the message fields. If this fails, reject the message
 	for _, id := range additionalSubjectIDs {
 		subjResource, err := s.qe.NewResourceFromID(id)
@@ -174,13 +181,27 @@ func (s *Subscriber) createRelationships(ctx context.Context, msg *message.Messa
 			continue
 		}
 
-		relationship := types.Relationship{
-			Resource: resource,
-			Relation: subjResource.Type,
-			Subject:  subjResource,
-		}
+		for _, rel := range rType.Relationships {
+			var relation string
 
-		relationships = append(relationships, relationship)
+			for _, tName := range rel.Types {
+				if tName == subjResource.Type {
+					relation = rel.Relation
+
+					break
+				}
+			}
+
+			if relation != "" {
+				relationship := types.Relationship{
+					Resource: resource,
+					Relation: relation,
+					Subject:  subjResource,
+				}
+
+				relationships = append(relationships, relationship)
+			}
+		}
 	}
 
 	if len(relationships) == 0 {

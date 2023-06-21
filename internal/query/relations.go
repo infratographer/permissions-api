@@ -2,7 +2,6 @@ package query
 
 import (
 	"context"
-	"errors"
 	"io"
 	"strings"
 
@@ -13,12 +12,6 @@ import (
 
 var roleSubjectRelation = "subject"
 
-var (
-	errorInvalidNamespace    = errors.New("invalid namespace")
-	errorInvalidType         = errors.New("invalid type")
-	errorInvalidRelationship = errors.New("invalid relationship")
-)
-
 func (e *engine) getTypeForResource(res types.Resource) (types.ResourceType, error) {
 	for _, resType := range e.schema {
 		if res.Type == resType.Name {
@@ -26,7 +19,7 @@ func (e *engine) getTypeForResource(res types.Resource) (types.ResourceType, err
 		}
 	}
 
-	return types.ResourceType{}, errorInvalidType
+	return types.ResourceType{}, ErrInvalidType
 }
 
 func (e *engine) validateRelationship(rel types.Relationship) error {
@@ -39,6 +32,8 @@ func (e *engine) validateRelationship(rel types.Relationship) error {
 	if err != nil {
 		return err
 	}
+
+	e.logger.Infow("validation relationship", "sub", subjType.Name, "rel", rel.Relation, "res", resType.Name)
 
 	for _, typeRel := range resType.Relationships {
 		// If we find a relation with a name and type that matches our relationship,
@@ -53,7 +48,7 @@ func (e *engine) validateRelationship(rel types.Relationship) error {
 	}
 
 	// No matching relationship was found, so we should return an error
-	return errorInvalidRelationship
+	return ErrInvalidRelationship
 }
 
 func resourceToSpiceDBRef(namespace string, r types.Resource) *pb.ObjectReference {
@@ -441,7 +436,7 @@ func (e *engine) NewResourceFromID(id gidx.PrefixedID) (types.Resource, error) {
 
 	rType, ok := e.schemaPrefixMap[prefix]
 	if !ok {
-		return types.Resource{}, errorInvalidNamespace
+		return types.Resource{}, ErrInvalidNamespace
 	}
 
 	out := types.Resource{
@@ -450,4 +445,14 @@ func (e *engine) NewResourceFromID(id gidx.PrefixedID) (types.Resource, error) {
 	}
 
 	return out, nil
+}
+
+// GetResourceType returns the resource type by name
+func (e *engine) GetResourceType(name string) *types.ResourceType {
+	rType, ok := e.schemaTypeMap[name]
+	if !ok {
+		return nil
+	}
+
+	return &rType
 }
