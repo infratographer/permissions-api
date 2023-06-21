@@ -71,13 +71,13 @@ actionbindings:
       - relationshipaction:
           relation: parent
           actionname: loadbalancer_delete
-  - actionname: loadbalancer_create
+  - actionname: loadbalancer_get
     typename: loadbalancer
     conditions:
       - rolebinding: {}
       - relationshipaction:
           relation: owner
-          actionname: loadbalancer_create
+          actionname: loadbalancer_get
   - actionname: loadbalancer_update
     typename: loadbalancer
     conditions:
