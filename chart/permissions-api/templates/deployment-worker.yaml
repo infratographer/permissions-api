@@ -76,7 +76,7 @@ spec:
           {{- end }}
           {{- if .Values.config.events.nats.token }}
             - name: PERMISSIONSAPI_EVENTS_SUBSCRIBER_NATS_TOKEN
-              value: "{{ .Values.config.events.token }}"
+              value: "{{ .Values.config.events.nats.token }}"
           {{- end }}
           {{- if .Values.config.oidc.issuer }}
           {{- with .Values.config.oidc.audience }}
