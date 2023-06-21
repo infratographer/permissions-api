@@ -62,9 +62,9 @@ func worker(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("invalid spicedb policy", "error", err)
 	}
 
-	engine := query.NewEngine("infratographer", spiceClient, query.WithPolicy(policy))
+	engine := query.NewEngine("infratographer", spiceClient, query.WithPolicy(policy), query.WithLogger(logger))
 
-	subscriber, err := pubsub.NewSubscriber(ctx, cfg.Events.Subscriber, engine)
+	subscriber, err := pubsub.NewSubscriber(ctx, cfg.Events.Subscriber, engine, pubsub.WithLogger(logger))
 	if err != nil {
 		logger.Fatalw("unable to initialize subscriber", "error", err)
 	}
