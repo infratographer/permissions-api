@@ -81,6 +81,8 @@ func (s *Subscriber) Subscribe(topic string) error {
 
 	s.changeChannels = append(s.changeChannels, msgChan)
 
+	s.logger.Infof("Subscribing to topic %s", topic)
+
 	return nil
 }
 
@@ -190,9 +192,7 @@ func (s *Subscriber) createRelationships(ctx context.Context, msg *message.Messa
 	// Attempt to create the relationships in SpiceDB. If this fails, nak the message for reprocessing
 	_, err := s.qe.CreateRelationships(ctx, relationships)
 	if err != nil {
-		s.logger.Errorw("error creating relationships - will reprocess", "error", err.Error())
-
-		return err
+		s.logger.Errorw("error creating relationships - will not reprocess", "error", err.Error())
 	}
 
 	return nil
@@ -201,9 +201,7 @@ func (s *Subscriber) createRelationships(ctx context.Context, msg *message.Messa
 func (s *Subscriber) deleteRelationships(ctx context.Context, msg *message.Message, resource types.Resource) error {
 	_, err := s.qe.DeleteRelationships(ctx, resource)
 	if err != nil {
-		s.logger.Errorw("error deleting relationships - will reprocess", "error", err.Error())
-
-		return err
+		s.logger.Errorw("error deleting relationships - will not reprocess", "error", err.Error())
 	}
 
 	return nil
