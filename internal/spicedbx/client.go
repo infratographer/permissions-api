@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 
+	v1 "github.com/authzed/authzed-go/proto/authzed/api/v1"
 	"github.com/authzed/authzed-go/v1"
 	"github.com/authzed/grpcutil"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -61,9 +62,14 @@ func NewClient(cfg Config, enableTracing bool) (*authzed.Client, error) {
 	return authzed.NewClient(cfg.Endpoint, clientOpts...)
 }
 
-// Healthcheck does nothing :laughing:
+// Healthcheck reads the schema to check if the connection is working
 func Healthcheck(client *authzed.Client) func(ctx context.Context) error {
 	return func(ctx context.Context) error {
+		_, err := client.ReadSchema(ctx, &v1.ReadSchemaRequest{}, grpc.WaitForReady(false))
+		if err != nil {
+			return err
+		}
+
 		return nil
 	}
 }

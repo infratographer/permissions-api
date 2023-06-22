@@ -3,9 +3,7 @@ package cmd
 import (
 	"log"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -22,7 +20,6 @@ var (
 	cfgFile   string
 	logger    *zap.SugaredLogger
 	globalCfg *config.AppConfig
-	sigCh     chan os.Signal
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -60,10 +57,6 @@ func init() {
 	viperx.MustBindFlag(viper.GetViper(), "spicedb.prefix", rootCmd.PersistentFlags().Lookup("spicedb-prefix"))
 	rootCmd.PersistentFlags().String("spicedb-policy", "", "spicedb policy file")
 	viperx.MustBindFlag(viper.GetViper(), "spicedb.policyFile", rootCmd.PersistentFlags().Lookup("spicedb-policy"))
-
-	// Set up SIGINT/SIGTERM listener
-	sigCh = make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 }
 
 // initConfig reads in config file and ENV variables if set.

@@ -5,9 +5,12 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"go.infratographer.com/x/echox"
 	"go.infratographer.com/x/events"
 	"go.infratographer.com/x/otelx"
+	"go.infratographer.com/x/versionx"
 	"go.infratographer.com/x/viperx"
+	"go.uber.org/zap"
 
 	"go.infratographer.com/permissions-api/internal/config"
 	"go.infratographer.com/permissions-api/internal/iapl"
@@ -69,6 +72,8 @@ func worker(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("unable to initialize subscriber", "error", err)
 	}
 
+	defer subscriber.Close()
+
 	for _, topic := range viper.GetStringSlice("events.topics") {
 		if err := subscriber.Subscribe(topic); err != nil {
 			logger.Fatalw("failed to subscribe to changes topic", "topic", topic, "error", err)
@@ -83,13 +88,18 @@ func worker(ctx context.Context, cfg *config.AppConfig) {
 		}
 	}()
 
-	// Wait until we're told to stop
-	sig := <-sigCh
-
-	logger.Infof("received %s signal, stopping", sig)
-
-	err = subscriber.Close()
+	srv, err := echox.NewServer(
+		logger.Desugar(),
+		echox.ConfigFromViper(viper.GetViper()),
+		versionx.BuildDetails(),
+	)
 	if err != nil {
-		logger.Fatalw("error stopping NATS client", "error", err)
+		logger.Fatal("failed to initialize new server", zap.Error(err))
+	}
+
+	srv.AddReadinessCheck("spicedb", spicedbx.Healthcheck(spiceClient))
+
+	if err := srv.Run(); err != nil {
+		logger.Fatal("failed to run server", zap.Error(err))
 	}
 }
