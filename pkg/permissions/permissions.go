@@ -23,7 +23,8 @@ const (
 )
 
 var (
-	ctxKeyChecker = checkerCtxKey{}
+	// CheckerCtxKey is the context key used to set the checker handling function
+	CheckerCtxKey = checkerCtxKey{}
 
 	// DefaultAllowChecker defaults to allow when checker is disabled or skipped
 	DefaultAllowChecker Checker = func(_ context.Context, _ gidx.PrefixedID, _ string) error {
@@ -179,7 +180,7 @@ func setCheckerContext(c echo.Context, checker Checker) {
 	req := c.Request().WithContext(
 		context.WithValue(
 			c.Request().Context(),
-			ctxKeyChecker,
+			CheckerCtxKey,
 			checker,
 		),
 	)
@@ -201,7 +202,7 @@ func ensureValidServerResponse(resp *http.Response) error {
 
 // CheckAccess runs the checker function to check if the provided resource and action are supported.
 func CheckAccess(ctx context.Context, resource gidx.PrefixedID, action string) error {
-	checker, ok := ctx.Value(ctxKeyChecker).(Checker)
+	checker, ok := ctx.Value(CheckerCtxKey).(Checker)
 	if !ok {
 		return ErrCheckerNotFound
 	}
