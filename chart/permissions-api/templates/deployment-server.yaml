@@ -98,7 +98,7 @@ spec:
             - name: PERMISSIONSAPI_TRACING_JAEGER_PASSWORD
               value: "{{ .Values.config.tracing.jaeger.password }}"
             {{- end }}
-            {{- if eq .Values.config.tracing.provider "otlp" }}
+            {{- if eq .Values.config.tracing.provider "otlpgrpc" }}
             - name: PERMISSIONSAPI_TRACING_OTLP_ENDPOINT
               value: "{{ .Values.config.tracing.otlp.endpoint }}"
             - name: PERMISSIONSAPI_TRACING_OTLP_INSECURE
