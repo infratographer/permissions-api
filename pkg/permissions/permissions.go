@@ -13,6 +13,10 @@ import (
 	"github.com/pkg/errors"
 	"go.infratographer.com/x/echojwtx"
 	"go.infratographer.com/x/gidx"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.uber.org/zap"
 )
 
@@ -37,8 +41,11 @@ var (
 	}
 
 	defaultClient = &http.Client{
-		Timeout: defaultClientTimeout,
+		Timeout:   defaultClientTimeout,
+		Transport: otelhttp.NewTransport(http.DefaultTransport),
 	}
+
+	tracer = otel.GetTracerProvider().Tracer("go.infratographer.com/permissions-api/pkg/permissions")
 )
 
 // Checker defines the checker function definition
@@ -92,6 +99,15 @@ func (p *Permissions) Middleware() echo.MiddlewareFunc {
 
 func (p *Permissions) checker(c echo.Context, actor, token string) Checker {
 	return func(ctx context.Context, resource gidx.PrefixedID, action string) error {
+		ctx, span := tracer.Start(ctx, "permissions.checkAccess")
+		defer span.End()
+
+		span.SetAttributes(
+			attribute.String("permissions.actor", actor),
+			attribute.String("permissions.action", action),
+			attribute.String("permissions.resource", resource.String()),
+		)
+
 		logger := p.logger.With("actor", actor, "resource", resource.String(), "action", action)
 
 		values := url.Values{}
@@ -103,6 +119,7 @@ func (p *Permissions) checker(c echo.Context, actor, token string) Checker {
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
 		if err != nil {
+			span.SetStatus(codes.Error, errors.WithStack(err).Error())
 			logger.Errorw("failed to create checker request", "error", err)
 
 			return errors.WithStack(err)
@@ -128,8 +145,10 @@ func (p *Permissions) checker(c echo.Context, actor, token string) Checker {
 			switch {
 			case errors.Is(err, ErrPermissionDenied):
 				logger.Warnw("unauthorized access to resource")
+				span.AddEvent("permission denied")
 			case errors.Is(err, ErrBadResponse):
 				logger.Errorw("bad response from server", "error", err, "response.status_code", resp.StatusCode, "response.body", string(body))
+				span.SetStatus(codes.Error, errors.WithStack(err).Error())
 			}
 
 			return err
