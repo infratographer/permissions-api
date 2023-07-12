@@ -141,6 +141,66 @@ func TestRoles(t *testing.T) {
 	testingx.RunTests(ctx, t, testCases, testFn)
 }
 
+func TestRoleDelete(t *testing.T) {
+	namespace := "testroles"
+	ctx := context.Background()
+	e := testEngine(ctx, t, namespace)
+
+	tenID, err := gidx.NewID("tnntten")
+	require.NoError(t, err)
+	tenRes, err := e.NewResourceFromID(tenID)
+	require.NoError(t, err)
+
+	role, queryToken, err := e.CreateRole(ctx, tenRes, []string{"loadbalancer_get"})
+	require.NoError(t, err)
+	roles, err := e.ListRoles(ctx, tenRes, queryToken)
+	require.NoError(t, err)
+	require.NotEmpty(t, roles)
+
+	testCases := []testingx.TestCase[gidx.PrefixedID, []types.Role]{
+		{
+			Name:  "DeleteMissingRole",
+			Input: gidx.MustNewID(RolePrefix),
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
+				assert.Error(t, res.Err)
+			},
+		},
+		{
+			Name:  "DeleteSuccess",
+			Input: role.ID,
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
+				assert.NoError(t, res.Err)
+				require.Empty(t, res.Success)
+			},
+		},
+	}
+
+	testFn := func(ctx context.Context, roleID gidx.PrefixedID) testingx.TestResult[[]types.Role] {
+		roleResource, err := e.NewResourceFromID(roleID)
+		if err != nil {
+			return testingx.TestResult[[]types.Role]{
+				Err: err,
+			}
+		}
+
+		queryToken, err = e.DeleteRole(ctx, tenRes, roleResource, queryToken)
+		if err != nil {
+			return testingx.TestResult[[]types.Role]{
+				Err: err,
+			}
+		}
+
+		roles, err := e.ListRoles(ctx, tenRes, queryToken)
+
+		return testingx.TestResult[[]types.Role]{
+			Success: roles,
+			Err:     err,
+		}
+	}
+
+	testingx.RunTests(ctx, t, testCases, testFn)
+}
+
 func TestAssignments(t *testing.T) {
 	namespace := "testassignments"
 	ctx := context.Background()

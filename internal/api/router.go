@@ -43,6 +43,7 @@ func (r *Router) Routes(rg *echo.Group) {
 		v1.Use(r.authMW)
 
 		v1.POST("/resources/:id/roles", r.roleCreate)
+		v1.DELETE("/resources/:id/roles", r.roleDelete)
 		v1.GET("/resources/:id/roles", r.rolesList)
 		v1.POST("/resources/:id/relationships", r.relationshipsCreate)
 		v1.DELETE("/resources/:id/relationships", r.relationshipDelete)

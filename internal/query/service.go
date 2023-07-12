@@ -21,6 +21,7 @@ type Engine interface {
 	ListRelationships(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error)
 	ListRoles(ctx context.Context, resource types.Resource, queryToken string) ([]types.Role, error)
 	DeleteRelationship(ctx context.Context, rel types.Relationship) (string, error)
+	DeleteRole(ctx context.Context, resource, roleResource types.Resource, queryToken string) (string, error)
 	DeleteRelationships(ctx context.Context, resource types.Resource) (string, error)
 	NewResourceFromID(id gidx.PrefixedID) (types.Resource, error)
 	GetResourceType(name string) *types.ResourceType

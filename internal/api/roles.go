@@ -81,3 +81,48 @@ func (r *Router) rolesList(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, resp)
 }
+
+func (r *Router) roleDelete(c echo.Context) error {
+	resourceIDStr := c.Param("id")
+
+	ctx, span := tracer.Start(c.Request().Context(), "api.roleDelete", trace.WithAttributes(attribute.String("id", resourceIDStr)))
+	defer span.End()
+
+	resourceID, err := gidx.Parse(resourceIDStr)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing resource ID").SetInternal(err)
+	}
+
+	var reqBody deleteRoleRequest
+
+	err = c.Bind(&reqBody)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing request body").SetInternal(err)
+	}
+
+	resource, err := r.engine.NewResourceFromID(resourceID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error deleting resource").SetInternal(err)
+	}
+
+	roleResourceID, err := gidx.Parse(reqBody.ID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error deleting resource").SetInternal(err)
+	}
+
+	roleResource, err := r.engine.NewResourceFromID(roleResourceID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error deleting resource").SetInternal(err)
+	}
+
+	_, err = r.engine.DeleteRole(ctx, resource, roleResource, "")
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "error deleting resource").SetInternal(err)
+	}
+
+	resp := deleteRoleResponse{
+		Success: true,
+	}
+
+	return c.JSON(http.StatusOK, resp)
+}

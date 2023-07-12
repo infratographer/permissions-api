@@ -18,4 +18,7 @@ var (
 
 	// ErrInvalidRelationship represents an error when no matching relationship was found
 	ErrInvalidRelationship = errors.New("invalid relationship")
+
+	// ErrRoleNotFound represents an error when no matching role was found on resource
+	ErrRoleNotFound = errors.New("role not found")
 )

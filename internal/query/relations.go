@@ -2,6 +2,7 @@ package query
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"strings"
 
@@ -482,6 +483,59 @@ func (e *engine) ListRoles(ctx context.Context, resource types.Resource, queryTo
 	out := relationshipsToRoles(relationships)
 
 	return out, nil
+}
+
+// DeleteRole removes the specified role from the provided resource.
+func (e *engine) DeleteRole(ctx context.Context, resource, roleResource types.Resource, queryToken string) (string, error) {
+	roles, err := e.ListRoles(ctx, resource, queryToken)
+	if err != nil {
+		return "", err
+	}
+
+	var role types.Role
+
+	for _, r := range roles {
+		if r.ID == roleResource.ID {
+			role = r
+
+			break
+		}
+	}
+
+	if role.ID == gidx.NullPrefixedID {
+		return "", ErrRoleNotFound
+	}
+
+	resType := e.namespace + "/" + resource.Type
+	roleType := e.namespace + "/role"
+
+	var filters []*pb.RelationshipFilter
+
+	roleSubjectFilter := &pb.SubjectFilter{
+		SubjectType:       roleType,
+		OptionalSubjectId: roleResource.ID.String(),
+		OptionalRelation: &pb.SubjectFilter_RelationFilter{
+			Relation: roleSubjectRelation,
+		},
+	}
+
+	for _, action := range role.Actions {
+		filters = append(filters, &pb.RelationshipFilter{
+			ResourceType:          resType,
+			OptionalResourceId:    resource.ID.String(),
+			OptionalRelation:      actionToRelation(action),
+			OptionalSubjectFilter: roleSubjectFilter,
+		})
+	}
+
+	for _, filter := range filters {
+		queryToken, err = e.deleteRelationships(ctx, filter)
+		if err != nil {
+			return "", fmt.Errorf("failed to delete role action %s: %w", filter.OptionalResourceId, err)
+		}
+	}
+
+	return queryToken, nil
 }
 
 // NewResourceFromID returns a new resource struct from a given id
