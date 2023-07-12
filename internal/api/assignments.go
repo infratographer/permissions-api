@@ -91,3 +91,47 @@ func (r *Router) assignmentsList(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, out)
 }
+
+func (r *Router) assignmentDelete(c echo.Context) error {
+	roleIDStr := c.Param("role_id")
+
+	roleID, err := gidx.Parse(roleIDStr)
+	if err != nil {
+		return echo.ErrNotFound
+	}
+
+	ctx, span := tracer.Start(c.Request().Context(), "api.assignmentDelete", trace.WithAttributes(attribute.String("role_id", roleIDStr)))
+	defer span.End()
+
+	var reqBody deleteAssignmentRequest
+
+	err = c.Bind(&reqBody)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing request body").SetInternal(err)
+	}
+
+	subjID, err := gidx.Parse(reqBody.SubjectID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing subject ID").SetInternal(err)
+	}
+
+	subjResource, err := r.engine.NewResourceFromID(subjID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error deleting assignment").SetInternal(err)
+	}
+
+	role := types.Role{
+		ID: roleID,
+	}
+
+	_, err = r.engine.UnassignSubjectRole(ctx, subjResource, role)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "error deleting assignment").SetInternal(err)
+	}
+
+	resp := deleteAssignmentResponse{
+		Success: true,
+	}
+
+	return c.JSON(http.StatusOK, resp)
+}

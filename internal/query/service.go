@@ -14,6 +14,7 @@ import (
 // Engine represents a client for making permissions queries.
 type Engine interface {
 	AssignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) (string, error)
+	UnassignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) (string, error)
 	CreateRelationships(ctx context.Context, rels []types.Relationship) (string, error)
 	CreateRole(ctx context.Context, res types.Resource, actions []string) (types.Role, string, error)
 	ListAssignments(ctx context.Context, role types.Role, queryToken string) ([]types.Resource, error)

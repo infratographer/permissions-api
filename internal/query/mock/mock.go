@@ -30,6 +30,11 @@ func (e *Engine) AssignSubjectRole(ctx context.Context, subject types.Resource, 
 	return "", nil
 }
 
+// UnassignSubjectRole does nothing but satisfies the Engine interface.
+func (e *Engine) UnassignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) (string, error) {
+	return "", nil
+}
+
 // CreateRelationships does nothing but satisfies the Engine interface.
 func (e *Engine) CreateRelationships(ctx context.Context, rels []types.Relationship) (string, error) {
 	args := e.Called()

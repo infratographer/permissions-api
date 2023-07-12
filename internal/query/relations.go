@@ -75,7 +75,7 @@ func (e *engine) SubjectHasPermission(ctx context.Context, subject types.Resourc
 func (e *engine) AssignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) (string, error) {
 	request := &pb.WriteRelationshipsRequest{
 		Updates: []*pb.RelationshipUpdate{
-			e.subjectRoleRel(subject, role),
+			e.subjectRoleRelCreate(subject, role),
 		},
 	}
 	r, err := e.client.WriteRelationships(ctx, request)
@@ -85,6 +85,20 @@ func (e *engine) AssignSubjectRole(ctx context.Context, subject types.Resource, 
 	}
 
 	return r.WrittenAt.GetToken(), nil
+}
+
+// UnassignSubjectRole removes the given role from the given subject.
+func (e *engine) UnassignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) (string, error) {
+	request := &pb.DeleteRelationshipsRequest{
+		RelationshipFilter: e.subjectRoleRelDelete(subject, role),
+	}
+	r, err := e.client.DeleteRelationships(ctx, request)
+
+	if err != nil {
+		return "", err
+	}
+
+	return r.DeletedAt.GetToken(), nil
 }
 
 // ListAssignments returns the assigned subjects for a given role.
@@ -120,7 +134,7 @@ func (e *engine) ListAssignments(ctx context.Context, role types.Role, queryToke
 	return out, nil
 }
 
-func (e *engine) subjectRoleRel(subject types.Resource, role types.Role) *pb.RelationshipUpdate {
+func (e *engine) subjectRoleRelCreate(subject types.Resource, role types.Role) *pb.RelationshipUpdate {
 	roleResource := types.Resource{
 		Type: "role",
 		ID:   role.ID,
@@ -134,6 +148,23 @@ func (e *engine) subjectRoleRel(subject types.Resource, role types.Role) *pb.Rel
 			Subject: &pb.SubjectReference{
 				Object: resourceToSpiceDBRef(e.namespace, subject),
 			},
+		},
+	}
+}
+
+func (e *engine) subjectRoleRelDelete(subject types.Resource, role types.Role) *pb.RelationshipFilter {
+	roleResource := types.Resource{
+		Type: "role",
+		ID:   role.ID,
+	}
+
+	return &pb.RelationshipFilter{
+		ResourceType:       e.namespace + "/" + roleResource.Type,
+		OptionalResourceId: roleResource.ID.String(),
+		OptionalRelation:   roleSubjectRelation,
+		OptionalSubjectFilter: &pb.SubjectFilter{
+			SubjectType:       e.namespace + "/" + subject.Type,
+			OptionalSubjectId: subject.ID.String(),
 		},
 	}
 }

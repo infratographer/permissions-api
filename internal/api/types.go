@@ -43,7 +43,15 @@ type createAssignmentRequest struct {
 	SubjectID string `json:"subject_id" binding:"required"`
 }
 
+type deleteAssignmentRequest struct {
+	SubjectID string `json:"subject_id" binding:"required"`
+}
+
 type createAssignmentResponse struct {
+	Success bool `json:"success"`
+}
+
+type deleteAssignmentResponse struct {
 	Success bool `json:"success"`
 }
 

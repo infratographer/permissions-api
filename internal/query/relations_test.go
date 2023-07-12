@@ -197,6 +197,84 @@ func TestAssignments(t *testing.T) {
 	testingx.RunTests(ctx, t, testCases, testFn)
 }
 
+func TestUnassignments(t *testing.T) {
+	namespace := "testassignments"
+	ctx := context.Background()
+	e := testEngine(ctx, t, namespace)
+
+	tenID, err := gidx.NewID("tnntten")
+	require.NoError(t, err)
+	tenRes, err := e.NewResourceFromID(tenID)
+	require.NoError(t, err)
+	subjID, err := gidx.NewID("idntusr")
+	require.NoError(t, err)
+	subjRes, err := e.NewResourceFromID(subjID)
+	require.NoError(t, err)
+	role, _, err := e.CreateRole(
+		ctx,
+		tenRes,
+		[]string{
+			"loadbalancer_update",
+		},
+	)
+	assert.NoError(t, err)
+
+	testCases := []testingx.TestCase[types.Role, []types.Resource]{
+		{
+			Name:  "Success",
+			Input: role,
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Resource]) {
+				assert.NoError(t, res.Err)
+				assert.Empty(t, res.Success)
+			},
+		},
+	}
+
+	testFn := func(ctx context.Context, role types.Role) testingx.TestResult[[]types.Resource] {
+		queryToken, err := e.AssignSubjectRole(ctx, subjRes, role)
+		if err != nil {
+			return testingx.TestResult[[]types.Resource]{
+				Err: err,
+			}
+		}
+
+		resources, err := e.ListAssignments(ctx, role, queryToken)
+		if err != nil {
+			return testingx.TestResult[[]types.Resource]{
+				Err: err,
+			}
+		}
+
+		var found bool
+
+		for _, resource := range resources {
+			if resource.ID == subjRes.ID {
+				found = true
+
+				break
+			}
+		}
+
+		require.True(t, found, "expected assignment to be found")
+
+		queryToken, err = e.UnassignSubjectRole(ctx, subjRes, role)
+		if err != nil {
+			return testingx.TestResult[[]types.Resource]{
+				Err: err,
+			}
+		}
+
+		resources, err = e.ListAssignments(ctx, role, queryToken)
+
+		return testingx.TestResult[[]types.Resource]{
+			Success: resources,
+			Err:     err,
+		}
+	}
+
+	testingx.RunTests(ctx, t, testCases, testFn)
+}
+
 func TestRelationships(t *testing.T) {
 	namespace := "testrelationships"
 	ctx := context.Background()
