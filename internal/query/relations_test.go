@@ -366,6 +366,78 @@ func TestRelationships(t *testing.T) {
 	testingx.RunTests(ctx, t, testCases, testFn)
 }
 
+func TestRelationshipDelete(t *testing.T) {
+	namespace := "testrelationships"
+	ctx := context.Background()
+	e := testEngine(ctx, t, namespace)
+
+	parentID, err := gidx.NewID("tnntten")
+	require.NoError(t, err)
+	parentRes, err := e.NewResourceFromID(parentID)
+	require.NoError(t, err)
+	childID, err := gidx.NewID("tnntten")
+	require.NoError(t, err)
+	childRes, err := e.NewResourceFromID(childID)
+	require.NoError(t, err)
+
+	relReq := types.Relationship{
+		Resource: childRes,
+		Relation: "parent",
+		Subject:  parentRes,
+	}
+
+	queryToken, err := e.CreateRelationships(ctx, []types.Relationship{relReq})
+	require.NoError(t, err)
+
+	createdResources, err := e.ListRelationships(ctx, childRes, queryToken)
+	require.NoError(t, err)
+	require.NotEmpty(t, createdResources)
+
+	testCases := []testingx.TestCase[types.Relationship, []types.Relationship]{
+		{
+			Name: "InvalidRelationship",
+			Input: types.Relationship{
+				Resource: childRes,
+				Relation: "foo",
+				Subject:  parentRes,
+			},
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Relationship]) {
+				assert.ErrorIs(t, res.Err, ErrInvalidRelationship)
+			},
+		},
+		{
+			Name: "Success",
+			Input: types.Relationship{
+				Resource: childRes,
+				Relation: "parent",
+				Subject:  parentRes,
+			},
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Relationship]) {
+				require.NoError(t, res.Err)
+				assert.Empty(t, res.Success)
+			},
+		},
+	}
+
+	testFn := func(ctx context.Context, input types.Relationship) testingx.TestResult[[]types.Relationship] {
+		queryToken, err := e.DeleteRelationship(ctx, input)
+		if err != nil {
+			return testingx.TestResult[[]types.Relationship]{
+				Err: err,
+			}
+		}
+
+		rels, err := e.ListRelationships(ctx, input.Resource, queryToken)
+
+		return testingx.TestResult[[]types.Relationship]{
+			Success: rels,
+			Err:     err,
+		}
+	}
+
+	testingx.RunTests(ctx, t, testCases, testFn)
+}
+
 func TestSubjectActions(t *testing.T) {
 	namespace := "infratestactions"
 	ctx := context.Background()

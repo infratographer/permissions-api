@@ -124,3 +124,54 @@ func (r *Router) relationshipsList(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, out)
 }
+
+func (r *Router) relationshipDelete(c echo.Context) error {
+	resourceIDStr := c.Param("id")
+
+	ctx, span := tracer.Start(c.Request().Context(), "api.relationshipsDelete", trace.WithAttributes(attribute.String("id", resourceIDStr)))
+	defer span.End()
+
+	resourceID, err := gidx.Parse(resourceIDStr)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing resource ID").SetInternal(err)
+	}
+
+	var reqBody deleteRelationshipRequest
+
+	err = c.Bind(&reqBody)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing request body").SetInternal(err)
+	}
+
+	resource, err := r.engine.NewResourceFromID(resourceID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error deleting relationship").SetInternal(err)
+	}
+
+	relatedResourceID, err := gidx.Parse(reqBody.SubjectID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error deleting relationship").SetInternal(err)
+	}
+
+	relatedResource, err := r.engine.NewResourceFromID(relatedResourceID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error deleting relationship").SetInternal(err)
+	}
+
+	relationship := types.Relationship{
+		Resource: resource,
+		Relation: reqBody.Relation,
+		Subject:  relatedResource,
+	}
+
+	_, err = r.engine.DeleteRelationship(ctx, relationship)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "error deleting relationship").SetInternal(err)
+	}
+
+	resp := deleteRelationshipsResponse{
+		Success: true,
+	}
+
+	return c.JSON(http.StatusOK, resp)
+}

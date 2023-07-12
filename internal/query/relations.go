@@ -33,7 +33,7 @@ func (e *engine) validateRelationship(rel types.Relationship) error {
 		return err
 	}
 
-	e.logger.Infow("validation relationship", "sub", subjType.Name, "rel", rel.Relation, "res", resType.Name)
+	e.logger.Debugw("validation relationship", "sub", subjType.Name, "rel", rel.Relation, "res", resType.Name)
 
 	for _, typeRel := range resType.Relationships {
 		// If we find a relation with a name and type that matches our relationship,
@@ -326,6 +326,29 @@ func (e *engine) readRelationships(ctx context.Context, filter *pb.RelationshipF
 	}
 
 	return responses, nil
+}
+
+// DeleteRelationship removes the specified relationship between the two resources.
+func (e *engine) DeleteRelationship(ctx context.Context, rel types.Relationship) (string, error) {
+	err := e.validateRelationship(rel)
+	if err != nil {
+		return "", err
+	}
+
+	resType := e.namespace + "/" + rel.Resource.Type
+	subjType := e.namespace + "/" + rel.Subject.Type
+
+	filter := &pb.RelationshipFilter{
+		ResourceType:       resType,
+		OptionalResourceId: rel.Resource.ID.String(),
+		OptionalRelation:   rel.Relation,
+		OptionalSubjectFilter: &pb.SubjectFilter{
+			SubjectType:       subjType,
+			OptionalSubjectId: rel.Subject.ID.String(),
+		},
+	}
+
+	return e.deleteRelationships(ctx, filter)
 }
 
 // DeleteRelationships deletes all relationships originating from the given resource.

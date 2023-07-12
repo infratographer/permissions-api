@@ -20,6 +20,7 @@ type Engine interface {
 	ListAssignments(ctx context.Context, role types.Role, queryToken string) ([]types.Resource, error)
 	ListRelationships(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error)
 	ListRoles(ctx context.Context, resource types.Resource, queryToken string) ([]types.Role, error)
+	DeleteRelationship(ctx context.Context, rel types.Relationship) (string, error)
 	DeleteRelationships(ctx context.Context, resource types.Resource) (string, error)
 	NewResourceFromID(id gidx.PrefixedID) (types.Resource, error)
 	GetResourceType(name string) *types.ResourceType

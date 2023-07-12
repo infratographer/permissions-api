@@ -30,6 +30,15 @@ type createRelationshipsResponse struct {
 	Success bool `json:"success"`
 }
 
+type deleteRelationshipRequest struct {
+	Relation  string `json:"relation" binding:"required"`
+	SubjectID string `json:"subject_id" binding:"required"`
+}
+
+type deleteRelationshipsResponse struct {
+	Success bool `json:"success"`
+}
+
 type relationshipItem struct {
 	Relation  string `json:"relation"`
 	SubjectID string `json:"subject_id"`
