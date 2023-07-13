@@ -8,10 +8,6 @@ type createRoleRequest struct {
 	Actions []string `json:"actions" binding:"required"`
 }
 
-type deleteRoleRequest struct {
-	ID string `json:"id" binding:"required"`
-}
-
 type roleResponse struct {
 	ID      gidx.PrefixedID `json:"id"`
 	Actions []string        `json:"actions"`

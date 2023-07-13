@@ -183,7 +183,7 @@ func TestRoleDelete(t *testing.T) {
 			}
 		}
 
-		queryToken, err = e.DeleteRole(ctx, tenRes, roleResource, queryToken)
+		queryToken, err = e.DeleteRole(ctx, roleResource, queryToken)
 		if err != nil {
 			return testingx.TestResult[[]types.Role]{
 				Err: err,

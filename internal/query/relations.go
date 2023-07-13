@@ -485,28 +485,76 @@ func (e *engine) ListRoles(ctx context.Context, resource types.Resource, queryTo
 	return out, nil
 }
 
-// DeleteRole removes the specified role from the provided resource.
-func (e *engine) DeleteRole(ctx context.Context, resource, roleResource types.Resource, queryToken string) (string, error) {
-	roles, err := e.ListRoles(ctx, resource, queryToken)
-	if err != nil {
-		return "", err
+// listRoleResourceActions returns all resources and action relations for the provided resource type to the provided role.
+// Note: The actions returned by this function are the spicedb relationship action.
+func (e *engine) listRoleResourceActions(ctx context.Context, role types.Resource, resTypeName string, queryToken string) (map[types.Resource][]string, error) {
+	resType := e.namespace + "/" + resTypeName
+	roleType := e.namespace + "/role"
+
+	filter := &pb.RelationshipFilter{
+		ResourceType: resType,
+		OptionalSubjectFilter: &pb.SubjectFilter{
+			SubjectType:       roleType,
+			OptionalSubjectId: role.ID.String(),
+			OptionalRelation: &pb.SubjectFilter_RelationFilter{
+				Relation: roleSubjectRelation,
+			},
+		},
 	}
 
-	var role types.Role
+	relationships, err := e.readRelationships(ctx, filter, queryToken)
+	if err != nil {
+		return nil, err
+	}
 
-	for _, r := range roles {
-		if r.ID == roleResource.ID {
-			role = r
+	resourceIDActions := make(map[gidx.PrefixedID][]string)
 
+	for _, rel := range relationships {
+		resourceID, err := gidx.Parse(rel.Resource.ObjectId)
+		if err != nil {
+			return nil, err
+		}
+
+		resourceIDActions[resourceID] = append(resourceIDActions[resourceID], rel.Relation)
+	}
+
+	resourceActions := make(map[types.Resource][]string, len(resourceIDActions))
+
+	for resID, actions := range resourceIDActions {
+		res, err := e.NewResourceFromID(resID)
+		if err != nil {
+			return nil, err
+		}
+
+		resourceActions[res] = actions
+	}
+
+	return resourceActions, nil
+}
+
+// DeleteRole removes all role actions from the assigned resource.
+func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource, queryToken string) (string, error) {
+	var (
+		resActions map[types.Resource][]string
+		err        error
+	)
+
+	for _, resType := range e.schemaRoleables {
+		resActions, err = e.listRoleResourceActions(ctx, roleResource, resType.Name, queryToken)
+		if err != nil {
+			return "", err
+		}
+
+		// roles are only ever created for a single resource, so we can break after the first one is found.
+		if len(resActions) != 0 {
 			break
 		}
 	}
 
-	if role.ID == gidx.NullPrefixedID {
+	if len(resActions) == 0 {
 		return "", ErrRoleNotFound
 	}
 
-	resType := e.namespace + "/" + resource.Type
 	roleType := e.namespace + "/role"
 
 	var filters []*pb.RelationshipFilter
@@ -519,13 +567,15 @@ func (e *engine) DeleteRole(ctx context.Context, resource, roleResource types.Re
 		},
 	}
 
-	for _, action := range role.Actions {
-		filters = append(filters, &pb.RelationshipFilter{
-			ResourceType:          resType,
-			OptionalResourceId:    resource.ID.String(),
-			OptionalRelation:      actionToRelation(action),
-			OptionalSubjectFilter: roleSubjectFilter,
-		})
+	for resource, relActions := range resActions {
+		for _, relAction := range relActions {
+			filters = append(filters, &pb.RelationshipFilter{
+				ResourceType:          e.namespace + "/" + resource.Type,
+				OptionalResourceId:    resource.ID.String(),
+				OptionalRelation:      relAction,
+				OptionalSubjectFilter: roleSubjectFilter,
+			})
+		}
 	}
 
 	for _, filter := range filters {

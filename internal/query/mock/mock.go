@@ -80,7 +80,7 @@ func (e *Engine) DeleteRelationship(ctx context.Context, rel types.Relationship)
 }
 
 // DeleteRole does nothing but satisfies the Engine interface.
-func (e *Engine) DeleteRole(ctx context.Context, resource, roleResource types.Resource, queryToken string) (string, error) {
+func (e *Engine) DeleteRole(ctx context.Context, roleResource types.Resource, queryToken string) (string, error) {
 	args := e.Called()
 
 	return args.String(0), args.Error(1)
