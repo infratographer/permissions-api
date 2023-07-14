@@ -117,7 +117,7 @@ func (r *Router) assignmentDelete(c echo.Context) error {
 
 	subjResource, err := r.engine.NewResourceFromID(subjID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "error deleting assignment").SetInternal(err)
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing resource type from subject").SetInternal(err)
 	}
 
 	role := types.Role{
