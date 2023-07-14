@@ -86,10 +86,10 @@ func (r *Router) relationshipsCreate(c echo.Context) error {
 	return c.JSON(http.StatusCreated, resp)
 }
 
-func (r *Router) relationshipsList(c echo.Context) error {
+func (r *Router) relationshipListFrom(c echo.Context) error {
 	resourceIDStr := c.Param("id")
 
-	ctx, span := tracer.Start(c.Request().Context(), "api.relationshipsList", trace.WithAttributes(attribute.String("id", resourceIDStr)))
+	ctx, span := tracer.Start(c.Request().Context(), "api.relationshipListFrom", trace.WithAttributes(attribute.String("id", resourceIDStr)))
 	defer span.End()
 
 	resourceID, err := gidx.Parse(resourceIDStr)
@@ -102,7 +102,7 @@ func (r *Router) relationshipsList(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "error listing relationships").SetInternal(err)
 	}
 
-	rels, err := r.engine.ListRelationships(ctx, resource, "")
+	rels, err := r.engine.ListRelationshipsFrom(ctx, resource, "")
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "error listing relationships").SetInternal(err)
 	}
@@ -110,12 +110,47 @@ func (r *Router) relationshipsList(c echo.Context) error {
 	items := make([]relationshipItem, len(rels))
 
 	for i, rel := range rels {
-		item := relationshipItem{
+		items[i] = relationshipItem{
 			Relation:  rel.Relation,
 			SubjectID: rel.Subject.ID.String(),
 		}
+	}
 
-		items[i] = item
+	out := listRelationshipsResponse{
+		Data: items,
+	}
+
+	return c.JSON(http.StatusOK, out)
+}
+
+func (r *Router) relationshipListTo(c echo.Context) error {
+	resourceIDStr := c.Param("id")
+
+	ctx, span := tracer.Start(c.Request().Context(), "api.relationshipListTo", trace.WithAttributes(attribute.String("id", resourceIDStr)))
+	defer span.End()
+
+	resourceID, err := gidx.Parse(resourceIDStr)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing resource ID").SetInternal(err)
+	}
+
+	resource, err := r.engine.NewResourceFromID(resourceID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error listing relationships").SetInternal(err)
+	}
+
+	rels, err := r.engine.ListRelationshipsTo(ctx, resource, "")
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "error listing relationships").SetInternal(err)
+	}
+
+	items := make([]relationshipItem, len(rels))
+
+	for i, rel := range rels {
+		items[i] = relationshipItem{
+			ResourceID: rel.Resource.ID.String(),
+			Relation:   rel.Relation,
+		}
 	}
 
 	out := listRelationshipsResponse{

@@ -413,7 +413,7 @@ func relationshipsToRoles(rels []*pb.Relationship) []types.Role {
 	return out
 }
 
-func (e *engine) relationshipsToNonRoles(rels []*pb.Relationship, res types.Resource) ([]types.Relationship, error) {
+func (e *engine) relationshipsToNonRoles(rels []*pb.Relationship) ([]types.Relationship, error) {
 	var out []types.Relationship
 
 	for _, rel := range rels {
@@ -421,12 +421,22 @@ func (e *engine) relationshipsToNonRoles(rels []*pb.Relationship, res types.Reso
 			continue
 		}
 
-		id, err := gidx.Parse(rel.Subject.Object.ObjectId)
+		resID, err := gidx.Parse(rel.Resource.ObjectId)
 		if err != nil {
 			return nil, err
 		}
 
-		subj, err := e.NewResourceFromID(id)
+		res, err := e.NewResourceFromID(resID)
+		if err != nil {
+			return nil, err
+		}
+
+		subjID, err := gidx.Parse(rel.Subject.Object.ObjectId)
+		if err != nil {
+			return nil, err
+		}
+
+		subj, err := e.NewResourceFromID(subjID)
 		if err != nil {
 			return nil, err
 		}
@@ -443,8 +453,8 @@ func (e *engine) relationshipsToNonRoles(rels []*pb.Relationship, res types.Reso
 	return out, nil
 }
 
-// ListRelationships returns all non-role relationships bound to a given resource.
-func (e *engine) ListRelationships(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error) {
+// ListRelationshipsFrom returns all non-role relationships bound to a given resource.
+func (e *engine) ListRelationshipsFrom(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error) {
 	resType := e.namespace + "/" + resource.Type
 
 	filter := &pb.RelationshipFilter{
@@ -457,7 +467,36 @@ func (e *engine) ListRelationships(ctx context.Context, resource types.Resource,
 		return nil, err
 	}
 
-	return e.relationshipsToNonRoles(relationships, resource)
+	return e.relationshipsToNonRoles(relationships)
+}
+
+// ListRelationshipsTo returns all non-role relationships destined for a given resource.
+func (e *engine) ListRelationshipsTo(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error) {
+	relTypes, ok := e.schemaSubjectRelationMap[resource.Type]
+	if !ok {
+		return nil, ErrInvalidType
+	}
+
+	var relationships []*pb.Relationship
+
+	for _, types := range relTypes {
+		for _, relType := range types {
+			rels, err := e.readRelationships(ctx, &pb.RelationshipFilter{
+				ResourceType: e.namespace + "/" + relType,
+				OptionalSubjectFilter: &pb.SubjectFilter{
+					SubjectType:       e.namespace + "/" + resource.Type,
+					OptionalSubjectId: resource.ID.String(),
+				},
+			}, queryToken)
+			if err != nil {
+				return nil, err
+			}
+
+			relationships = append(relationships, rels...)
+		}
+	}
+
+	return e.relationshipsToNonRoles(relationships)
 }
 
 // ListRoles returns all roles bound to a given resource.

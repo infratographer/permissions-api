@@ -18,7 +18,8 @@ type Engine interface {
 	CreateRelationships(ctx context.Context, rels []types.Relationship) (string, error)
 	CreateRole(ctx context.Context, res types.Resource, actions []string) (types.Role, string, error)
 	ListAssignments(ctx context.Context, role types.Role, queryToken string) ([]types.Resource, error)
-	ListRelationships(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error)
+	ListRelationshipsFrom(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error)
+	ListRelationshipsTo(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error)
 	ListRoles(ctx context.Context, resource types.Resource, queryToken string) ([]types.Role, error)
 	DeleteRelationship(ctx context.Context, rel types.Relationship) (string, error)
 	DeleteRole(ctx context.Context, roleResource types.Resource, queryToken string) (string, error)
@@ -29,23 +30,35 @@ type Engine interface {
 }
 
 type engine struct {
-	logger          *zap.SugaredLogger
-	namespace       string
-	client          *authzed.Client
-	schema          []types.ResourceType
-	schemaPrefixMap map[string]types.ResourceType
-	schemaTypeMap   map[string]types.ResourceType
-	schemaRoleables []types.ResourceType
+	logger                   *zap.SugaredLogger
+	namespace                string
+	client                   *authzed.Client
+	schema                   []types.ResourceType
+	schemaPrefixMap          map[string]types.ResourceType
+	schemaTypeMap            map[string]types.ResourceType
+	schemaSubjectRelationMap map[string]map[string][]string
+	schemaRoleables          []types.ResourceType
 }
 
 func (e *engine) cacheSchemaResources() {
 	e.schemaPrefixMap = make(map[string]types.ResourceType, len(e.schema))
 	e.schemaTypeMap = make(map[string]types.ResourceType, len(e.schema))
+	e.schemaSubjectRelationMap = make(map[string]map[string][]string)
 	e.schemaRoleables = []types.ResourceType{}
 
 	for _, res := range e.schema {
 		e.schemaPrefixMap[res.IDPrefix] = res
 		e.schemaTypeMap[res.Name] = res
+
+		for _, relationship := range res.Relationships {
+			for _, t := range relationship.Types {
+				if _, ok := e.schemaSubjectRelationMap[t]; !ok {
+					e.schemaSubjectRelationMap[t] = make(map[string][]string)
+				}
+
+				e.schemaSubjectRelationMap[t][relationship.Relation] = append(e.schemaSubjectRelationMap[t][relationship.Relation], res.Name)
+			}
+		}
 
 		if resourceHasRoleBindings(res) {
 			e.schemaRoleables = append(e.schemaRoleables, res)
