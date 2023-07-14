@@ -139,7 +139,7 @@ func (e *Engine) GetResourceType(name string) *types.ResourceType {
 }
 
 // SubjectHasPermission returns nil to satisfy the Engine interface.
-func (e *Engine) SubjectHasPermission(ctx context.Context, subject types.Resource, action string, resource types.Resource, queryToken string) error {
+func (e *Engine) SubjectHasPermission(ctx context.Context, subject types.Resource, action string, resource types.Resource) error {
 	e.Called()
 
 	return nil

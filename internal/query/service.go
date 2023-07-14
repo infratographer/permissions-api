@@ -25,7 +25,7 @@ type Engine interface {
 	DeleteRelationships(ctx context.Context, resource types.Resource) (string, error)
 	NewResourceFromID(id gidx.PrefixedID) (types.Resource, error)
 	GetResourceType(name string) *types.ResourceType
-	SubjectHasPermission(ctx context.Context, subject types.Resource, action string, resource types.Resource, queryToken string) error
+	SubjectHasPermission(ctx context.Context, subject types.Resource, action string, resource types.Resource) error
 }
 
 type engine struct {

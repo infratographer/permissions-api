@@ -60,8 +60,13 @@ func resourceToSpiceDBRef(namespace string, r types.Resource) *pb.ObjectReferenc
 }
 
 // SubjectHasPermission checks if the given subject can do the given action on the given resource
-func (e *engine) SubjectHasPermission(ctx context.Context, subject types.Resource, action string, resource types.Resource, queryToken string) error {
+func (e *engine) SubjectHasPermission(ctx context.Context, subject types.Resource, action string, resource types.Resource) error {
 	req := &pb.CheckPermissionRequest{
+		Consistency: &pb.Consistency{
+			Requirement: &pb.Consistency_FullyConsistent{
+				FullyConsistent: true,
+			},
+		},
 		Resource:   resourceToSpiceDBRef(e.namespace, resource),
 		Permission: action,
 		Subject: &pb.SubjectReference{
@@ -69,7 +74,7 @@ func (e *engine) SubjectHasPermission(ctx context.Context, subject types.Resourc
 		},
 	}
 
-	return e.checkPermission(ctx, req, queryToken)
+	return e.checkPermission(ctx, req)
 }
 
 // AssignSubjectRole assigns the given role to the given subject.
@@ -170,11 +175,7 @@ func (e *engine) subjectRoleRelDelete(subject types.Resource, role types.Role) *
 	}
 }
 
-func (e *engine) checkPermission(ctx context.Context, req *pb.CheckPermissionRequest, queryToken string) error {
-	if queryToken != "" {
-		req.Consistency = &pb.Consistency{Requirement: &pb.Consistency_AtLeastAsFresh{AtLeastAsFresh: &pb.ZedToken{Token: queryToken}}}
-	}
-
+func (e *engine) checkPermission(ctx context.Context, req *pb.CheckPermissionRequest) error {
 	resp, err := e.client.CheckPermission(ctx, req)
 	if err != nil {
 		return err
