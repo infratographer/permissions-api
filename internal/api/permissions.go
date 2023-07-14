@@ -59,7 +59,7 @@ func (r *Router) checkAction(c echo.Context) error {
 	}
 
 	// Check the permissions
-	err = r.engine.SubjectHasPermission(ctx, subjectResource, action, resource, "")
+	err = r.engine.SubjectHasPermission(ctx, subjectResource, action, resource)
 	if err != nil && errors.Is(err, query.ErrActionNotAssigned) {
 		msg := fmt.Sprintf("subject '%s' does not have permission to perform action '%s' on resource '%s'",
 			subject, action, resourceIDStr)

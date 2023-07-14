@@ -523,7 +523,7 @@ func TestSubjectActions(t *testing.T) {
 		},
 	)
 	assert.NoError(t, err)
-	queryToken, err := e.AssignSubjectRole(ctx, subjRes, role)
+	_, err = e.AssignSubjectRole(ctx, subjRes, role)
 	assert.NoError(t, err)
 
 	type testInput struct {
@@ -565,7 +565,7 @@ func TestSubjectActions(t *testing.T) {
 	}
 
 	testFn := func(ctx context.Context, input testInput) testingx.TestResult[any] {
-		err := e.SubjectHasPermission(ctx, subjRes, input.action, input.resource, queryToken)
+		err := e.SubjectHasPermission(ctx, subjRes, input.action, input.resource)
 
 		return testingx.TestResult[any]{
 			Err: err,
