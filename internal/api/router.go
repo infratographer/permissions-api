@@ -45,8 +45,11 @@ func (r *Router) Routes(rg *echo.Group) {
 		v1.POST("/resources/:id/roles", r.roleCreate)
 		v1.GET("/resources/:id/roles", r.rolesList)
 		v1.POST("/resources/:id/relationships", r.relationshipsCreate)
+		v1.DELETE("/resources/:id/relationships", r.relationshipDelete)
 		v1.GET("/resources/:id/relationships", r.relationshipsList)
+		v1.DELETE("/roles/:id", r.roleDelete)
 		v1.POST("/roles/:role_id/assignments", r.assignmentCreate)
+		v1.DELETE("/roles/:role_id/assignments", r.assignmentDelete)
 		v1.GET("/roles/:role_id/assignments", r.assignmentsList)
 
 		// /allow is the permissions check endpoint

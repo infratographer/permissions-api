@@ -13,6 +13,10 @@ type roleResponse struct {
 	Actions []string        `json:"actions"`
 }
 
+type deleteRoleResponse struct {
+	Success bool `json:"success"`
+}
+
 type listRolesResponse struct {
 	Data []roleResponse `json:"data"`
 }
@@ -30,6 +34,15 @@ type createRelationshipsResponse struct {
 	Success bool `json:"success"`
 }
 
+type deleteRelationshipRequest struct {
+	Relation  string `json:"relation" binding:"required"`
+	SubjectID string `json:"subject_id" binding:"required"`
+}
+
+type deleteRelationshipsResponse struct {
+	Success bool `json:"success"`
+}
+
 type relationshipItem struct {
 	Relation  string `json:"relation"`
 	SubjectID string `json:"subject_id"`
@@ -43,7 +56,15 @@ type createAssignmentRequest struct {
 	SubjectID string `json:"subject_id" binding:"required"`
 }
 
+type deleteAssignmentRequest struct {
+	SubjectID string `json:"subject_id" binding:"required"`
+}
+
 type createAssignmentResponse struct {
+	Success bool `json:"success"`
+}
+
+type deleteAssignmentResponse struct {
 	Success bool `json:"success"`
 }
 

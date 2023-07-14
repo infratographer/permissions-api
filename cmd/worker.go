@@ -32,6 +32,7 @@ func init() {
 
 	otelx.MustViperFlags(viper.GetViper(), workerCmd.Flags())
 	events.MustViperFlagsForSubscriber(viper.GetViper(), workerCmd.Flags())
+	echox.MustViperFlags(viper.GetViper(), workerCmd.Flags(), apiDefaultListen)
 
 	workerCmd.PersistentFlags().StringSlice("events-topics", []string{}, "event topics to subscribe to")
 	viperx.MustBindFlag(viper.GetViper(), "events.topics", workerCmd.PersistentFlags().Lookup("events-topics"))

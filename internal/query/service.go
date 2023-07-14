@@ -14,11 +14,14 @@ import (
 // Engine represents a client for making permissions queries.
 type Engine interface {
 	AssignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) (string, error)
+	UnassignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) (string, error)
 	CreateRelationships(ctx context.Context, rels []types.Relationship) (string, error)
 	CreateRole(ctx context.Context, res types.Resource, actions []string) (types.Role, string, error)
 	ListAssignments(ctx context.Context, role types.Role, queryToken string) ([]types.Resource, error)
 	ListRelationships(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error)
 	ListRoles(ctx context.Context, resource types.Resource, queryToken string) ([]types.Role, error)
+	DeleteRelationship(ctx context.Context, rel types.Relationship) (string, error)
+	DeleteRole(ctx context.Context, roleResource types.Resource, queryToken string) (string, error)
 	DeleteRelationships(ctx context.Context, resource types.Resource) (string, error)
 	NewResourceFromID(id gidx.PrefixedID) (types.Resource, error)
 	GetResourceType(name string) *types.ResourceType
@@ -32,16 +35,34 @@ type engine struct {
 	schema          []types.ResourceType
 	schemaPrefixMap map[string]types.ResourceType
 	schemaTypeMap   map[string]types.ResourceType
+	schemaRoleables []types.ResourceType
 }
 
 func (e *engine) cacheSchemaResources() {
 	e.schemaPrefixMap = make(map[string]types.ResourceType, len(e.schema))
 	e.schemaTypeMap = make(map[string]types.ResourceType, len(e.schema))
+	e.schemaRoleables = []types.ResourceType{}
 
 	for _, res := range e.schema {
 		e.schemaPrefixMap[res.IDPrefix] = res
 		e.schemaTypeMap[res.Name] = res
+
+		if resourceHasRoleBindings(res) {
+			e.schemaRoleables = append(e.schemaRoleables, res)
+		}
 	}
+}
+
+func resourceHasRoleBindings(resType types.ResourceType) bool {
+	for _, action := range resType.Actions {
+		for _, cond := range action.Conditions {
+			if cond.RoleBinding != nil {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // NewEngine returns a new client for making permissions queries.

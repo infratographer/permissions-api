@@ -81,3 +81,31 @@ func (r *Router) rolesList(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, resp)
 }
+
+func (r *Router) roleDelete(c echo.Context) error {
+	roleIDStr := c.Param("id")
+
+	ctx, span := tracer.Start(c.Request().Context(), "api.roleDelete", trace.WithAttributes(attribute.String("id", roleIDStr)))
+	defer span.End()
+
+	roleResourceID, err := gidx.Parse(roleIDStr)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error deleting resource").SetInternal(err)
+	}
+
+	roleResource, err := r.engine.NewResourceFromID(roleResourceID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error deleting resource").SetInternal(err)
+	}
+
+	_, err = r.engine.DeleteRole(ctx, roleResource, "")
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "error deleting resource").SetInternal(err)
+	}
+
+	resp := deleteRoleResponse{
+		Success: true,
+	}
+
+	return c.JSON(http.StatusOK, resp)
+}

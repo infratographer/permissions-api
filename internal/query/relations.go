@@ -2,6 +2,7 @@ package query
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"strings"
 
@@ -33,7 +34,7 @@ func (e *engine) validateRelationship(rel types.Relationship) error {
 		return err
 	}
 
-	e.logger.Infow("validation relationship", "sub", subjType.Name, "rel", rel.Relation, "res", resType.Name)
+	e.logger.Debugw("validation relationship", "sub", subjType.Name, "rel", rel.Relation, "res", resType.Name)
 
 	for _, typeRel := range resType.Relationships {
 		// If we find a relation with a name and type that matches our relationship,
@@ -75,7 +76,7 @@ func (e *engine) SubjectHasPermission(ctx context.Context, subject types.Resourc
 func (e *engine) AssignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) (string, error) {
 	request := &pb.WriteRelationshipsRequest{
 		Updates: []*pb.RelationshipUpdate{
-			e.subjectRoleRel(subject, role),
+			e.subjectRoleRelCreate(subject, role),
 		},
 	}
 	r, err := e.client.WriteRelationships(ctx, request)
@@ -85,6 +86,20 @@ func (e *engine) AssignSubjectRole(ctx context.Context, subject types.Resource, 
 	}
 
 	return r.WrittenAt.GetToken(), nil
+}
+
+// UnassignSubjectRole removes the given role from the given subject.
+func (e *engine) UnassignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) (string, error) {
+	request := &pb.DeleteRelationshipsRequest{
+		RelationshipFilter: e.subjectRoleRelDelete(subject, role),
+	}
+	r, err := e.client.DeleteRelationships(ctx, request)
+
+	if err != nil {
+		return "", err
+	}
+
+	return r.DeletedAt.GetToken(), nil
 }
 
 // ListAssignments returns the assigned subjects for a given role.
@@ -120,7 +135,7 @@ func (e *engine) ListAssignments(ctx context.Context, role types.Role, queryToke
 	return out, nil
 }
 
-func (e *engine) subjectRoleRel(subject types.Resource, role types.Role) *pb.RelationshipUpdate {
+func (e *engine) subjectRoleRelCreate(subject types.Resource, role types.Role) *pb.RelationshipUpdate {
 	roleResource := types.Resource{
 		Type: "role",
 		ID:   role.ID,
@@ -134,6 +149,23 @@ func (e *engine) subjectRoleRel(subject types.Resource, role types.Role) *pb.Rel
 			Subject: &pb.SubjectReference{
 				Object: resourceToSpiceDBRef(e.namespace, subject),
 			},
+		},
+	}
+}
+
+func (e *engine) subjectRoleRelDelete(subject types.Resource, role types.Role) *pb.RelationshipFilter {
+	roleResource := types.Resource{
+		Type: "role",
+		ID:   role.ID,
+	}
+
+	return &pb.RelationshipFilter{
+		ResourceType:       e.namespace + "/" + roleResource.Type,
+		OptionalResourceId: roleResource.ID.String(),
+		OptionalRelation:   roleSubjectRelation,
+		OptionalSubjectFilter: &pb.SubjectFilter{
+			SubjectType:       e.namespace + "/" + subject.Type,
+			OptionalSubjectId: subject.ID.String(),
 		},
 	}
 }
@@ -297,6 +329,29 @@ func (e *engine) readRelationships(ctx context.Context, filter *pb.RelationshipF
 	return responses, nil
 }
 
+// DeleteRelationship removes the specified relationship between the two resources.
+func (e *engine) DeleteRelationship(ctx context.Context, rel types.Relationship) (string, error) {
+	err := e.validateRelationship(rel)
+	if err != nil {
+		return "", err
+	}
+
+	resType := e.namespace + "/" + rel.Resource.Type
+	subjType := e.namespace + "/" + rel.Subject.Type
+
+	filter := &pb.RelationshipFilter{
+		ResourceType:       resType,
+		OptionalResourceId: rel.Resource.ID.String(),
+		OptionalRelation:   rel.Relation,
+		OptionalSubjectFilter: &pb.SubjectFilter{
+			SubjectType:       subjType,
+			OptionalSubjectId: rel.Subject.ID.String(),
+		},
+	}
+
+	return e.deleteRelationships(ctx, filter)
+}
+
 // DeleteRelationships deletes all relationships originating from the given resource.
 func (e *engine) DeleteRelationships(ctx context.Context, resource types.Resource) (string, error) {
 	resType := e.namespace + "/" + resource.Type
@@ -428,6 +483,109 @@ func (e *engine) ListRoles(ctx context.Context, resource types.Resource, queryTo
 	out := relationshipsToRoles(relationships)
 
 	return out, nil
+}
+
+// listRoleResourceActions returns all resources and action relations for the provided resource type to the provided role.
+// Note: The actions returned by this function are the spicedb relationship action.
+func (e *engine) listRoleResourceActions(ctx context.Context, role types.Resource, resTypeName string, queryToken string) (map[types.Resource][]string, error) {
+	resType := e.namespace + "/" + resTypeName
+	roleType := e.namespace + "/role"
+
+	filter := &pb.RelationshipFilter{
+		ResourceType: resType,
+		OptionalSubjectFilter: &pb.SubjectFilter{
+			SubjectType:       roleType,
+			OptionalSubjectId: role.ID.String(),
+			OptionalRelation: &pb.SubjectFilter_RelationFilter{
+				Relation: roleSubjectRelation,
+			},
+		},
+	}
+
+	relationships, err := e.readRelationships(ctx, filter, queryToken)
+	if err != nil {
+		return nil, err
+	}
+
+	resourceIDActions := make(map[gidx.PrefixedID][]string)
+
+	for _, rel := range relationships {
+		resourceID, err := gidx.Parse(rel.Resource.ObjectId)
+		if err != nil {
+			return nil, err
+		}
+
+		resourceIDActions[resourceID] = append(resourceIDActions[resourceID], rel.Relation)
+	}
+
+	resourceActions := make(map[types.Resource][]string, len(resourceIDActions))
+
+	for resID, actions := range resourceIDActions {
+		res, err := e.NewResourceFromID(resID)
+		if err != nil {
+			return nil, err
+		}
+
+		resourceActions[res] = actions
+	}
+
+	return resourceActions, nil
+}
+
+// DeleteRole removes all role actions from the assigned resource.
+func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource, queryToken string) (string, error) {
+	var (
+		resActions map[types.Resource][]string
+		err        error
+	)
+
+	for _, resType := range e.schemaRoleables {
+		resActions, err = e.listRoleResourceActions(ctx, roleResource, resType.Name, queryToken)
+		if err != nil {
+			return "", err
+		}
+
+		// roles are only ever created for a single resource, so we can break after the first one is found.
+		if len(resActions) != 0 {
+			break
+		}
+	}
+
+	if len(resActions) == 0 {
+		return "", ErrRoleNotFound
+	}
+
+	roleType := e.namespace + "/role"
+
+	var filters []*pb.RelationshipFilter
+
+	roleSubjectFilter := &pb.SubjectFilter{
+		SubjectType:       roleType,
+		OptionalSubjectId: roleResource.ID.String(),
+		OptionalRelation: &pb.SubjectFilter_RelationFilter{
+			Relation: roleSubjectRelation,
+		},
+	}
+
+	for resource, relActions := range resActions {
+		for _, relAction := range relActions {
+			filters = append(filters, &pb.RelationshipFilter{
+				ResourceType:          e.namespace + "/" + resource.Type,
+				OptionalResourceId:    resource.ID.String(),
+				OptionalRelation:      relAction,
+				OptionalSubjectFilter: roleSubjectFilter,
+			})
+		}
+	}
+
+	for _, filter := range filters {
+		queryToken, err = e.deleteRelationships(ctx, filter)
+		if err != nil {
+			return "", fmt.Errorf("failed to delete role action %s: %w", filter.OptionalResourceId, err)
+		}
+	}
+
+	return queryToken, nil
 }
 
 // NewResourceFromID returns a new resource struct from a given id

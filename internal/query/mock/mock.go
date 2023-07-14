@@ -30,6 +30,11 @@ func (e *Engine) AssignSubjectRole(ctx context.Context, subject types.Resource, 
 	return "", nil
 }
 
+// UnassignSubjectRole does nothing but satisfies the Engine interface.
+func (e *Engine) UnassignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) (string, error) {
+	return "", nil
+}
+
 // CreateRelationships does nothing but satisfies the Engine interface.
 func (e *Engine) CreateRelationships(ctx context.Context, rels []types.Relationship) (string, error) {
 	args := e.Called()
@@ -65,6 +70,20 @@ func (e *Engine) ListRelationships(ctx context.Context, resource types.Resource,
 // ListRoles returns nothing but satisfies the Engine interface.
 func (e *Engine) ListRoles(ctx context.Context, resource types.Resource, queryToken string) ([]types.Role, error) {
 	return nil, nil
+}
+
+// DeleteRelationship does nothing but satisfies the Engine interface.
+func (e *Engine) DeleteRelationship(ctx context.Context, rel types.Relationship) (string, error) {
+	args := e.Called()
+
+	return args.String(0), args.Error(1)
+}
+
+// DeleteRole does nothing but satisfies the Engine interface.
+func (e *Engine) DeleteRole(ctx context.Context, roleResource types.Resource, queryToken string) (string, error) {
+	args := e.Called()
+
+	return args.String(0), args.Error(1)
 }
 
 // DeleteRelationships does nothing but satisfies the Engine interface.
