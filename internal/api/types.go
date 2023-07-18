@@ -44,8 +44,9 @@ type deleteRelationshipsResponse struct {
 }
 
 type relationshipItem struct {
-	Relation  string `json:"relation"`
-	SubjectID string `json:"subject_id"`
+	ResourceID string `json:"resource_id,omitempty"`
+	Relation   string `json:"relation"`
+	SubjectID  string `json:"subject_id,omitempty"`
 }
 
 type listRelationshipsResponse struct {

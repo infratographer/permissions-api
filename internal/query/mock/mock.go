@@ -62,8 +62,13 @@ func (e *Engine) ListAssignments(ctx context.Context, role types.Role, queryToke
 	return nil, nil
 }
 
-// ListRelationships returns nothing but satisfies the Engine interface.
-func (e *Engine) ListRelationships(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error) {
+// ListRelationshipsFrom returns nothing but satisfies the Engine interface.
+func (e *Engine) ListRelationshipsFrom(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error) {
+	return nil, nil
+}
+
+// ListRelationshipsTo returns nothing but satisfies the Engine interface.
+func (e *Engine) ListRelationshipsTo(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error) {
 	return nil, nil
 }
 

@@ -415,7 +415,7 @@ func TestRelationships(t *testing.T) {
 			}
 		}
 
-		rels, err := e.ListRelationships(ctx, input.Resource, queryToken)
+		rels, err := e.ListRelationshipsFrom(ctx, input.Resource, queryToken)
 
 		return testingx.TestResult[[]types.Relationship]{
 			Success: rels,
@@ -449,7 +449,7 @@ func TestRelationshipDelete(t *testing.T) {
 	queryToken, err := e.CreateRelationships(ctx, []types.Relationship{relReq})
 	require.NoError(t, err)
 
-	createdResources, err := e.ListRelationships(ctx, childRes, queryToken)
+	createdResources, err := e.ListRelationshipsFrom(ctx, childRes, queryToken)
 	require.NoError(t, err)
 	require.NotEmpty(t, createdResources)
 
@@ -487,7 +487,7 @@ func TestRelationshipDelete(t *testing.T) {
 			}
 		}
 
-		rels, err := e.ListRelationships(ctx, input.Resource, queryToken)
+		rels, err := e.ListRelationshipsFrom(ctx, input.Resource, queryToken)
 
 		return testingx.TestResult[[]types.Relationship]{
 			Success: rels,
