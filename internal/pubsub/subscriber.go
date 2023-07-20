@@ -131,7 +131,9 @@ func (s *Subscriber) processEvent(msg *message.Message) error {
 		return err
 	}
 
-	ctx, span := tracer.Start(context.Background(), "pubsub.receive", trace.WithAttributes(attribute.String("pubsub.subject", changeMsg.SubjectID.String())))
+	ctx := events.TraceContextFromChangeMessage(context.Background(), changeMsg)
+
+	ctx, span := tracer.Start(ctx, "pubsub.receive", trace.WithAttributes(attribute.String("pubsub.subject", changeMsg.SubjectID.String())))
 
 	defer span.End()
 
