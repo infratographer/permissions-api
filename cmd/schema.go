@@ -6,6 +6,7 @@ import (
 
 	v1 "github.com/authzed/authzed-go/proto/authzed/api/v1"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"go.infratographer.com/x/otelx"
 
 	"go.infratographer.com/permissions-api/internal/config"
@@ -29,6 +30,17 @@ func init() {
 	rootCmd.AddCommand(schemaCmd)
 
 	schemaCmd.Flags().BoolVar(&dryRun, "dry-run", false, "dry run: print the schema instead of applying it")
+
+	schemaCmd.Flags().Bool("mermaid", false, "outputs the policy as a mermaid chart definition")
+	schemaCmd.Flags().Bool("mermaid-markdown", false, "outputs the policy as a markdown mermaid chart definition")
+
+	if err := viper.BindPFlag("mermaid", schemaCmd.Flags().Lookup("mermaid")); err != nil {
+		panic(err)
+	}
+
+	if err := viper.BindPFlag("mermaid-markdown", schemaCmd.Flags().Lookup("mermaid-markdown")); err != nil {
+		panic(err)
+	}
 }
 
 func writeSchema(ctx context.Context, dryRun bool, cfg *config.AppConfig) {
@@ -55,6 +67,12 @@ func writeSchema(ctx context.Context, dryRun bool, cfg *config.AppConfig) {
 	schemaStr, err := spicedbx.GenerateSchema("infratographer", policy.Schema())
 	if err != nil {
 		logger.Fatalw("failed to generate schema from policy", "error", err)
+	}
+
+	if viper.GetBool("mermaid") || viper.GetBool("mermaid-markdown") {
+		outputPolicyMermaid(cfg.SpiceDB.PolicyFile, viper.GetBool("mermaid-markdown"))
+
+		return
 	}
 
 	if dryRun {
