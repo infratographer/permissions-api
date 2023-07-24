@@ -14,7 +14,19 @@ import (
 	"go.uber.org/multierr"
 )
 
-const maxCheckDuration = 5 * time.Second
+const (
+	defaultMaxCheckConcurrency = 5
+
+	maxCheckDuration = 5 * time.Second
+)
+
+var (
+	// ErrNoActionDefined is the error returned when an access request is has no action defined
+	ErrNoActionDefined = errors.New("no action defined")
+
+	// ErrAccessDenied is returned when access is denied
+	ErrAccessDenied = errors.New("access denied")
+)
 
 // checkAction will check if a subject is allowed to perform an action on a resource.
 // This is the permissions check endpoint.
@@ -128,7 +140,7 @@ func (r *Router) checkAllActions(c echo.Context) error {
 
 	for i, check := range reqBody.Actions {
 		if check.Action == "" {
-			errs = append(errs, fmt.Errorf("check %d: no action defined", i))
+			errs = append(errs, fmt.Errorf("check %d: %w", i, ErrNoActionDefined))
 
 			continue
 		}
@@ -214,8 +226,8 @@ func (r *Router) checkAllActions(c echo.Context) error {
 	for i, check := range results {
 		if check.Error != nil {
 			if errors.Is(check.Error, query.ErrActionNotAssigned) {
-				err := fmt.Errorf("subject '%s' does not have permission to perform action '%s' on resource '%s'",
-					subject, check.Action, check.Resource.ID.String())
+				err := fmt.Errorf("%w: subject '%s' does not have permission to perform action '%s' on resource '%s'",
+					ErrAccessDenied, subject, check.Action, check.Resource.ID.String())
 
 				unauthorizedErrors = append(unauthorizedErrors, err)
 				allErrors = append(allErrors, err)

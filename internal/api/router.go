@@ -34,7 +34,7 @@ func NewRouter(authCfg echojwtx.AuthConfig, engine query.Engine, options ...Opti
 		engine: engine,
 		logger: zap.NewNop().Sugar(),
 
-		concurrentChecks: 5,
+		concurrentChecks: defaultMaxCheckConcurrency,
 	}
 
 	for _, opt := range options {
