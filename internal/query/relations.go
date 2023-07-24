@@ -592,7 +592,7 @@ func (e *engine) GetRole(ctx context.Context, roleResource types.Resource, query
 	}
 
 	if len(resActions) > 1 {
-		e.logger.Warnw("role is assigned to more than one resource", "role.id", roleResource.ID.String())
+		return types.Role{}, ErrRoleHasTooManyResources
 	}
 
 	// returns the first resources actions.
@@ -630,7 +630,7 @@ func (e *engine) GetRoleResource(ctx context.Context, roleResource types.Resourc
 	}
 
 	if len(resActions) > 1 {
-		e.logger.Warnw("role is assigned to more than one resource", "role.id", roleResource.ID.String())
+		return types.Resource{}, ErrRoleHasTooManyResources
 	}
 
 	// returns the first resources actions.
