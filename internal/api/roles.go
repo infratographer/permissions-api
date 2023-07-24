@@ -138,3 +138,31 @@ func (r *Router) roleDelete(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, resp)
 }
+
+func (r *Router) roleGetResource(c echo.Context) error {
+	roleIDStr := c.Param("role_id")
+
+	ctx, span := tracer.Start(c.Request().Context(), "api.roleGetResource", trace.WithAttributes(attribute.String("id", roleIDStr)))
+	defer span.End()
+
+	roleResourceID, err := gidx.Parse(roleIDStr)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+	}
+
+	roleResource, err := r.engine.NewResourceFromID(roleResourceID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+	}
+
+	resource, err := r.engine.GetRoleResource(ctx, roleResource, "")
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "error getting resource").SetInternal(err)
+	}
+
+	resp := resourceResponse{
+		ID: resource.ID,
+	}
+
+	return c.JSON(http.StatusOK, resp)
+}

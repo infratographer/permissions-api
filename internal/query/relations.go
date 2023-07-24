@@ -610,6 +610,37 @@ func (e *engine) GetRole(ctx context.Context, roleResource types.Resource, query
 	return types.Role{}, ErrRoleNotFound
 }
 
+// GetRoleResource gets the role's assigned resource.
+func (e *engine) GetRoleResource(ctx context.Context, roleResource types.Resource, queryToken string) (types.Resource, error) {
+	var (
+		resActions map[types.Resource][]string
+		err        error
+	)
+
+	for _, resType := range e.schemaRoleables {
+		resActions, err = e.listRoleResourceActions(ctx, roleResource, resType.Name, queryToken)
+		if err != nil {
+			return types.Resource{}, err
+		}
+
+		// roles are only ever created for a single resource, so we can break after the first one is found.
+		if len(resActions) != 0 {
+			break
+		}
+	}
+
+	if len(resActions) > 1 {
+		e.logger.Warnw("role is assigned to more than one resource", "role.id", roleResource.ID.String())
+	}
+
+	// returns the first resources actions.
+	for resource := range resActions {
+		return resource, nil
+	}
+
+	return types.Resource{}, ErrRoleNotFound
+}
+
 // DeleteRole removes all role actions from the assigned resource.
 func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource, queryToken string) (string, error) {
 	var (

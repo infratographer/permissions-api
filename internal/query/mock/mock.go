@@ -62,6 +62,11 @@ func (e *Engine) GetRole(ctx context.Context, roleResource types.Resource, query
 	return types.Role{}, nil
 }
 
+// GetRoleResource returns nothing but satisfies the Engine interface.
+func (e *Engine) GetRoleResource(ctx context.Context, roleResource types.Resource, queryToken string) (types.Resource, error) {
+	return types.Resource{}, nil
+}
+
 // ListAssignments returns nothing but satisfies the Engine interface.
 func (e *Engine) ListAssignments(ctx context.Context, role types.Role, queryToken string) ([]types.Resource, error) {
 	return nil, nil

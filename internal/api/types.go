@@ -13,6 +13,10 @@ type roleResponse struct {
 	Actions []string        `json:"actions"`
 }
 
+type resourceResponse struct {
+	ID gidx.PrefixedID `json:"id"`
+}
+
 type deleteRoleResponse struct {
 	Success bool `json:"success"`
 }
