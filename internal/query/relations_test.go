@@ -83,7 +83,7 @@ func cleanDB(ctx context.Context, t *testing.T, client *authzed.Client, namespac
 	}
 }
 
-func TestRoles(t *testing.T) {
+func TestCreateRoles(t *testing.T) {
 	namespace := "testroles"
 	ctx := context.Background()
 	e := testEngine(ctx, t, namespace)
@@ -133,6 +133,59 @@ func TestRoles(t *testing.T) {
 		roles, err := e.ListRoles(ctx, tenRes, queryToken)
 
 		return testingx.TestResult[[]types.Role]{
+			Success: roles,
+			Err:     err,
+		}
+	}
+
+	testingx.RunTests(ctx, t, testCases, testFn)
+}
+
+func TestGetRoles(t *testing.T) {
+	namespace := "testroles"
+	ctx := context.Background()
+	e := testEngine(ctx, t, namespace)
+	tenID, err := gidx.NewID("tnntten")
+	require.NoError(t, err)
+	tenRes, err := e.NewResourceFromID(tenID)
+	require.NoError(t, err)
+
+	role, queryToken, err := e.CreateRole(ctx, tenRes, []string{"loadbalancer_get"})
+	require.NoError(t, err)
+	roleRes, err := e.NewResourceFromID(role.ID)
+	require.NoError(t, err)
+
+	missingRes, err := e.NewResourceFromID(gidx.PrefixedID("permrol-notfound"))
+	require.NoError(t, err)
+
+	testCases := []testingx.TestCase[types.Resource, types.Role]{
+		{
+			Name:  "GetRoleNotFound",
+			Input: missingRes,
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+				assert.ErrorIs(t, res.Err, ErrRoleNotFound)
+			},
+		},
+		{
+			Name:  "GetSuccess",
+			Input: roleRes,
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+				expActions := []string{
+					"loadbalancer_get",
+				}
+
+				assert.NoError(t, res.Err)
+				require.NotEmpty(t, res.Success.ID)
+
+				assert.Equal(t, expActions, res.Success.Actions)
+			},
+		},
+	}
+
+	testFn := func(ctx context.Context, roleResource types.Resource) testingx.TestResult[types.Role] {
+		roles, err := e.GetRole(ctx, roleResource, queryToken)
+
+		return testingx.TestResult[types.Role]{
 			Success: roles,
 			Err:     err,
 		}

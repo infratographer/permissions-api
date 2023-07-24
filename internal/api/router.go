@@ -49,6 +49,7 @@ func (r *Router) Routes(rg *echo.Group) {
 		v1.GET("/resources/:id/relationships", r.relationshipListFrom)
 		v1.GET("/relationships/from/:id", r.relationshipListFrom)
 		v1.GET("/relationships/to/:id", r.relationshipListTo)
+		v1.GET("/roles/:role_id", r.roleGet)
 		v1.DELETE("/roles/:id", r.roleDelete)
 		v1.POST("/roles/:role_id/assignments", r.assignmentCreate)
 		v1.DELETE("/roles/:role_id/assignments", r.assignmentDelete)
