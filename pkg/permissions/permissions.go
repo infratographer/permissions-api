@@ -1,7 +1,10 @@
 package permissions
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -12,7 +15,6 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/pkg/errors"
 	"go.infratographer.com/x/echojwtx"
-	"go.infratographer.com/x/gidx"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -79,35 +81,49 @@ func (p *Permissions) Middleware() echo.MiddlewareFunc {
 	}
 }
 
+type checkPermissionRequest struct {
+	Actions []AccessRequest `json:"actions"`
+}
+
 func (p *Permissions) checker(c echo.Context, actor, token string) Checker {
-	return func(ctx context.Context, resource gidx.PrefixedID, action string) error {
-		ctx, span := tracer.Start(ctx, "permissions.checkAccess")
+	return func(ctx context.Context, requests ...AccessRequest) error {
+		ctx, span := tracer.Start(ctx, "permissions.checker")
 		defer span.End()
 
 		span.SetAttributes(
 			attribute.String("permissions.actor", actor),
-			attribute.String("permissions.action", action),
-			attribute.String("permissions.resource", resource.String()),
+			attribute.Int("permissions.requests", len(requests)),
 		)
 
-		logger := p.logger.With("actor", actor, "resource", resource.String(), "action", action)
+		logger := p.logger.With("actor", actor, "requests", len(requests))
 
-		values := url.Values{}
-		values.Add("resource", resource.String())
-		values.Add("action", action)
+		request := checkPermissionRequest{
+			Actions: requests,
+		}
 
-		url := *p.url
-		url.RawQuery = values.Encode()
+		var reqBody bytes.Buffer
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
+		if err := json.NewEncoder(&reqBody).Encode(request); err != nil {
+			err = errors.WithStack(err)
+
+			span.SetStatus(codes.Error, err.Error())
+			logger.Errorw("failed to encode request body", "error", err)
+
+			return err
+		}
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.url.String(), &reqBody)
 		if err != nil {
-			span.SetStatus(codes.Error, errors.WithStack(err).Error())
+			err = errors.WithStack(err)
+
+			span.SetStatus(codes.Error, err.Error())
 			logger.Errorw("failed to create checker request", "error", err)
 
-			return errors.WithStack(err)
+			return err
 		}
 
 		req.Header.Set(echo.HeaderAuthorization, c.Request().Header.Get(echo.HeaderAuthorization))
+		req.Header.Set(echo.HeaderContentType, "application/json")
 
 		resp, err := p.client.Do(req)
 		if err != nil {
@@ -179,7 +195,7 @@ func ensureValidServerResponse(resp *http.Response) error {
 			return ErrPermissionDenied
 		}
 
-		return ErrBadResponse
+		return fmt.Errorf("%w: %d", ErrBadResponse, resp.StatusCode)
 	}
 
 	return nil

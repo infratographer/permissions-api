@@ -1,6 +1,7 @@
 package permissions_test
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -30,25 +31,40 @@ func TestPermissions(t *testing.T) {
 			return
 		}
 
-		resource, err := gidx.Parse(r.URL.Query().Get("resource"))
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-
-			return
+		var reqBody struct {
+			Actions []struct {
+				ResourceID string `json:"resource_id"`
+				Action     string `json:"action"`
+			} `json:"actions"`
 		}
 
-		action := r.URL.Query().Get("action")
-
-		if resource != allowedID && resource != deniedID {
+		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 
 			return
 		}
 
-		if resource != allowedID || !actions[action] {
-			w.WriteHeader(http.StatusForbidden)
+		for _, request := range reqBody.Actions {
+			resource, err := gidx.Parse(request.ResourceID)
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
 
-			return
+				return
+			}
+
+			action := request.Action
+
+			if resource != allowedID && resource != deniedID {
+				w.WriteHeader(http.StatusInternalServerError)
+
+				return
+			}
+
+			if resource != allowedID || !actions[action] {
+				w.WriteHeader(http.StatusForbidden)
+
+				return
+			}
 		}
 	}))
 
