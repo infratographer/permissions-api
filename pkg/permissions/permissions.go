@@ -27,19 +27,6 @@ const (
 )
 
 var (
-	// CheckerCtxKey is the context key used to set the checker handling function
-	CheckerCtxKey = checkerCtxKey{}
-
-	// DefaultAllowChecker defaults to allow when checker is disabled or skipped
-	DefaultAllowChecker Checker = func(_ context.Context, _ gidx.PrefixedID, _ string) error {
-		return nil
-	}
-
-	// DefaultDenyChecker defaults to denied when checker is disabled or skipped
-	DefaultDenyChecker Checker = func(_ context.Context, _ gidx.PrefixedID, _ string) error {
-		return ErrPermissionDenied
-	}
-
 	defaultClient = &http.Client{
 		Timeout:   defaultClientTimeout,
 		Transport: otelhttp.NewTransport(http.DefaultTransport),
@@ -47,11 +34,6 @@ var (
 
 	tracer = otel.GetTracerProvider().Tracer("go.infratographer.com/permissions-api/pkg/permissions")
 )
-
-// Checker defines the checker function definition
-type Checker func(ctx context.Context, resource gidx.PrefixedID, action string) error
-
-type checkerCtxKey struct{}
 
 // Permissions handles supporting authorization checks
 type Permissions struct {
@@ -191,22 +173,6 @@ func New(config Config, options ...Option) (*Permissions, error) {
 	return p, nil
 }
 
-func setCheckerContext(c echo.Context, checker Checker) {
-	if checker == nil {
-		checker = DefaultDenyChecker
-	}
-
-	req := c.Request().WithContext(
-		context.WithValue(
-			c.Request().Context(),
-			CheckerCtxKey,
-			checker,
-		),
-	)
-
-	c.SetRequest(req)
-}
-
 func ensureValidServerResponse(resp *http.Response) error {
 	if resp.StatusCode >= http.StatusMultiStatus {
 		if resp.StatusCode == http.StatusForbidden {
@@ -217,14 +183,4 @@ func ensureValidServerResponse(resp *http.Response) error {
 	}
 
 	return nil
-}
-
-// CheckAccess runs the checker function to check if the provided resource and action are supported.
-func CheckAccess(ctx context.Context, resource gidx.PrefixedID, action string) error {
-	checker, ok := ctx.Value(CheckerCtxKey).(Checker)
-	if !ok {
-		return ErrCheckerNotFound
-	}
-
-	return checker(ctx, resource, action)
 }
