@@ -18,22 +18,32 @@ type Router struct {
 	authMW echo.MiddlewareFunc
 	engine query.Engine
 	logger *zap.SugaredLogger
+
+	concurrentChecks int
 }
 
 // NewRouter returns a new api router
-func NewRouter(authCfg echojwtx.AuthConfig, engine query.Engine, l *zap.SugaredLogger) (*Router, error) {
+func NewRouter(authCfg echojwtx.AuthConfig, engine query.Engine, options ...Option) (*Router, error) {
 	auth, err := echojwtx.NewAuth(context.Background(), authCfg)
 	if err != nil {
 		return nil, err
 	}
 
-	out := &Router{
+	router := &Router{
 		authMW: auth.Middleware(),
 		engine: engine,
-		logger: l.Named("api"),
+		logger: zap.NewNop().Sugar(),
+
+		concurrentChecks: 5,
 	}
 
-	return out, nil
+	for _, opt := range options {
+		if err := opt(router); err != nil {
+			return nil, err
+		}
+	}
+
+	return router, nil
 }
 
 // Routes will add the routes for this API version to a router group
@@ -58,6 +68,32 @@ func (r *Router) Routes(rg *echo.Group) {
 
 		// /allow is the permissions check endpoint
 		v1.GET("/allow", r.checkAction)
+		v1.POST("/allow", r.checkAllActions)
+	}
+}
+
+// Option defines a router option function.
+type Option func(r *Router) error
+
+// WithLogger sets the logger for the router.
+func WithLogger(logger *zap.SugaredLogger) Option {
+	return func(r *Router) error {
+		r.logger = logger.Named("api")
+
+		return nil
+	}
+}
+
+// WithCheckConcurrency sets the check concurrency for bulk permission checks.
+func WithCheckConcurrency(count int) Option {
+	return func(r *Router) error {
+		if count <= 0 {
+			count = 5
+		}
+
+		r.concurrentChecks = count
+
+		return nil
 	}
 }
 

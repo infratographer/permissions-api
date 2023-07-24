@@ -79,7 +79,7 @@ func serve(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatal("failed to initialize new server", zap.Error(err))
 	}
 
-	r, err := api.NewRouter(cfg.OIDC, engine, logger)
+	r, err := api.NewRouter(cfg.OIDC, engine, api.WithLogger(logger))
 	if err != nil {
 		logger.Fatalw("unable to initialize router", "error", err)
 	}
