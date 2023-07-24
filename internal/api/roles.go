@@ -45,10 +45,39 @@ func (r *Router) roleCreate(c echo.Context) error {
 	return c.JSON(http.StatusCreated, resp)
 }
 
+func (r *Router) roleGet(c echo.Context) error {
+	roleIDStr := c.Param("role_id")
+
+	ctx, span := tracer.Start(c.Request().Context(), "api.roleGet", trace.WithAttributes(attribute.String("id", roleIDStr)))
+	defer span.End()
+
+	roleResourceID, err := gidx.Parse(roleIDStr)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+	}
+
+	roleResource, err := r.engine.NewResourceFromID(roleResourceID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+	}
+
+	role, err := r.engine.GetRole(ctx, roleResource, "")
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "error getting resource").SetInternal(err)
+	}
+
+	resp := roleResponse{
+		ID:      role.ID,
+		Actions: role.Actions,
+	}
+
+	return c.JSON(http.StatusOK, resp)
+}
+
 func (r *Router) rolesList(c echo.Context) error {
 	resourceIDStr := c.Param("id")
 
-	ctx, span := tracer.Start(c.Request().Context(), "api.roleGet", trace.WithAttributes(attribute.String("id", resourceIDStr)))
+	ctx, span := tracer.Start(c.Request().Context(), "api.rolesList", trace.WithAttributes(attribute.String("id", resourceIDStr)))
 	defer span.End()
 
 	resourceID, err := gidx.Parse(resourceIDStr)
@@ -105,6 +134,34 @@ func (r *Router) roleDelete(c echo.Context) error {
 
 	resp := deleteRoleResponse{
 		Success: true,
+	}
+
+	return c.JSON(http.StatusOK, resp)
+}
+
+func (r *Router) roleGetResource(c echo.Context) error {
+	roleIDStr := c.Param("role_id")
+
+	ctx, span := tracer.Start(c.Request().Context(), "api.roleGetResource", trace.WithAttributes(attribute.String("id", roleIDStr)))
+	defer span.End()
+
+	roleResourceID, err := gidx.Parse(roleIDStr)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+	}
+
+	roleResource, err := r.engine.NewResourceFromID(roleResourceID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+	}
+
+	resource, err := r.engine.GetRoleResource(ctx, roleResource, "")
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "error getting resource").SetInternal(err)
+	}
+
+	resp := resourceResponse{
+		ID: resource.ID,
 	}
 
 	return c.JSON(http.StatusOK, resp)

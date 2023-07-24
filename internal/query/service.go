@@ -17,6 +17,8 @@ type Engine interface {
 	UnassignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) (string, error)
 	CreateRelationships(ctx context.Context, rels []types.Relationship) (string, error)
 	CreateRole(ctx context.Context, res types.Resource, actions []string) (types.Role, string, error)
+	GetRole(ctx context.Context, roleResource types.Resource, queryToken string) (types.Role, error)
+	GetRoleResource(ctx context.Context, roleResource types.Resource, queryToken string) (types.Resource, error)
 	ListAssignments(ctx context.Context, role types.Role, queryToken string) ([]types.Resource, error)
 	ListRelationshipsFrom(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error)
 	ListRelationshipsTo(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error)

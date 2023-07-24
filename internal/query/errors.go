@@ -21,4 +21,7 @@ var (
 
 	// ErrRoleNotFound represents an error when no matching role was found on resource
 	ErrRoleNotFound = errors.New("role not found")
+
+	// ErrRoleHasTooManyResources represents an error which a role has too many resources
+	ErrRoleHasTooManyResources = errors.New("role has too many resources")
 )
