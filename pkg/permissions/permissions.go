@@ -1,7 +1,10 @@
 package permissions
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -12,7 +15,6 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/pkg/errors"
 	"go.infratographer.com/x/echojwtx"
-	"go.infratographer.com/x/gidx"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -27,19 +29,6 @@ const (
 )
 
 var (
-	// CheckerCtxKey is the context key used to set the checker handling function
-	CheckerCtxKey = checkerCtxKey{}
-
-	// DefaultAllowChecker defaults to allow when checker is disabled or skipped
-	DefaultAllowChecker Checker = func(_ context.Context, _ gidx.PrefixedID, _ string) error {
-		return nil
-	}
-
-	// DefaultDenyChecker defaults to denied when checker is disabled or skipped
-	DefaultDenyChecker Checker = func(_ context.Context, _ gidx.PrefixedID, _ string) error {
-		return ErrPermissionDenied
-	}
-
 	defaultClient = &http.Client{
 		Timeout:   defaultClientTimeout,
 		Transport: otelhttp.NewTransport(http.DefaultTransport),
@@ -47,11 +36,6 @@ var (
 
 	tracer = otel.GetTracerProvider().Tracer("go.infratographer.com/permissions-api/pkg/permissions")
 )
-
-// Checker defines the checker function definition
-type Checker func(ctx context.Context, resource gidx.PrefixedID, action string) error
-
-type checkerCtxKey struct{}
 
 // Permissions handles supporting authorization checks
 type Permissions struct {
@@ -97,35 +81,49 @@ func (p *Permissions) Middleware() echo.MiddlewareFunc {
 	}
 }
 
+type checkPermissionRequest struct {
+	Actions []AccessRequest `json:"actions"`
+}
+
 func (p *Permissions) checker(c echo.Context, actor, token string) Checker {
-	return func(ctx context.Context, resource gidx.PrefixedID, action string) error {
-		ctx, span := tracer.Start(ctx, "permissions.checkAccess")
+	return func(ctx context.Context, requests ...AccessRequest) error {
+		ctx, span := tracer.Start(ctx, "permissions.checker")
 		defer span.End()
 
 		span.SetAttributes(
 			attribute.String("permissions.actor", actor),
-			attribute.String("permissions.action", action),
-			attribute.String("permissions.resource", resource.String()),
+			attribute.Int("permissions.requests", len(requests)),
 		)
 
-		logger := p.logger.With("actor", actor, "resource", resource.String(), "action", action)
+		logger := p.logger.With("actor", actor, "requests", len(requests))
 
-		values := url.Values{}
-		values.Add("resource", resource.String())
-		values.Add("action", action)
+		request := checkPermissionRequest{
+			Actions: requests,
+		}
 
-		url := *p.url
-		url.RawQuery = values.Encode()
+		var reqBody bytes.Buffer
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
+		if err := json.NewEncoder(&reqBody).Encode(request); err != nil {
+			err = errors.WithStack(err)
+
+			span.SetStatus(codes.Error, err.Error())
+			logger.Errorw("failed to encode request body", "error", err)
+
+			return err
+		}
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.url.String(), &reqBody)
 		if err != nil {
-			span.SetStatus(codes.Error, errors.WithStack(err).Error())
+			err = errors.WithStack(err)
+
+			span.SetStatus(codes.Error, err.Error())
 			logger.Errorw("failed to create checker request", "error", err)
 
-			return errors.WithStack(err)
+			return err
 		}
 
 		req.Header.Set(echo.HeaderAuthorization, c.Request().Header.Get(echo.HeaderAuthorization))
+		req.Header.Set(echo.HeaderContentType, "application/json")
 
 		resp, err := p.client.Do(req)
 		if err != nil {
@@ -191,40 +189,14 @@ func New(config Config, options ...Option) (*Permissions, error) {
 	return p, nil
 }
 
-func setCheckerContext(c echo.Context, checker Checker) {
-	if checker == nil {
-		checker = DefaultDenyChecker
-	}
-
-	req := c.Request().WithContext(
-		context.WithValue(
-			c.Request().Context(),
-			CheckerCtxKey,
-			checker,
-		),
-	)
-
-	c.SetRequest(req)
-}
-
 func ensureValidServerResponse(resp *http.Response) error {
 	if resp.StatusCode >= http.StatusMultiStatus {
 		if resp.StatusCode == http.StatusForbidden {
 			return ErrPermissionDenied
 		}
 
-		return ErrBadResponse
+		return fmt.Errorf("%w: %d", ErrBadResponse, resp.StatusCode)
 	}
 
 	return nil
-}
-
-// CheckAccess runs the checker function to check if the provided resource and action are supported.
-func CheckAccess(ctx context.Context, resource gidx.PrefixedID, action string) error {
-	checker, ok := ctx.Value(CheckerCtxKey).(Checker)
-	if !ok {
-		return ErrCheckerNotFound
-	}
-
-	return checker(ctx, resource, action)
 }
