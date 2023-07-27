@@ -2,13 +2,10 @@ package pubsub
 
 import (
 	"context"
-	"fmt"
 	"io"
-	"math/rand"
 	"testing"
 	"time"
 
-	nc "github.com/nats-io/nats.go"
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/permissions-api/internal/query/mock"
 	"go.infratographer.com/permissions-api/internal/testingx"
@@ -20,51 +17,33 @@ import (
 )
 
 const (
-	charSet         = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	consumerLen     = 8
 	sampleFrequency = "100"
 )
 
 var contextKeyEngine = struct{}{}
 
-func newConsumerName() string {
-	b := make([]byte, consumerLen)
+func setupEvents(t *testing.T, engine query.Engine) (*eventtools.TestNats, events.Publisher, *Subscriber) {
+	ctx := context.Background()
 
-	for i := range b {
-		b[i] = charSet[rand.Intn(len(charSet))]
-	}
-
-	return fmt.Sprintf("consumer-%s", string(b))
-}
-
-func setupEvents(t *testing.T, engine query.Engine) (*eventtools.TestNats, *events.Publisher, *Subscriber, string) {
 	nats, err := eventtools.NewNatsServer()
 
 	require.NoError(t, err)
 
-	publisher, err := events.NewPublisher(nats.PublisherConfig)
+	publisher, err := events.NewNATSConnection(nats.Config.NATS)
 
 	require.NoError(t, err)
 
-	consumerName := newConsumerName()
-
-	subscriber, err := NewSubscriber(context.Background(), nats.SubscriberConfig, engine,
-		WithNatsSubOpts(
-			nc.ManualAck(),
-			nc.AckExplicit(),
-			nc.Durable(consumerName),
-		),
-	)
+	subscriber, err := NewSubscriber(ctx, nats.Config, engine)
 
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
 		nats.Close()
-		publisher.Close()  //nolint:errcheck
-		subscriber.Close() //nolint:errcheck
+		publisher.Shutdown(ctx)  //nolint:errcheck
+		subscriber.Shutdown(ctx) //nolint:errcheck
 	})
 
-	return nats, publisher, subscriber, consumerName
+	return nats, publisher, subscriber
 }
 
 func TestNATS(t *testing.T) {
@@ -229,15 +208,15 @@ func TestNATS(t *testing.T) {
 	testFn := func(ctx context.Context, input testInput) testingx.TestResult[*Subscriber] {
 		engine := ctx.Value(contextKeyEngine).(query.Engine)
 
-		nats, pub, sub, consumerName := setupEvents(t, engine)
+		nats, pub, sub := setupEvents(t, engine)
+
+		consumerName := events.NATSConsumerDurableName("", eventtools.Prefix+".changes.*."+input.subject)
 
 		err := sub.Subscribe("*." + input.subject)
 
 		require.NoError(t, err)
 
 		go func() {
-			defer sub.Close()
-
 			err = sub.Listen()
 
 			require.NoError(t, err)
@@ -256,7 +235,7 @@ func TestNATS(t *testing.T) {
 			ackErr <- nats.WaitForAck(consumerName, 5*time.Second)
 		}()
 
-		err = pub.PublishChange(ctx, input.subject, input.changeMessage)
+		_, err = pub.PublishChange(ctx, input.subject, input.changeMessage)
 
 		require.NoError(t, err)
 

@@ -58,25 +58,46 @@ spec:
             - name: PERMISSIONSAPI_SERVER_TRUSTED_PROXIES
               value: "{{ join " " . }}"
           {{- end }}
-            - name: PERMISSIONSAPI_EVENTS_SUBSCRIBER_URL
-              value: "{{ .Values.config.events.url }}"
-            - name: PERMISSIONSAPI_EVENTS_SUBSCRIBER_TIMEOUT
-              value: "{{ .Values.config.events.timeout }}"
-            - name: PERMISSIONSAPI_EVENTS_SUBSCRIBER_PREFIX
-              value: "{{ .Values.config.events.prefix }}"
-            - name: PERMISSIONSAPI_EVENTS_SUBSCRIBER_QUEUEGROUP
-              value: "{{ .Values.config.events.queueGroup }}"
+            - name: PERMISSIONSAPI_EVENTS_NATS_URL
+              value: "{{ .Values.config.events.nats.url }}"
+            - name: PERMISSIONSAPI_EVENTS_NATS_SUBSCRIBEPREFIX
+              value: "{{ .Values.config.events.nats.subscribePrefix }}"
+            - name: PERMISSIONSAPI_EVENTS_NATS_QUEUEGROUP
+              value: "{{ .Values.config.events.nats.queueGroup }}"
+            - name: PERMISSIONSAPI_EVENTS_NATS_SOURCE
+              value: "{{ .Values.config.events.nats.source }}"
+            - name: PERMISSIONSAPI_EVENTS_NATS_CONNECTTIMEOUT
+              value: "{{ .Values.config.events.nats.connectTimeout }}"
+            - name: PERMISSIONSAPI_EVENTS_NATS_SHUTDOWNTIMEOUT
+              value: "{{ .Values.config.events.nats.shutdownTimeout }}"
+            - name: PERMISSIONSAPI_EVENTS_NATS_SUBSCRIBERFETCHBATCHSIZE
+              value: "{{ .Values.config.events.nats.subscriberFetchBatchSize }}"
+            - name: PERMISSIONSAPI_EVENTS_NATS_SUBSCRIBERFETCHTIMEOUT
+              value: "{{ .Values.config.events.nats.subscriberFetchTimeout }}"
+            - name: PERMISSIONSAPI_EVENTS_NATS_SUBSCRIBERFETCHBACKOFF
+              value: "{{ .Values.config.events.nats.subscriberFetchBackoff }}"
+            - name: PERMISSIONSAPI_EVENTS_NATS_SUBSCRIBERNOACKEXPLICIT
+              value: "{{ .Values.config.events.nats.subscriberNoAckExplicit }}"
+            - name: PERMISSIONSAPI_EVENTS_NATS_SUBSCRIBERNOMANUALACK
+              value: "{{ .Values.config.events.nats.subscriberNoManualAck }}"
+            - name: PERMISSIONSAPI_EVENTS_NATS_SUBSCRIBERDELIVERYPOLICY
+              value: "{{ .Values.config.events.nats.subscriberDeliveryPolicy }}"
+            - name: PERMISSIONSAPI_EVENTS_NATS_SUBSCRIBERSTARTSEQUENCE
+              value: "{{ .Values.config.events.nats.subscriberStartSequence }}"
           {{- with .Values.config.events.topics }}
             - name: PERMISSIONSAPI_EVENTS_TOPICS
               value: "{{ join " " . }}"
           {{- end }}
-          {{- if .Values.config.events.nats.credsSecretName }}
-            - name: PERMISSIONSAPI_EVENTS_SUBSCRIBER_NATS_CREDSFILE
-              value: "{{ .Values.config.events.nats.credsFile }}"
+          {{- if .Values.config.events.nats.tokenSecretName }}
+            - name: PERMISSIONSAPI_EVENTS_NATS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.config.events.nats.tokenSecretName }}
+                  key: token
           {{- end }}
-          {{- if .Values.config.events.nats.token }}
-            - name: PERMISSIONSAPI_EVENTS_SUBSCRIBER_NATS_TOKEN
-              value: "{{ .Values.config.events.nats.token }}"
+          {{- if .Values.config.events.nats.credsSecretName }}
+            - name: PERMISSIONSAPI_EVENTS_NATS_CREDSFILE
+              value: "{{ .Values.config.events.nats.credsFile }}"
           {{- end }}
           {{- if .Values.config.oidc.issuer }}
           {{- with .Values.config.oidc.audience }}

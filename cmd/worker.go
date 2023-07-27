@@ -2,6 +2,10 @@ package cmd
 
 import (
 	"context"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -9,7 +13,6 @@ import (
 	"go.infratographer.com/x/events"
 	"go.infratographer.com/x/otelx"
 	"go.infratographer.com/x/versionx"
-	"go.infratographer.com/x/viperx"
 	"go.uber.org/zap"
 
 	"go.infratographer.com/permissions-api/internal/config"
@@ -18,6 +21,8 @@ import (
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/permissions-api/internal/spicedbx"
 )
+
+const shutdownTimeout = 10 * time.Second
 
 var workerCmd = &cobra.Command{
 	Use:   "worker",
@@ -31,11 +36,9 @@ func init() {
 	rootCmd.AddCommand(workerCmd)
 
 	otelx.MustViperFlags(viper.GetViper(), workerCmd.Flags())
-	events.MustViperFlagsForSubscriber(viper.GetViper(), workerCmd.Flags())
+	events.MustViperFlags(viper.GetViper(), workerCmd.Flags(), appName)
 	echox.MustViperFlags(viper.GetViper(), workerCmd.Flags(), apiDefaultListen)
-
-	workerCmd.PersistentFlags().StringSlice("events-topics", []string{}, "event topics to subscribe to")
-	viperx.MustBindFlag(viper.GetViper(), "events.topics", workerCmd.PersistentFlags().Lookup("events-topics"))
+	config.MustViperFlags(viper.GetViper(), workerCmd.Flags())
 }
 
 func worker(ctx context.Context, cfg *config.AppConfig) {
@@ -68,39 +71,70 @@ func worker(ctx context.Context, cfg *config.AppConfig) {
 
 	engine := query.NewEngine("infratographer", spiceClient, query.WithPolicy(policy), query.WithLogger(logger))
 
-	subscriber, err := pubsub.NewSubscriber(ctx, cfg.Events.Subscriber, engine, pubsub.WithLogger(logger))
+	subscriber, err := pubsub.NewSubscriber(ctx, cfg.Events.Config, engine,
+		pubsub.WithLogger(logger),
+		pubsub.WithMaxProcessAttempts(cfg.Events.MaxProcessAttempts),
+	)
 	if err != nil {
 		logger.Fatalw("unable to initialize subscriber", "error", err)
 	}
 
-	defer subscriber.Close()
+	topics := cfg.Events.Topics
 
-	for _, topic := range viper.GetStringSlice("events.topics") {
+	// if no topics are defined, add all topics from the schema.
+	if len(topics) == 0 {
+		schema := policy.Schema()
+
+		for _, rt := range schema {
+			topics = append(topics, "*."+rt.Name)
+		}
+	}
+
+	for _, topic := range topics {
 		if err := subscriber.Subscribe(topic); err != nil {
 			logger.Fatalw("failed to subscribe to changes topic", "topic", topic, "error", err)
 		}
 	}
 
-	logger.Info("Listening for events")
-
-	go func() {
-		if err := subscriber.Listen(); err != nil {
-			logger.Fatalw("error listening for events", "error", err)
-		}
-	}()
-
-	srv, err := echox.NewServer(
-		logger.Desugar(),
-		echox.ConfigFromViper(viper.GetViper()),
-		versionx.BuildDetails(),
-	)
+	srv, err := echox.NewServer(logger.Desugar(), cfg.Server, versionx.BuildDetails())
 	if err != nil {
 		logger.Fatal("failed to initialize new server", zap.Error(err))
 	}
 
 	srv.AddReadinessCheck("spicedb", spicedbx.Healthcheck(spiceClient))
 
-	if err := srv.Run(); err != nil {
-		logger.Fatal("failed to run server", zap.Error(err))
+	quit := make(chan os.Signal, 1)
+
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		logger.Info("Listening for events")
+
+		if err := subscriber.Listen(); err != nil {
+			logger.Fatalw("error listening for events", "error", err)
+		}
+	}()
+
+	go func() {
+		if err := srv.Run(); err != nil {
+			logger.Fatal("failed to run server", zap.Error(err))
+		}
+	}()
+
+	var cancel func()
+
+	select {
+	case <-quit:
+		logger.Info("signal caught, shutting down")
+
+		ctx, cancel = context.WithTimeout(ctx, shutdownTimeout)
+	case <-ctx.Done():
+		logger.Info("context done, shutting down")
+
+		ctx, cancel = context.WithTimeout(context.Background(), shutdownTimeout)
 	}
+
+	defer cancel()
+
+	subscriber.Shutdown(ctx)
 }
