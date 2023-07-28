@@ -5,10 +5,15 @@ import (
 
 	"github.com/authzed/authzed-go/v1"
 	"go.infratographer.com/x/gidx"
+	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 
 	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/types"
+)
+
+var (
+	tracer = otel.GetTracerProvider().Tracer("go.infratographer.com/permissions-api/internal/query")
 )
 
 // Engine represents a client for making permissions queries.
@@ -23,9 +28,9 @@ type Engine interface {
 	ListRelationshipsFrom(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error)
 	ListRelationshipsTo(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error)
 	ListRoles(ctx context.Context, resource types.Resource, queryToken string) ([]types.Role, error)
-	DeleteRelationship(ctx context.Context, rel types.Relationship) (string, error)
+	DeleteRelationships(ctx context.Context, relationships ...types.Relationship) (string, error)
 	DeleteRole(ctx context.Context, roleResource types.Resource, queryToken string) (string, error)
-	DeleteRelationships(ctx context.Context, resource types.Resource) (string, error)
+	DeleteResourceRelationships(ctx context.Context, resource types.Resource) (string, error)
 	NewResourceFromID(id gidx.PrefixedID) (types.Resource, error)
 	GetResourceType(name string) *types.ResourceType
 	SubjectHasPermission(ctx context.Context, subject types.Resource, action string, resource types.Resource) error

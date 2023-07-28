@@ -9,6 +9,10 @@ import (
 	pb "github.com/authzed/authzed-go/proto/authzed/api/v1"
 	"go.infratographer.com/permissions-api/internal/types"
 	"go.infratographer.com/x/gidx"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
+	"go.uber.org/multierr"
 )
 
 var roleSubjectRelation = "subject"
@@ -190,9 +194,16 @@ func (e *engine) checkPermission(ctx context.Context, req *pb.CheckPermissionReq
 
 // CreateRelationships atomically creates the given relationships in SpiceDB.
 func (e *engine) CreateRelationships(ctx context.Context, rels []types.Relationship) (string, error) {
+	ctx, span := tracer.Start(ctx, "engine.CreateRelationships", trace.WithAttributes(attribute.Int("relationships", len(rels))))
+
+	defer span.End()
+
 	for _, rel := range rels {
 		err := e.validateRelationship(rel)
 		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+
 			return "", err
 		}
 	}
@@ -205,6 +216,9 @@ func (e *engine) CreateRelationships(ctx context.Context, rels []types.Relations
 
 	r, err := e.client.WriteRelationships(ctx, request)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
 		return "", err
 	}
 
@@ -330,31 +344,101 @@ func (e *engine) readRelationships(ctx context.Context, filter *pb.RelationshipF
 	return responses, nil
 }
 
-// DeleteRelationship removes the specified relationship between the two resources.
-func (e *engine) DeleteRelationship(ctx context.Context, rel types.Relationship) (string, error) {
-	err := e.validateRelationship(rel)
-	if err != nil {
-		return "", err
+// DeleteRelationships removes the specified relationships.
+// If any relationships fails to be deleted, all completed deletions are re-created.
+func (e *engine) DeleteRelationships(ctx context.Context, relationships ...types.Relationship) (string, error) {
+	ctx, span := tracer.Start(ctx, "engine.DeleteRelationships", trace.WithAttributes(attribute.Int("relationships", len(relationships))))
+
+	defer span.End()
+
+	var errors []error
+
+	span.AddEvent("validating relationships")
+
+	for i, relationship := range relationships {
+		err := e.validateRelationship(relationship)
+		if err != nil {
+			err = fmt.Errorf("%w: invalid relationship %d", err, i)
+
+			span.RecordError(err)
+
+			errors = append(errors, err)
+		}
 	}
 
-	resType := e.namespace + "/" + rel.Resource.Type
-	subjType := e.namespace + "/" + rel.Subject.Type
+	if len(errors) != 0 {
+		span.SetStatus(codes.Error, "invalid relationships")
 
-	filter := &pb.RelationshipFilter{
-		ResourceType:       resType,
-		OptionalResourceId: rel.Resource.ID.String(),
-		OptionalRelation:   rel.Relation,
-		OptionalSubjectFilter: &pb.SubjectFilter{
-			SubjectType:       subjType,
-			OptionalSubjectId: rel.Subject.ID.String(),
-		},
+		return "", multierr.Combine(errors...)
 	}
 
-	return e.deleteRelationships(ctx, filter)
+	errors = []error{}
+
+	var (
+		complete   []types.Relationship
+		queryToken string
+		dErr       error
+		cErr       error
+	)
+
+	span.AddEvent("deleting relationships")
+
+	for i, relationship := range relationships {
+		resType := e.namespace + "/" + relationship.Resource.Type
+		subjType := e.namespace + "/" + relationship.Subject.Type
+
+		filter := &pb.RelationshipFilter{
+			ResourceType:       resType,
+			OptionalResourceId: relationship.Resource.ID.String(),
+			OptionalRelation:   relationship.Relation,
+			OptionalSubjectFilter: &pb.SubjectFilter{
+				SubjectType:       subjType,
+				OptionalSubjectId: relationship.Subject.ID.String(),
+			},
+		}
+
+		queryToken, dErr = e.deleteRelationships(ctx, filter)
+		if dErr != nil {
+			e.logger.Errorf("%w: failed to delete relationship %d reverting %d completed deletes", dErr, i, len(complete))
+
+			err := fmt.Errorf("%w: failed to delete relationship %d", dErr, i)
+
+			span.RecordError(err)
+
+			errors = append(errors, err)
+
+			break
+		}
+
+		complete = append(complete, relationship)
+	}
+
+	if len(errors) != 0 {
+		span.SetStatus(codes.Error, "error occurred deleting relationships")
+
+		if len(complete) != 0 {
+			span.AddEvent("recreating deleted relationships")
+
+			_, cErr = e.CreateRelationships(ctx, complete)
+			if cErr != nil {
+				e.logger.Error("%w: failed to revert %d deleted relationships", cErr, len(complete))
+
+				err := fmt.Errorf("%w: failed to revert deleted relationships", cErr)
+
+				span.RecordError(err)
+
+				errors = append(errors, err)
+			}
+		}
+
+		return "", multierr.Combine(errors...)
+	}
+
+	return queryToken, nil
 }
 
-// DeleteRelationships deletes all relationships originating from the given resource.
-func (e *engine) DeleteRelationships(ctx context.Context, resource types.Resource) (string, error) {
+// DeleteResourceRelationships deletes all relationships originating from the given resource.
+func (e *engine) DeleteResourceRelationships(ctx context.Context, resource types.Resource) (string, error) {
 	resType := e.namespace + "/" + resource.Type
 
 	filter := &pb.RelationshipFilter{
