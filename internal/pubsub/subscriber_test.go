@@ -29,21 +29,20 @@ func setupEvents(t *testing.T, engine query.Engine) (*eventtools.TestNats, event
 
 	require.NoError(t, err)
 
-	publisher, err := events.NewNATSConnection(nats.Config.NATS)
+	eventHandler, err := events.NewNATSConnection(nats.Config.NATS)
 
 	require.NoError(t, err)
 
-	subscriber, err := NewSubscriber(ctx, nats.Config, engine)
+	subscriber, err := NewSubscriber(ctx, eventHandler, engine)
 
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
 		nats.Close()
-		publisher.Shutdown(ctx)  //nolint:errcheck
-		subscriber.Shutdown(ctx) //nolint:errcheck
+		eventHandler.Shutdown(ctx) //nolint:errcheck
 	})
 
-	return nats, publisher, subscriber
+	return nats, eventHandler, subscriber
 }
 
 func TestNATS(t *testing.T) {

@@ -71,9 +71,13 @@ func worker(ctx context.Context, cfg *config.AppConfig) {
 
 	engine := query.NewEngine("infratographer", spiceClient, query.WithPolicy(policy), query.WithLogger(logger))
 
-	subscriber, err := pubsub.NewSubscriber(ctx, cfg.Events.Config, engine,
+	events, err := events.NewConnection(cfg.Events.Config, events.WithLogger(logger))
+	if err != nil {
+		logger.Fatalw("failed to initialize events", "error", err)
+	}
+
+	subscriber, err := pubsub.NewSubscriber(ctx, events, engine,
 		pubsub.WithLogger(logger),
-		pubsub.WithMaxProcessAttempts(cfg.Events.MaxProcessAttempts),
 	)
 	if err != nil {
 		logger.Fatalw("unable to initialize subscriber", "error", err)
@@ -136,5 +140,7 @@ func worker(ctx context.Context, cfg *config.AppConfig) {
 
 	defer cancel()
 
-	subscriber.Shutdown(ctx)
+	if err := events.Shutdown(ctx); err != nil {
+		logger.Fatalw("failed to shutdown events gracefully", "error", "err")
+	}
 }

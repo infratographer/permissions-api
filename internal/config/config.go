@@ -16,9 +16,8 @@ import (
 
 // EventsConfig stores the configuration for a load-balancer-api events config
 type EventsConfig struct {
-	events.Config      `mapstructure:",squash"`
-	Topics             []string
-	MaxProcessAttempts uint64
+	events.Config `mapstructure:",squash"`
+	Topics        []string
 }
 
 // AppConfig is the struct used for configuring the app

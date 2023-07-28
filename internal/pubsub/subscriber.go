@@ -21,12 +21,11 @@ var tracer = otel.Tracer("go.infratographer.com/permissions-api/internal/pubsub"
 
 // Subscriber is the subscriber client
 type Subscriber struct {
-	ctx                context.Context
-	changeChannels     []<-chan events.Message[events.ChangeMessage]
-	logger             *zap.SugaredLogger
-	subscriber         events.Connection
-	qe                 query.Engine
-	maxProcessAttempts uint64
+	ctx            context.Context
+	changeChannels []<-chan events.Message[events.ChangeMessage]
+	logger         *zap.SugaredLogger
+	subscriber     events.Subscriber
+	qe             query.Engine
 }
 
 // SubscriberOption is a functional option for the Subscriber
@@ -39,32 +38,18 @@ func WithLogger(l *zap.SugaredLogger) SubscriberOption {
 	}
 }
 
-// WithMaxProcessAttempts sets the maximum number of times a message may be retried.
-func WithMaxProcessAttempts(attempts uint64) SubscriberOption {
-	return func(s *Subscriber) {
-		s.maxProcessAttempts = attempts
-	}
-}
-
 // NewSubscriber creates a new Subscriber
-func NewSubscriber(ctx context.Context, cfg events.Config, engine query.Engine, opts ...SubscriberOption) (*Subscriber, error) {
+func NewSubscriber(ctx context.Context, subscriber events.Subscriber, engine query.Engine, opts ...SubscriberOption) (*Subscriber, error) {
 	s := &Subscriber{
-		ctx:    ctx,
-		logger: zap.NewNop().Sugar(),
-		qe:     engine,
+		ctx:        ctx,
+		logger:     zap.NewNop().Sugar(),
+		qe:         engine,
+		subscriber: subscriber,
 	}
 
 	for _, opt := range opts {
 		opt(s)
 	}
-
-	sub, err := events.NewConnection(cfg, events.WithLogger(s.logger))
-
-	if err != nil {
-		return nil, err
-	}
-
-	s.subscriber = sub
 
 	return s, nil
 }
@@ -111,24 +96,13 @@ func (s Subscriber) listen(messages <-chan events.Message[events.ChangeMessage],
 		if err := s.processEvent(msg); err != nil {
 			elogger.Errorw("failed to process msg", "error", err)
 
-			if s.maxProcessAttempts != 0 && msg.Deliveries()+1 > s.maxProcessAttempts {
-				elogger.Warnw("terminating event, too many attempts")
-
-				if termErr := msg.Term(); termErr != nil {
-					elogger.Warnw("error occurred while terminating event")
-				}
-			} else if nakErr := msg.Nak(nakDelay); nakErr != nil {
+			if nakErr := msg.Nak(nakDelay); nakErr != nil {
 				elogger.Warnw("error occurred while naking", "error", nakErr)
 			}
 		} else if ackErr := msg.Ack(); ackErr != nil {
 			elogger.Warnw("error occurred while acking", "error", ackErr)
 		}
 	}
-}
-
-// Shutdown closes the subscriber connection and unsubscribes from all subscriptions
-func (s *Subscriber) Shutdown(ctx context.Context) error {
-	return s.subscriber.Shutdown(ctx)
 }
 
 // processEvent event message handler
