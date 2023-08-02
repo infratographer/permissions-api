@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/ThreeDotsLabs/watermill v1.2.0
 	github.com/authzed/authzed-go v0.8.0
-	github.com/authzed/grpcutil v0.0.0-20230524151342-4caf7fd1108a
+	github.com/authzed/grpcutil v0.0.0-20230703173955-bdd0ac3f16a5
 	github.com/labstack/echo/v4 v4.11.1
 	github.com/nats-io/nats.go v1.27.1
 	github.com/pkg/errors v0.9.1

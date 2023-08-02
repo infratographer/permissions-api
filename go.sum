@@ -51,8 +51,8 @@ github.com/ThreeDotsLabs/watermill-nats/v2 v2.0.0/go.mod h1:X6pcl579pScj4mII3KM/
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/authzed/authzed-go v0.8.0 h1:gb4X+7RxVqXSCFReAnKmSda68TBIqRdc47W2spLqoEc=
 github.com/authzed/authzed-go v0.8.0/go.mod h1:h9Zar1MSSrVsqbcbE5/RO7gpg6Fx5QYW2C5QduSox5M=
-github.com/authzed/grpcutil v0.0.0-20230524151342-4caf7fd1108a h1:jc4x3fKS0vOO/1Ip5Dwt3/wvpkry1DV5TXVDH1wNj6E=
-github.com/authzed/grpcutil v0.0.0-20230524151342-4caf7fd1108a/go.mod h1:BeT5XA+d8z3NvvIVobx5qa0mCsX7JCsllKqEcwzeC0A=
+github.com/authzed/grpcutil v0.0.0-20230703173955-bdd0ac3f16a5 h1:Fg92G8sNNODbNe2ckJoLeMEPeDqSfygmXnpEXDnVifU=
+github.com/authzed/grpcutil v0.0.0-20230703173955-bdd0ac3f16a5/go.mod h1:qx105brQubHFYLRja6wlHA+JB8DSK+yhb8uc8aFA5NQ=
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
 github.com/benbjohnson/clock v1.3.0 h1:ip6w0uFQkncKQ979AypyG0ER7mqUSBdKLOgAle/AT8A=
 github.com/benbjohnson/clock v1.3.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
