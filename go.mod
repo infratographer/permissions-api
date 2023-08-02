@@ -3,7 +3,7 @@ module go.infratographer.com/permissions-api
 go 1.20
 
 require (
-	github.com/ThreeDotsLabs/watermill v1.2.0
+	github.com/ThreeDotsLabs/watermill v1.3.2
 	github.com/authzed/authzed-go v0.8.0
 	github.com/authzed/grpcutil v0.0.0-20230524151342-4caf7fd1108a
 	github.com/labstack/echo/v4 v4.11.1
