@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4/middleware"
+	"go.infratographer.com/x/events"
 	"go.uber.org/zap"
 )
 
@@ -14,6 +15,15 @@ type Option func(p *Permissions) error
 func WithLogger(logger *zap.SugaredLogger) Option {
 	return func(p *Permissions) error {
 		p.logger = logger
+
+		return nil
+	}
+}
+
+// WithEventsPublisher sets the underlying event publisher the auth handler uses
+func WithEventsPublisher(publisher events.AuthRelationshipPublisher) Option {
+	return func(p *Permissions) error {
+		p.publisher = publisher
 
 		return nil
 	}
