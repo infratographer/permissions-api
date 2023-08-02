@@ -116,7 +116,7 @@ services:
       - infradev
 
   jaeger:
-    image: jaegertracing/all-in-one:1.46.0
+    image: jaegertracing/all-in-one:1.47.0
     network_mode: service:app
 
   mock-oauth2-server:
