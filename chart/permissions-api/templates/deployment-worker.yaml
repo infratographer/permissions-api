@@ -49,45 +49,11 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             - worker
+            - --config
+            - /config/config.yaml
           env:
             - name: PERMISSIONSAPI_SERVER_LISTEN
               value: ":{{ include "permapi.listenPort" . }}"
-            - name: PERMISSIONSAPI_SERVER_SHUTDOWN_GRACE_PERIOD
-              value: "{{ .Values.config.server.shutdownGracePeriod }}"
-          {{- with .Values.config.server.trustedProxies }}
-            - name: PERMISSIONSAPI_SERVER_TRUSTED_PROXIES
-              value: "{{ join " " . }}"
-          {{- end }}
-            - name: PERMISSIONSAPI_EVENTS_NATS_URL
-              value: "{{ .Values.config.events.nats.url }}"
-            - name: PERMISSIONSAPI_EVENTS_NATS_SUBSCRIBEPREFIX
-              value: "{{ .Values.config.events.nats.subscribePrefix }}"
-            - name: PERMISSIONSAPI_EVENTS_NATS_QUEUEGROUP
-              value: "{{ .Values.config.events.nats.queueGroup }}"
-            - name: PERMISSIONSAPI_EVENTS_NATS_SOURCE
-              value: "{{ .Values.config.events.nats.source }}"
-            - name: PERMISSIONSAPI_EVENTS_NATS_CONNECTTIMEOUT
-              value: "{{ .Values.config.events.nats.connectTimeout }}"
-            - name: PERMISSIONSAPI_EVENTS_NATS_SHUTDOWNTIMEOUT
-              value: "{{ .Values.config.events.nats.shutdownTimeout }}"
-            - name: PERMISSIONSAPI_EVENTS_NATS_SUBSCRIBERFETCHBATCHSIZE
-              value: "{{ .Values.config.events.nats.subscriberFetchBatchSize }}"
-            - name: PERMISSIONSAPI_EVENTS_NATS_SUBSCRIBERFETCHTIMEOUT
-              value: "{{ .Values.config.events.nats.subscriberFetchTimeout }}"
-            - name: PERMISSIONSAPI_EVENTS_NATS_SUBSCRIBERFETCHBACKOFF
-              value: "{{ .Values.config.events.nats.subscriberFetchBackoff }}"
-            - name: PERMISSIONSAPI_EVENTS_NATS_SUBSCRIBERNOACKEXPLICIT
-              value: "{{ .Values.config.events.nats.subscriberNoAckExplicit }}"
-            - name: PERMISSIONSAPI_EVENTS_NATS_SUBSCRIBERNOMANUALACK
-              value: "{{ .Values.config.events.nats.subscriberNoManualAck }}"
-            - name: PERMISSIONSAPI_EVENTS_NATS_SUBSCRIBERDELIVERYPOLICY
-              value: "{{ .Values.config.events.nats.subscriberDeliveryPolicy }}"
-            - name: PERMISSIONSAPI_EVENTS_NATS_SUBSCRIBERSTARTSEQUENCE
-              value: "{{ .Values.config.events.nats.subscriberStartSequence }}"
-          {{- with .Values.config.events.topics }}
-            - name: PERMISSIONSAPI_EVENTS_TOPICS
-              value: "{{ join " " . }}"
-          {{- end }}
           {{- if .Values.config.events.nats.tokenSecretName }}
             - name: PERMISSIONSAPI_EVENTS_NATS_TOKEN
               valueFrom:
@@ -95,59 +61,13 @@ spec:
                   name: {{ .Values.config.events.nats.tokenSecretName }}
                   key: token
           {{- end }}
-          {{- if .Values.config.events.nats.credsSecretName }}
-            - name: PERMISSIONSAPI_EVENTS_NATS_CREDSFILE
-              value: "{{ .Values.config.events.nats.credsFile }}"
-          {{- end }}
-          {{- if .Values.config.oidc.issuer }}
-          {{- with .Values.config.oidc.audience }}
-            - name: PERMISSIONSAPI_OIDC_AUDIENCE
-              value: "{{ . }}"
-          {{- end }}
-          {{- with .Values.config.oidc.issuer }}
-            - name: PERMISSIONSAPI_OIDC_ISSUER
-              value: "{{ . }}"
-          {{- end }}
-          {{- with .Values.config.oidc.refreshTimeout }}
-            - name: PERMISSIONSAPI_OIDC_REFRESH_TIMEOUT
-              value: "{{ . }}"
-          {{- end }}
-          {{- end }}
-            - name: PERMISSIONSAPI_SPICEDB_ENDPOINT
-              value: "{{ .Values.config.spicedb.endpoint }}"
-            - name: PERMISSIONSAPI_SPICEDB_INSECURE
-              value: "{{ .Values.config.spicedb.insecure }}"
-            - name: PERMISSIONSAPI_SPICEDB_VERIFYCA
-              value: "{{ .Values.config.spicedb.verifyCA }}"
           {{- if .Values.config.spicedb.policyConfigMapName }}
             - name: PERMISSIONSAPI_SPICEDB_POLICYFILE
               value: /policy/policy.yaml
           {{- end }}
-            - name: PERMISSIONSAPI_TRACING_ENABLED
-              value: "{{ .Values.config.tracing.enabled }}"
-            - name: PERMISSIONSAPI_TRACING_PROVIDER
-              value: "{{ .Values.config.tracing.provider }}"
-            - name: PERMISSIONSAPI_TRACING_ENVIRONMENT
-              value: "{{ .Values.config.tracing.environment }}"
             {{- if .Values.config.spicedb.caSecretName }}
             - name: SSL_CERT_DIR
               value: "/etc/ssl/spicedb"
-            {{- end }}
-            {{- if eq .Values.config.tracing.provider "jaeger" }}
-            - name: PERMISSIONSAPI_TRACING_JAEGER_ENDPOINT
-              value: "{{ .Values.config.tracing.jaeger.endpoint }}"
-            - name: PERMISSIONSAPI_TRACING_JAEGER_USER
-              value: "{{ .Values.config.tracing.jaeger.user }}"
-            - name: PERMISSIONSAPI_TRACING_JAEGER_PASSWORD
-              value: "{{ .Values.config.tracing.jaeger.password }}"
-            {{- end }}
-            {{- if eq .Values.config.tracing.provider "otlpgrpc" }}
-            - name: PERMISSIONSAPI_TRACING_OTLP_ENDPOINT
-              value: "{{ .Values.config.tracing.otlp.endpoint }}"
-            - name: PERMISSIONSAPI_TRACING_OTLP_INSECURE
-              value: "{{ .Values.config.tracing.otlp.insecure }}"
-            - name: PERMISSIONSAPI_TRACING_OTLP_CERTIFICATE
-              value: "{{ .Values.config.tracing.otlp.certificate }}"
             {{- end }}
           envFrom:
             - secretRef:
