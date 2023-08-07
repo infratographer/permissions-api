@@ -5,7 +5,9 @@
 {{- end }}
 
 {{- define "permapi.server.volumes" }}
-{{- if or .Values.config.spicedb.caSecretName .Values.config.spicedb.policyConfigMapName }}
+- name: app-config
+  configMap:
+    name: {{ include "common.names.name" . }}-server-config
 {{- with .Values.config.spicedb.caSecretName }}
 - name: spicedb-ca
   secret:
@@ -16,13 +18,11 @@
   configMap:
     name: {{ . }}
 {{- end }}
-{{- else -}}
-[]
-{{- end }}
 {{- end }}
 
 {{- define "permapi.server.volumeMounts" }}
-{{- if or .Values.config.spicedb.caSecretName .Values.config.spicedb.policyConfigMapName }}
+- name: app-config
+  mountPath: /config/
 {{- if .Values.config.spicedb.caSecretName }}
 - name: spicedb-ca
   mountPath: /etc/ssl/spicedb/
@@ -31,13 +31,12 @@
 - name: policy-file
   mountPath: /policy
 {{- end }}
-{{- else -}}
-[]
-{{- end }}
 {{- end }}
 
 {{- define "permapi.worker.volumes" }}
-{{- if or .Values.config.spicedb.caSecretName .Values.config.spicedb.policyConfigMapName .Values.config.events.nats.credsSecretName }}
+- name: app-config
+  configMap:
+    name: {{ include "common.names.name" . }}-worker-config
 {{- with .Values.config.spicedb.caSecretName }}
 - name: spicedb-ca
   secret:
@@ -53,13 +52,11 @@
   configMap:
     name: {{ . }}
 {{- end }}
-{{- else -}}
-[]
-{{- end }}
 {{- end }}
 
 {{- define "permapi.worker.volumeMounts" }}
-{{- if or .Values.config.spicedb.caSecretName .Values.config.spicedb.policyConfigMapName .Values.config.events.nats.credsSecretName }}
+- name: app-config
+  mountPath: /config/
 {{- if .Values.config.spicedb.caSecretName }}
 - name: spicedb-ca
   mountPath: /etc/ssl/spicedb/
@@ -71,8 +68,5 @@
 {{- if .Values.config.spicedb.policyConfigMapName }}
 - name: policy-file
   mountPath: /policy
-{{- end }}
-{{- else -}}
-[]
 {{- end }}
 {{- end }}

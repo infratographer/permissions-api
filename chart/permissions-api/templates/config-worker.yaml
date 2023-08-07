@@ -1,0 +1,13 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "common.names.name" . }}-worker-config
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: '-1'
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    service: worker
+data:
+  config.yaml: |
+    {{- pick .Values.config "server" "events" "oidc" "spicedb" "tracing" | toYaml | nindent 4 }}
