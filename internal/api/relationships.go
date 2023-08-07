@@ -199,7 +199,7 @@ func (r *Router) relationshipDelete(c echo.Context) error {
 		Subject:  relatedResource,
 	}
 
-	_, err = r.engine.DeleteRelationship(ctx, relationship)
+	_, err = r.engine.DeleteRelationships(ctx, relationship)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "error deleting relationship").SetInternal(err)
 	}

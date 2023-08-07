@@ -2,32 +2,37 @@ package pubsub
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
+	"time"
 
-	nc "github.com/nats-io/nats.go"
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/permissions-api/internal/types"
 	"go.infratographer.com/x/events"
-	"go.infratographer.com/x/gidx"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
+	"go.uber.org/multierr"
 	"go.uber.org/zap"
-
-	"github.com/ThreeDotsLabs/watermill/message"
 )
+
+const nakDelay = 10 * time.Second
 
 var (
 	tracer = otel.Tracer("go.infratographer.com/permissions-api/internal/pubsub")
+
+	// ErrUnknownResourceType is returned when the corresponding resource type is not found for a resource id.
+	ErrUnknownResourceType = errors.New("unknown resource type")
 )
 
 // Subscriber is the subscriber client
 type Subscriber struct {
 	ctx            context.Context
-	changeChannels []<-chan *message.Message
+	changeChannels []<-chan events.Request[events.AuthRelationshipRequest, events.AuthRelationshipResponse]
 	logger         *zap.SugaredLogger
-	subscriber     *events.Subscriber
-	subOpts        []nc.SubOpt
+	subscriber     events.AuthRelationshipSubscriber
 	qe             query.Engine
 }
 
@@ -41,47 +46,30 @@ func WithLogger(l *zap.SugaredLogger) SubscriberOption {
 	}
 }
 
-// WithNatsSubOpts sets the logger for the Subscriber
-func WithNatsSubOpts(options ...nc.SubOpt) SubscriberOption {
-	return func(s *Subscriber) {
-		s.subOpts = append(s.subOpts, options...)
-	}
-}
-
 // NewSubscriber creates a new Subscriber
-func NewSubscriber(ctx context.Context, cfg events.SubscriberConfig, engine query.Engine, opts ...SubscriberOption) (*Subscriber, error) {
+func NewSubscriber(ctx context.Context, subscriber events.AuthRelationshipSubscriber, engine query.Engine, opts ...SubscriberOption) (*Subscriber, error) {
 	s := &Subscriber{
-		ctx:    ctx,
-		logger: zap.NewNop().Sugar(),
-		qe:     engine,
+		ctx:        ctx,
+		logger:     zap.NewNop().Sugar(),
+		qe:         engine,
+		subscriber: subscriber,
 	}
 
 	for _, opt := range opts {
 		opt(s)
 	}
 
-	sub, err := events.NewSubscriber(cfg, s.subOpts...)
-	if err != nil {
-		return nil, err
-	}
-
-	s.subscriber = sub
-
-	s.logger.Debugw("subscriber configuration", "config", cfg)
-
 	return s, nil
 }
 
 // Subscribe subscribes to a nats subject
 func (s *Subscriber) Subscribe(topic string) error {
-	msgChan, err := s.subscriber.SubscribeChanges(s.ctx, topic)
+	msgChan, err := s.subscriber.SubscribeAuthRelationshipRequests(s.ctx, topic)
 	if err != nil {
 		return err
 	}
 
 	s.changeChannels = append(s.changeChannels, msgChan)
-
-	s.logger.Infof("Subscribing to topic %s", topic)
 
 	return nil
 }
@@ -103,58 +91,63 @@ func (s Subscriber) Listen() error {
 }
 
 // listen listens for messages on a channel and calls the registered message handler
-func (s Subscriber) listen(messages <-chan *message.Message, wg *sync.WaitGroup) {
+func (s Subscriber) listen(messages <-chan events.Request[events.AuthRelationshipRequest, events.AuthRelationshipResponse], wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for msg := range messages {
-		if err := s.processEvent(msg); err != nil {
-			s.logger.Warn("Failed to process msg: ", err)
+		elogger := s.logger.With(
+			"event.message.topic", msg.Topic(),
+			"event.message.action", msg.Message().Action,
+			"event.message.object.id", msg.Message().ObjectID.String(),
+			"event.message.relations", len(msg.Message().Relations),
+		)
 
-			msg.Nack()
-		} else {
-			msg.Ack()
+		if err := s.processEvent(msg); err != nil {
+			elogger.Errorw("failed to process msg", "error", err)
+
+			if nakErr := msg.Nak(nakDelay); nakErr != nil {
+				elogger.Warnw("error occurred while naking", "error", nakErr)
+			}
+		} else if ackErr := msg.Ack(); ackErr != nil {
+			elogger.Errorw("error occurred while acking", "error", ackErr)
 		}
 	}
 }
 
-// Close closes the subscriber connection and unsubscribes from all subscriptions
-func (s *Subscriber) Close() error {
-	return s.subscriber.Close()
-}
-
 // processEvent event message handler
-func (s *Subscriber) processEvent(msg *message.Message) error {
-	changeMsg, err := events.UnmarshalChangeMessage(msg.Payload)
-	if err != nil {
-		s.logger.Errorw("failed to process data in msg", zap.Error(err))
+func (s *Subscriber) processEvent(msg events.Request[events.AuthRelationshipRequest, events.AuthRelationshipResponse]) error {
+	elogger := s.logger.With(
+		"event.message.topic", msg.Topic(),
+		"event.message.action", msg.Message().Action,
+		"event.message.object.id", msg.Message().ObjectID.String(),
+		"event.message.relations", len(msg.Message().Relations),
+	)
 
-		return err
+	if msg.Error() != nil {
+		elogger.Errorw("message contains error:", "error", msg.Error())
+
+		return msg.Error()
 	}
 
-	ctx := events.TraceContextFromChangeMessage(context.Background(), changeMsg)
+	request := msg.Message()
 
-	ctx, span := tracer.Start(ctx, "pubsub.receive", trace.WithAttributes(attribute.String("pubsub.subject", changeMsg.SubjectID.String())))
+	ctx := request.GetTraceContext(context.Background())
+
+	ctx, span := tracer.Start(ctx, "pubsub.receive", trace.WithAttributes(attribute.String("pubsub.subject", request.ObjectID.String())))
 
 	defer span.End()
 
-	resource, err := s.qe.NewResourceFromID(changeMsg.SubjectID)
-	if err != nil {
-		s.logger.Warnw("invalid subject id", "error", err.Error())
+	elogger.Debugw("received message")
 
-		return nil
-	}
+	var err error
 
-	s.logger.Debugw("received message", "resource_type", resource.Type, "resource_id", resource.ID.String(), "event_type", changeMsg.EventType)
-
-	switch events.ChangeType(changeMsg.EventType) {
-	case events.CreateChangeType:
-		err = s.handleCreateEvent(ctx, msg, changeMsg)
-	case events.UpdateChangeType:
-		err = s.handleUpdateEvent(ctx, msg, changeMsg)
-	case events.DeleteChangeType:
-		err = s.handleDeleteEvent(ctx, msg, changeMsg)
+	switch request.Action {
+	case events.WriteAuthRelationshipAction:
+		err = s.handleCreateEvent(ctx, msg)
+	case events.DeleteAuthRelationshipAction:
+		err = s.handleDeleteEvent(ctx, msg)
 	default:
-		s.logger.Warnw("ignoring msg, not a create, update or delete event", "event_type", changeMsg.EventType)
+		elogger.Warnw("ignoring msg, not a write or delete action")
 	}
 
 	if err != nil {
@@ -164,106 +157,189 @@ func (s *Subscriber) processEvent(msg *message.Message) error {
 	return nil
 }
 
-func (s *Subscriber) createRelationships(ctx context.Context, msg *message.Message, resource types.Resource, additionalSubjectIDs []gidx.PrefixedID) error {
-	var relationships []types.Relationship
+func (s *Subscriber) createRelationships(ctx context.Context, relationships []types.Relationship) error {
+	// Attempt to create the relationships in SpiceDB.
+	_, err := s.qe.CreateRelationships(ctx, relationships)
+	if err != nil {
+		return fmt.Errorf("%w: error creating relationships", err)
+	}
+
+	return nil
+}
+
+func (s *Subscriber) deleteRelationships(ctx context.Context, relationships []types.Relationship) error {
+	_, err := s.qe.DeleteRelationships(ctx, relationships...)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Subscriber) handleCreateEvent(ctx context.Context, msg events.Request[events.AuthRelationshipRequest, events.AuthRelationshipResponse]) error {
+	elogger := s.logger.With(
+		"event.message.topic", msg.Topic(),
+		"event.message.action", msg.Message().Action,
+		"event.message.object.id", msg.Message().ObjectID.String(),
+		"event.message.relations", len(msg.Message().Relations),
+	)
+
+	var errors []error
+
+	if err := msg.Message().Validate(); err != nil {
+		errors = multierr.Errors(err)
+	}
+
+	resource, err := s.qe.NewResourceFromID(msg.Message().ObjectID)
+	if err != nil {
+		elogger.Warnw("error parsing resource ID", "error", err.Error())
+
+		return respondRequest(ctx, elogger, msg, err)
+	}
 
 	rType := s.qe.GetResourceType(resource.Type)
 	if rType == nil {
-		s.logger.Warnw("no resource type found for", "resource_type", resource.Type)
+		elogger.Warnw("error finding resource type", "error", err.Error())
 
-		return nil
+		return respondRequest(ctx, elogger, msg, fmt.Errorf("%w: resource: %s", ErrUnknownResourceType, resource.Type))
 	}
 
-	// Attempt to create relationships from the message fields. If this fails, reject the message
-	for _, id := range additionalSubjectIDs {
-		subjResource, err := s.qe.NewResourceFromID(id)
+	relationships := make([]types.Relationship, len(msg.Message().Relations))
+
+	for i, relation := range msg.Message().Relations {
+		subject, err := s.qe.NewResourceFromID(relation.SubjectID)
 		if err != nil {
-			s.logger.Warnw("error parsing additional subject id - will not reprocess", "event_type", events.CreateChangeType, "id", id.String(), "error", err.Error())
+			elogger.Warnw("error parsing subject ID", "error", err.Error())
+
+			errors = append(errors, fmt.Errorf("%w: relation %d", err, i))
 
 			continue
 		}
 
-		for _, rel := range rType.Relationships {
-			var relation string
+		sType := s.qe.GetResourceType(subject.Type)
+		if sType == nil {
+			elogger.Warnw("error finding subject resource type", "error", err.Error())
 
-			for _, tName := range rel.Types {
-				if tName == subjResource.Type {
-					relation = rel.Relation
+			errors = append(errors, fmt.Errorf("%w: relation %d subject: %s", ErrUnknownResourceType, i, subject.Type))
 
-					break
-				}
-			}
+			continue
+		}
 
-			if relation != "" {
-				relationship := types.Relationship{
-					Resource: resource,
-					Relation: relation,
-					Subject:  subjResource,
-				}
-
-				relationships = append(relationships, relationship)
-			}
+		relationships[i] = types.Relationship{
+			Resource: resource,
+			Relation: relation.Relation,
+			Subject:  subject,
 		}
 	}
 
-	if len(relationships) == 0 {
-		s.logger.Warnw("no relations to create for resource", "resource_type", resource.Type, "resource_id", resource.ID.String())
-
-		return nil
+	if len(errors) != 0 {
+		return respondRequest(ctx, elogger, msg, errors...)
 	}
 
-	// Attempt to create the relationships in SpiceDB. If this fails, nak the message for reprocessing
-	_, err := s.qe.CreateRelationships(ctx, relationships)
-	if err != nil {
-		s.logger.Errorw("error creating relationships - will not reprocess", "error", err.Error())
-	}
+	err = s.createRelationships(ctx, relationships)
 
-	return nil
+	return respondRequest(ctx, elogger, msg, err)
 }
 
-func (s *Subscriber) deleteRelationships(ctx context.Context, msg *message.Message, resource types.Resource) error {
-	_, err := s.qe.DeleteRelationships(ctx, resource)
-	if err != nil {
-		s.logger.Errorw("error deleting relationships - will not reprocess", "error", err.Error())
+func (s *Subscriber) handleDeleteEvent(ctx context.Context, msg events.Request[events.AuthRelationshipRequest, events.AuthRelationshipResponse]) error {
+	elogger := s.logger.With(
+		"event.message.topic", msg.Topic(),
+		"event.message.action", msg.Message().Action,
+		"event.message.object.id", msg.Message().ObjectID.String(),
+		"event.message.relations", len(msg.Message().Relations),
+	)
+
+	var errors []error
+
+	if err := msg.Message().Validate(); err != nil {
+		errors = multierr.Errors(err)
 	}
 
-	return nil
+	resource, err := s.qe.NewResourceFromID(msg.Message().ObjectID)
+	if err != nil {
+		elogger.Warnw("error parsing resource ID", "error", err.Error())
+
+		errors = append(errors, err)
+	}
+
+	rType := s.qe.GetResourceType(resource.Type)
+	if rType == nil {
+		elogger.Warnw("error finding resource type", "error", err.Error())
+
+		errors = append(errors, fmt.Errorf("%w: resource: %s", ErrUnknownResourceType, resource.Type))
+	}
+
+	relationships := make([]types.Relationship, len(msg.Message().Relations))
+
+	for i, relation := range msg.Message().Relations {
+		subject, err := s.qe.NewResourceFromID(relation.SubjectID)
+		if err != nil {
+			elogger.Warnw("error parsing subject ID", "error", err.Error())
+
+			errors = append(errors, fmt.Errorf("%w: relation %d", err, i))
+
+			continue
+		}
+
+		sType := s.qe.GetResourceType(subject.Type)
+		if sType == nil {
+			elogger.Warnw("error finding subject resource type", "error", err.Error())
+
+			errors = append(errors, fmt.Errorf("%w: relation %d subject: %s", ErrUnknownResourceType, i, subject.Type))
+
+			continue
+		}
+
+		relationships[i] = types.Relationship{
+			Resource: resource,
+			Relation: relation.Relation,
+			Subject:  subject,
+		}
+	}
+
+	if len(errors) != 0 {
+		return respondRequest(ctx, elogger, msg, errors...)
+	}
+
+	err = s.deleteRelationships(ctx, relationships)
+
+	return respondRequest(ctx, elogger, msg, err)
 }
 
-func (s *Subscriber) handleCreateEvent(ctx context.Context, msg *message.Message, changeMsg events.ChangeMessage) error {
-	resource, err := s.qe.NewResourceFromID(changeMsg.SubjectID)
-	if err != nil {
-		s.logger.Warnw("error parsing subject ID - will not reprocess", "event_type", changeMsg.EventType, "error", err.Error())
+func respondRequest(ctx context.Context, logger *zap.SugaredLogger, msg events.Request[events.AuthRelationshipRequest, events.AuthRelationshipResponse], errors ...error) error {
+	ctx, span := tracer.Start(ctx, "pubsub.respond")
 
-		return nil
+	defer span.End()
+
+	var filteredErrors []error
+
+	for _, err := range errors {
+		if err != nil {
+			filteredErrors = append(filteredErrors, err)
+		}
 	}
 
-	return s.createRelationships(ctx, msg, resource, changeMsg.AdditionalSubjectIDs)
-}
-
-func (s *Subscriber) handleDeleteEvent(ctx context.Context, msg *message.Message, changeMsg events.ChangeMessage) error {
-	resource, err := s.qe.NewResourceFromID(changeMsg.SubjectID)
-	if err != nil {
-		s.logger.Warnw("error parsing subject ID - will not reprocess", "event_type", changeMsg.EventType, "error", err.Error())
-
-		return nil
+	response := events.AuthRelationshipResponse{
+		Errors: filteredErrors,
 	}
 
-	return s.deleteRelationships(ctx, msg, resource)
-}
+	if len(filteredErrors) != 0 {
+		err := multierr.Combine(filteredErrors...)
 
-func (s *Subscriber) handleUpdateEvent(ctx context.Context, msg *message.Message, changeMsg events.ChangeMessage) error {
-	resource, err := s.qe.NewResourceFromID(changeMsg.SubjectID)
-	if err != nil {
-		s.logger.Warnw("error parsing subject ID - will not reprocess", "event_type", changeMsg.EventType, "error", err.Error())
-
-		return nil
+		logger.Errorw("error processing relationship, sending error response", "error", err)
+	} else {
+		logger.Debug("relationship successfully processed, sending response")
 	}
 
-	err = s.deleteRelationships(ctx, msg, resource)
+	_, err := msg.Reply(ctx, response)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		logger.Errorw("error sending response", "error", err)
+
 		return err
 	}
 
-	return s.createRelationships(ctx, msg, resource, changeMsg.AdditionalSubjectIDs)
+	return nil
 }

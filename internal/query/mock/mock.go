@@ -87,8 +87,8 @@ func (e *Engine) ListRoles(ctx context.Context, resource types.Resource, queryTo
 	return nil, nil
 }
 
-// DeleteRelationship does nothing but satisfies the Engine interface.
-func (e *Engine) DeleteRelationship(ctx context.Context, rel types.Relationship) (string, error) {
+// DeleteRelationships does nothing but satisfies the Engine interface.
+func (e *Engine) DeleteRelationships(ctx context.Context, relationships ...types.Relationship) (string, error) {
 	args := e.Called()
 
 	return args.String(0), args.Error(1)
@@ -101,8 +101,8 @@ func (e *Engine) DeleteRole(ctx context.Context, roleResource types.Resource, qu
 	return args.String(0), args.Error(1)
 }
 
-// DeleteRelationships does nothing but satisfies the Engine interface.
-func (e *Engine) DeleteRelationships(ctx context.Context, resource types.Resource) (string, error) {
+// DeleteResourceRelationships does nothing but satisfies the Engine interface.
+func (e *Engine) DeleteResourceRelationships(ctx context.Context, resource types.Resource) (string, error) {
 	args := e.Called()
 
 	return args.String(0), args.Error(1)

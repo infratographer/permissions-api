@@ -15,6 +15,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/pkg/errors"
 	"go.infratographer.com/x/echojwtx"
+	"go.infratographer.com/x/events"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -35,23 +36,31 @@ var (
 	}
 
 	tracer = otel.GetTracerProvider().Tracer("go.infratographer.com/permissions-api/pkg/permissions")
+
+	// ErrPermissionsMiddlewareMissing is returned when a permissions method has been called but the middleware is missing.
+	ErrPermissionsMiddlewareMissing = errors.New("permissions middleware missing")
 )
 
 // Permissions handles supporting authorization checks
 type Permissions struct {
-	enabled        bool
-	logger         *zap.SugaredLogger
-	client         *http.Client
-	url            *url.URL
-	skipper        middleware.Skipper
-	defaultChecker Checker
+	enableChecker bool
+
+	logger             *zap.SugaredLogger
+	publisher          events.AuthRelationshipPublisher
+	client             *http.Client
+	url                *url.URL
+	skipper            middleware.Skipper
+	defaultChecker     Checker
+	ignoreNoResponders bool
 }
 
 // Middleware produces echo middleware to handle authorization checks
 func (p *Permissions) Middleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			if !p.enabled || p.skipper(c) {
+			setAuthRelationshipRequestHandler(c, p)
+
+			if !p.enableChecker || p.skipper(c) {
 				setCheckerContext(c, p.defaultChecker)
 
 				return next(c)
@@ -161,10 +170,11 @@ func (p *Permissions) checker(c echo.Context, actor, token string) Checker {
 // New creates a new Permissions instance
 func New(config Config, options ...Option) (*Permissions, error) {
 	p := &Permissions{
-		enabled:        config.URL != "",
-		client:         defaultClient,
-		skipper:        middleware.DefaultSkipper,
-		defaultChecker: DefaultDenyChecker,
+		enableChecker:      config.URL != "",
+		client:             defaultClient,
+		skipper:            middleware.DefaultSkipper,
+		defaultChecker:     DefaultDenyChecker,
+		ignoreNoResponders: config.IgnoreNoResponders,
 	}
 
 	if config.URL != "" {

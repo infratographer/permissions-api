@@ -2,13 +2,10 @@ package pubsub
 
 import (
 	"context"
-	"fmt"
 	"io"
-	"math/rand"
 	"testing"
 	"time"
 
-	nc "github.com/nats-io/nats.go"
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/permissions-api/internal/query/mock"
 	"go.infratographer.com/permissions-api/internal/testingx"
@@ -19,94 +16,78 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	charSet         = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	consumerLen     = 8
-	sampleFrequency = "100"
-)
-
 var contextKeyEngine = struct{}{}
 
-func newConsumerName() string {
-	b := make([]byte, consumerLen)
+func setupEvents(t *testing.T, engine query.Engine) (*eventtools.TestNats, events.AuthRelationshipPublisher, *Subscriber) {
+	ctx := context.Background()
 
-	for i := range b {
-		b[i] = charSet[rand.Intn(len(charSet))]
-	}
-
-	return fmt.Sprintf("consumer-%s", string(b))
-}
-
-func setupEvents(t *testing.T, engine query.Engine) (*eventtools.TestNats, *events.Publisher, *Subscriber, string) {
 	nats, err := eventtools.NewNatsServer()
 
 	require.NoError(t, err)
 
-	publisher, err := events.NewPublisher(nats.PublisherConfig)
+	eventHandler, err := events.NewNATSConnection(nats.Config.NATS)
 
 	require.NoError(t, err)
 
-	consumerName := newConsumerName()
-
-	subscriber, err := NewSubscriber(context.Background(), nats.SubscriberConfig, engine,
-		WithNatsSubOpts(
-			nc.ManualAck(),
-			nc.AckExplicit(),
-			nc.Durable(consumerName),
-		),
-	)
+	subscriber, err := NewSubscriber(ctx, eventHandler, engine)
 
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
 		nats.Close()
-		publisher.Close()  //nolint:errcheck
-		subscriber.Close() //nolint:errcheck
+		eventHandler.Shutdown(ctx) //nolint:errcheck
 	})
 
-	return nats, publisher, subscriber, consumerName
+	return nats, eventHandler, subscriber
 }
 
 func TestNATS(t *testing.T) {
 	type testInput struct {
-		subject       string
-		changeMessage events.ChangeMessage
+		subject string
+		request events.AuthRelationshipRequest
 	}
 
-	createMsg := events.ChangeMessage{
-		SubjectID: gidx.PrefixedID("loadbal-UCN7pxJO57BV_5pNiV95B"),
-		EventType: string(events.CreateChangeType),
-		AdditionalSubjectIDs: []gidx.PrefixedID{
-			gidx.PrefixedID("othrsid-kXboa2UZbaNzMhng9vVha"),
-			gidx.PrefixedID("tnntten-gd6RExwAz353UqHLzjC1n"),
+	createMsg := events.AuthRelationshipRequest{
+		Action:   events.WriteAuthRelationshipAction,
+		ObjectID: gidx.PrefixedID("loadbal-UCN7pxJO57BV_5pNiV95B"),
+		Relations: []events.AuthRelationshipRelation{
+			{
+				Relation:  "owner",
+				SubjectID: gidx.PrefixedID("tnntten-gd6RExwAz353UqHLzjC1n"),
+			},
 		},
 	}
 
-	noCreateMsg := events.ChangeMessage{
-		SubjectID: gidx.PrefixedID("loadbal-EA8CJagJPM4J-yw6_skd1"),
-		EventType: string(events.CreateChangeType),
-		AdditionalSubjectIDs: []gidx.PrefixedID{
-			gidx.PrefixedID("othrsid-kXboa2UZbaNzMhng9vVha"),
+	noCreateMsg := events.AuthRelationshipRequest{
+		Action:   events.WriteAuthRelationshipAction,
+		ObjectID: gidx.PrefixedID("loadbal-EA8CJagJPM4J-yw6_skd1"),
+		Relations: []events.AuthRelationshipRelation{
+			{
+				Relation: "owner",
+			},
 		},
 	}
 
-	updateMsg := events.ChangeMessage{
-		SubjectID: gidx.PrefixedID("loadbal-UCN7pxJO57BV_5pNiV95B"),
-		EventType: string(events.UpdateChangeType),
-		AdditionalSubjectIDs: []gidx.PrefixedID{
-			gidx.PrefixedID("othrsid-kXboa2UZbaNzMhng9vVha"),
-			gidx.PrefixedID("tnntten-gd6RExwAz353UqHLzjC1n"),
+	deleteMsg := events.AuthRelationshipRequest{
+		Action:   events.DeleteAuthRelationshipAction,
+		ObjectID: gidx.PrefixedID("loadbal-UCN7pxJO57BV_5pNiV95B"),
+		Relations: []events.AuthRelationshipRelation{
+			{
+				Relation:  "owner",
+				SubjectID: gidx.PrefixedID("tnntten-gd6RExwAz353UqHLzjC1n"),
+			},
 		},
 	}
 
-	deleteMsg := events.ChangeMessage{
-		SubjectID: gidx.PrefixedID("loadbal-UCN7pxJO57BV_5pNiV95B"),
-		EventType: string(events.DeleteChangeType),
-	}
-
-	unknownResourceMsg := events.ChangeMessage{
-		SubjectID: gidx.PrefixedID("baddres-BfqAzfYxtFNlpKPGYLmra"),
-		EventType: string(events.CreateChangeType),
+	unknownResourceMsg := events.AuthRelationshipRequest{
+		Action:   events.WriteAuthRelationshipAction,
+		ObjectID: gidx.PrefixedID("baddres-BfqAzfYxtFNlpKPGYLmra"),
+		Relations: []events.AuthRelationshipRelation{
+			{
+				Relation:  "owner",
+				SubjectID: gidx.PrefixedID("tnntten-gd6RExwAz353UqHLzjC1n"),
+			},
+		},
 	}
 
 	// Each of these tests works as follows:
@@ -118,12 +99,12 @@ func TestNATS(t *testing.T) {
 	//
 	// When writing tests, make sure the subject prefix in the test input matches the prefix provided in
 	// setupClient, or else you will get undefined, racy behavior.
-	testCases := []testingx.TestCase[testInput, *Subscriber]{
+	testCases := []testingx.TestCase[testInput, events.Message[events.AuthRelationshipResponse]]{
 		{
 			Name: "goodcreate",
 			Input: testInput{
-				subject:       "goodcreate.loadbalancer",
-				changeMessage: createMsg,
+				subject: "goodcreate.loadbalancer",
+				request: createMsg,
 			},
 			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
 				var engine mock.Engine
@@ -131,18 +112,20 @@ func TestNATS(t *testing.T) {
 
 				return context.WithValue(ctx, contextKeyEngine, &engine)
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[*Subscriber]) {
+			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[events.Message[events.AuthRelationshipResponse]]) {
 				require.NoError(t, result.Err)
+				require.NotNil(t, result.Success)
+				require.Empty(t, result.Success.Message().Errors)
 
-				engine := result.Success.qe.(*mock.Engine)
+				engine := ctx.Value(contextKeyEngine).(*mock.Engine)
 				engine.AssertExpectations(t)
 			},
 		},
 		{
 			Name: "errcreate",
 			Input: testInput{
-				subject:       "errcreate.loadbalancer",
-				changeMessage: createMsg,
+				subject: "errcreate.loadbalancer",
+				request: createMsg,
 			},
 			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
 				var engine mock.Engine
@@ -150,50 +133,34 @@ func TestNATS(t *testing.T) {
 
 				return context.WithValue(ctx, contextKeyEngine, &engine)
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[*Subscriber]) {
+			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[events.Message[events.AuthRelationshipResponse]]) {
 				require.NoError(t, result.Err)
+				require.NotNil(t, result.Success)
+				require.NotEmpty(t, result.Success.Message().Errors)
 			},
 		},
 		{
 			Name: "nocreate",
 			Input: testInput{
-				subject:       "nocreate.loadbalancer",
-				changeMessage: noCreateMsg,
+				subject: "nocreate.loadbalancer",
+				request: noCreateMsg,
 			},
 			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
 				var engine mock.Engine
 
 				return context.WithValue(ctx, contextKeyEngine, &engine)
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[*Subscriber]) {
-				require.NoError(t, result.Err)
-			},
-		},
-		{
-			Name: "goodupdate",
-			Input: testInput{
-				subject:       "goodupdate.loadbalancer",
-				changeMessage: updateMsg,
-			},
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
-				var engine mock.Engine
-				engine.On("DeleteRelationships").Return("", nil)
-				engine.On("CreateRelationships").Return("", nil)
-
-				return context.WithValue(ctx, contextKeyEngine, &engine)
-			},
-			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[*Subscriber]) {
-				require.NoError(t, result.Err)
-
-				engine := result.Success.qe.(*mock.Engine)
-				engine.AssertExpectations(t)
+			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[events.Message[events.AuthRelationshipResponse]]) {
+				require.Error(t, result.Err)
+				require.ErrorIs(t, result.Err, events.ErrMissingAuthRelationshipRequestRelationSubjectID)
+				require.Nil(t, result.Success)
 			},
 		},
 		{
 			Name: "gooddelete",
 			Input: testInput{
-				subject:       "gooddelete.loadbalancer",
-				changeMessage: deleteMsg,
+				subject: "gooddelete.loadbalancer",
+				request: deleteMsg,
 			},
 			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
 				var engine mock.Engine
@@ -202,42 +169,44 @@ func TestNATS(t *testing.T) {
 
 				return context.WithValue(ctx, contextKeyEngine, &engine)
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[*Subscriber]) {
+			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[events.Message[events.AuthRelationshipResponse]]) {
 				require.NoError(t, result.Err)
+				require.NotNil(t, result.Success)
+				require.Empty(t, result.Success.Message().Errors)
 
-				engine := result.Success.qe.(*mock.Engine)
+				engine := ctx.Value(contextKeyEngine).(*mock.Engine)
 				engine.AssertExpectations(t)
 			},
 		},
 		{
 			Name: "badresource",
 			Input: testInput{
-				subject:       "badresource.fakeresource",
-				changeMessage: unknownResourceMsg,
+				subject: "badresource.fakeresource",
+				request: unknownResourceMsg,
 			},
 			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
 				var engine mock.Engine
 
 				return context.WithValue(ctx, contextKeyEngine, &engine)
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[*Subscriber]) {
+			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[events.Message[events.AuthRelationshipResponse]]) {
 				require.NoError(t, result.Err)
+				require.NotNil(t, result.Success)
+				require.NotEmpty(t, result.Success.Message().Errors)
 			},
 		},
 	}
 
-	testFn := func(ctx context.Context, input testInput) testingx.TestResult[*Subscriber] {
+	testFn := func(ctx context.Context, input testInput) testingx.TestResult[events.Message[events.AuthRelationshipResponse]] {
 		engine := ctx.Value(contextKeyEngine).(query.Engine)
 
-		nats, pub, sub, consumerName := setupEvents(t, engine)
+		_, pub, sub := setupEvents(t, engine)
 
 		err := sub.Subscribe("*." + input.subject)
 
 		require.NoError(t, err)
 
 		go func() {
-			defer sub.Close()
-
 			err = sub.Listen()
 
 			require.NoError(t, err)
@@ -246,28 +215,13 @@ func TestNATS(t *testing.T) {
 		// Allow time for the listener to to start
 		time.Sleep(time.Second)
 
-		err = nats.SetConsumerSampleFrequency(consumerName, sampleFrequency)
-
 		require.NoError(t, err)
 
-		ackErr := make(chan error, 1)
+		resp, err := pub.PublishAuthRelationshipRequest(ctx, input.subject, input.request)
 
-		go func() {
-			ackErr <- nats.WaitForAck(consumerName, 5*time.Second)
-		}()
-
-		err = pub.PublishChange(ctx, input.subject, input.changeMessage)
-
-		require.NoError(t, err)
-
-		if err = <-ackErr; err != nil {
-			return testingx.TestResult[*Subscriber]{
-				Err: err,
-			}
-		}
-
-		return testingx.TestResult[*Subscriber]{
-			Success: sub,
+		return testingx.TestResult[events.Message[events.AuthRelationshipResponse]]{
+			Err:     err,
+			Success: resp,
 		}
 	}
 

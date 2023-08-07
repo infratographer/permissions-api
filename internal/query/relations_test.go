@@ -533,7 +533,7 @@ func TestRelationshipDelete(t *testing.T) {
 	}
 
 	testFn := func(ctx context.Context, input types.Relationship) testingx.TestResult[[]types.Relationship] {
-		queryToken, err := e.DeleteRelationship(ctx, input)
+		queryToken, err := e.DeleteRelationships(ctx, input)
 		if err != nil {
 			return testingx.TestResult[[]types.Relationship]{
 				Err: err,

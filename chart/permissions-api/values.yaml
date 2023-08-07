@@ -39,20 +39,39 @@ config:
     policyConfigMapName: ""
 
   events:
-    # url is the event server connection url
-    url: ""
-    # timeout is event connection timeout
-    timeout: ""
-    # prefix is the subscribe event prefix
-    prefix: ""
-    # queueGroup defines the events queue group
-    queueGroup: ""
     # topics are the list of topics to subscribe to
     topics: []
+
     # nats contains nats specific configuration
     nats:
-      # token is the nats auth token
-      token: ""
+      # url is the event server connection url
+      url: ""
+      # subscribePrefix is the subscribe event prefix
+      subscribePrefix: ""
+      # queueGroup defines the events queue group
+      queueGroup: ""
+      # source defines the source of the events (defaults to application name)
+      source: ""
+      # connectTimeout is event connection timeout
+      connectTimeout: "10s"
+      # shutdownTimeout is the shutdown grace period
+      shutdownTimeout: "5s"
+      # subscriberFetchBatchSize is the subscribers fetch batch size
+      subscriberFetchBatchSize: "20"
+      # subscriberFetchTimeout is the subscribers fetch timeout
+      subscriberFetchTimeout: "5s"
+      # subscriberFetchBackoff is the subscriber fetch retry delay
+      subscriberFetchBackoff: "5s"
+      # subscriberNoAckExplicit disables Ack Explicit
+      subscriberNoAckExplicit: false
+      # subscriberNoManualAck disables Manual Ack
+      subscriberNoManualAck: false
+      # subscriberDeliveryPolicy sets the delivery policy
+      subscriberDeliveryPolicy: "all"
+      # subscriberStartSequence is the subscribers consumer start sequence (subscriberDeliveryPolicy must be `start-sequence`)
+      subscriberStartSequence: 0
+      # tokenSecretName is the secret to load the auth token
+      tokenSecretName: ""
       # credsSecretName is the secret to load the creds auth file from
       credsSecretName: ""
       # credsFile is the location to read the creds file from
