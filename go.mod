@@ -3,7 +3,7 @@ module go.infratographer.com/permissions-api
 go 1.20
 
 require (
-	github.com/authzed/authzed-go v0.8.0
+	github.com/authzed/authzed-go v0.9.0
 	github.com/authzed/grpcutil v0.0.0-20230703173955-bdd0ac3f16a5
 	github.com/labstack/echo/v4 v4.11.1
 	github.com/pkg/errors v0.9.1
@@ -29,7 +29,7 @@ require (
 	github.com/certifi/gocertifi v0.0.0-20210507211836-431795d63e8d // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/envoyproxy/protoc-gen-validate v0.10.1 // indirect
+	github.com/envoyproxy/protoc-gen-validate v1.0.1 // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
@@ -38,12 +38,12 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.0.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0 // indirect
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.14.0 // indirect
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.15.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jaevor/go-nanoid v1.3.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/jzelinskie/stringz v0.0.0-20210414224931-d6a8ce844a70 // indirect
+	github.com/jzelinskie/stringz v0.0.1 // indirect
 	github.com/klauspost/compress v1.16.7 // indirect
 	github.com/labstack/echo-contrib v0.15.0 // indirect
 	github.com/labstack/echo-jwt/v4 v4.2.0 // indirect
