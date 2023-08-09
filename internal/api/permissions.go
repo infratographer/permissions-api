@@ -11,6 +11,7 @@ import (
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/permissions-api/internal/types"
 	"go.infratographer.com/x/gidx"
+	"go.opentelemetry.io/otel/codes"
 	"go.uber.org/multierr"
 )
 
@@ -246,7 +247,9 @@ func (r *Router) checkAllActions(c echo.Context) error {
 	}
 
 	if internalErrors != 0 {
-		return echo.NewHTTPError(http.StatusInternalServerError, "an error occurred checking permissions").SetInternal(multierr.Combine(allErrors...))
+		combined := multierr.Combine(allErrors...)
+		span.SetStatus(codes.Error, combined.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, "an error occurred checking permissions").SetInternal(combined)
 	}
 
 	if unauthorizedErrors != 0 {

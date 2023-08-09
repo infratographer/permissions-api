@@ -6,14 +6,16 @@ import (
 	"github.com/authzed/authzed-go/v1"
 	"go.infratographer.com/x/gidx"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 
 	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/types"
 )
 
-var (
-	tracer = otel.GetTracerProvider().Tracer("go.infratographer.com/permissions-api/internal/query")
+const (
+	outcomeAllowed = "allowed"
+	outcomeDenied  = "denied"
 )
 
 // Engine represents a client for making permissions queries.
@@ -37,6 +39,7 @@ type Engine interface {
 }
 
 type engine struct {
+	tracer                   trace.Tracer
 	logger                   *zap.SugaredLogger
 	namespace                string
 	client                   *authzed.Client
@@ -87,10 +90,13 @@ func resourceHasRoleBindings(resType types.ResourceType) bool {
 
 // NewEngine returns a new client for making permissions queries.
 func NewEngine(namespace string, client *authzed.Client, options ...Option) Engine {
+	tracer := otel.GetTracerProvider().Tracer("go.infratographer.com/permissions-api/internal/query")
+
 	e := &engine{
 		logger:    zap.NewNop().Sugar(),
 		namespace: namespace,
 		client:    client,
+		tracer:    tracer,
 	}
 
 	for _, fn := range options {
