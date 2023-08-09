@@ -249,6 +249,7 @@ func (r *Router) checkAllActions(c echo.Context) error {
 	if internalErrors != 0 {
 		combined := multierr.Combine(allErrors...)
 		span.SetStatus(codes.Error, combined.Error())
+
 		return echo.NewHTTPError(http.StatusInternalServerError, "an error occurred checking permissions").SetInternal(combined)
 	}
 
