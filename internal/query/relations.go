@@ -2,6 +2,7 @@ package query
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -65,6 +66,27 @@ func resourceToSpiceDBRef(namespace string, r types.Resource) *pb.ObjectReferenc
 
 // SubjectHasPermission checks if the given subject can do the given action on the given resource
 func (e *engine) SubjectHasPermission(ctx context.Context, subject types.Resource, action string, resource types.Resource) error {
+	ctx, span := e.tracer.Start(
+		ctx,
+		"SubjectHasPermission",
+		trace.WithAttributes(
+			attribute.Stringer(
+				"permissions.actor",
+				subject.ID,
+			),
+			attribute.String(
+				"permissions.action",
+				action,
+			),
+			attribute.Stringer(
+				"permissions.resource",
+				resource.ID,
+			),
+		),
+	)
+
+	defer span.End()
+
 	req := &pb.CheckPermissionRequest{
 		Consistency: &pb.Consistency{
 			Requirement: &pb.Consistency_FullyConsistent{
@@ -78,7 +100,28 @@ func (e *engine) SubjectHasPermission(ctx context.Context, subject types.Resourc
 		},
 	}
 
-	return e.checkPermission(ctx, req)
+	err := e.checkPermission(ctx, req)
+
+	switch {
+	case err == nil:
+		span.SetAttributes(
+			attribute.String(
+				"permissions.outcome",
+				outcomeAllowed,
+			),
+		)
+	case errors.Is(err, ErrActionNotAssigned):
+		span.SetAttributes(
+			attribute.String(
+				"permissions.outcome",
+				outcomeDenied,
+			),
+		)
+	default:
+		span.SetStatus(codes.Error, err.Error())
+	}
+
+	return err
 }
 
 // AssignSubjectRole assigns the given role to the given subject.
@@ -194,7 +237,7 @@ func (e *engine) checkPermission(ctx context.Context, req *pb.CheckPermissionReq
 
 // CreateRelationships atomically creates the given relationships in SpiceDB.
 func (e *engine) CreateRelationships(ctx context.Context, rels []types.Relationship) (string, error) {
-	ctx, span := tracer.Start(ctx, "engine.CreateRelationships", trace.WithAttributes(attribute.Int("relationships", len(rels))))
+	ctx, span := e.tracer.Start(ctx, "engine.CreateRelationships", trace.WithAttributes(attribute.Int("relationships", len(rels))))
 
 	defer span.End()
 
@@ -347,7 +390,7 @@ func (e *engine) readRelationships(ctx context.Context, filter *pb.RelationshipF
 // DeleteRelationships removes the specified relationships.
 // If any relationships fails to be deleted, all completed deletions are re-created.
 func (e *engine) DeleteRelationships(ctx context.Context, relationships ...types.Relationship) (string, error) {
-	ctx, span := tracer.Start(ctx, "engine.DeleteRelationships", trace.WithAttributes(attribute.Int("relationships", len(relationships))))
+	ctx, span := e.tracer.Start(ctx, "engine.DeleteRelationships", trace.WithAttributes(attribute.Int("relationships", len(relationships))))
 
 	defer span.End()
 

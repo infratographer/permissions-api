@@ -27,6 +27,9 @@ const (
 	bearerPrefix = "Bearer "
 
 	defaultClientTimeout = 5 * time.Second
+
+	outcomeAllowed = "allowed"
+	outcomeDenied  = "denied"
 )
 
 var (
@@ -153,6 +156,12 @@ func (p *Permissions) checker(c echo.Context, actor, token string) Checker {
 			case errors.Is(err, ErrPermissionDenied):
 				logger.Warnw("unauthorized access to resource")
 				span.AddEvent("permission denied")
+				span.SetAttributes(
+					attribute.String(
+						"permissions.outcome",
+						outcomeDenied,
+					),
+				)
 			case errors.Is(err, ErrBadResponse):
 				logger.Errorw("bad response from server", "error", err, "response.status_code", resp.StatusCode, "response.body", string(body))
 				span.SetStatus(codes.Error, errors.WithStack(err).Error())
@@ -161,6 +170,12 @@ func (p *Permissions) checker(c echo.Context, actor, token string) Checker {
 			return err
 		}
 
+		span.SetAttributes(
+			attribute.String(
+				"permissions.outcome",
+				outcomeAllowed,
+			),
+		)
 		logger.Debug("access granted to resource")
 
 		return nil
