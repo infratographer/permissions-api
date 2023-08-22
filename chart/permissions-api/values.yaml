@@ -6,6 +6,14 @@ image:
   # tag is the image tag to use. Defaults to the chart's app version
   tag: ""
 
+workerImage:
+  # repository is the image repository to pull the worker image from
+  repository: ghcr.io/infratographer/permissions-api
+  # pullPolicy is the image pull policy for the worker image
+  pullPolicy: IfNotPresent
+  # tag is the image tag to use. Defaults to the chart's app version
+  tag: ""
+
 config:
   server:
     # port is the port that the permissions-api container should listen on
