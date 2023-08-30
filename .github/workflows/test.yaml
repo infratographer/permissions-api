@@ -20,6 +20,7 @@ jobs:
       - name: Pre-build image and run make ci-build in dev container
         uses: devcontainers/ci@v0.3
         with:
+          noCache: true
           push: never
           runCmd: make ci
 
