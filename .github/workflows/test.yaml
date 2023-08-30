@@ -20,9 +20,8 @@ jobs:
       - name: Pre-build image and run make ci-build in dev container
         uses: devcontainers/ci@v0.3
         with:
-          noCache: true
           push: never
-          runCmd: make ci
+          runCmd: 'whoami && id -u $(whoami) && ls -l /workspace && make ci'
 
       - name: Upload coverage report
         uses: codecov/codecov-action@v3
