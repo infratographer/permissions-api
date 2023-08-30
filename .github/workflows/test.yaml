@@ -21,7 +21,7 @@ jobs:
         uses: devcontainers/ci@v0.3
         with:
           push: never
-          runCmd: 'whoami && id -u $(whoami) && ls -l /workspace && make ci'
+          runCmd: 'sudo chown -R vscode:vscode /workspace && make ci'
 
       - name: Upload coverage report
         uses: codecov/codecov-action@v3
