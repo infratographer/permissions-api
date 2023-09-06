@@ -82,6 +82,7 @@ func (r *Router) checkAction(c echo.Context) error {
 
 func (r *Router) checkActionWithResponse(ctx context.Context, subjectResource types.Resource, action string, resource types.Resource) error {
 	err := r.engine.SubjectHasPermission(ctx, subjectResource, action, resource)
+
 	switch {
 	case errors.Is(err, query.ErrActionNotAssigned):
 		msg := fmt.Sprintf(
