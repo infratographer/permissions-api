@@ -11,6 +11,10 @@ import (
 
 const (
 	actionRoleCreate = "role_create"
+	actionRoleGet    = "role_get"
+	actionRoleList   = "role_list"
+	actionRoleUpdate = "role_update"
+	actionRoleDelete = "role_delete"
 )
 
 func (r *Router) roleCreate(c echo.Context) error {
@@ -69,9 +73,18 @@ func (r *Router) roleGet(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
 	}
 
+	subjectResource, err := r.currentSubject(c)
+	if err != nil {
+		return err
+	}
+
 	roleResource, err := r.engine.NewResourceFromID(roleResourceID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+	}
+
+	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleGet, roleResource); err != nil {
+		return err
 	}
 
 	role, err := r.engine.GetRole(ctx, roleResource, "")
@@ -98,9 +111,18 @@ func (r *Router) rolesList(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "error parsing resource ID").SetInternal(err)
 	}
 
+	subjectResource, err := r.currentSubject(c)
+	if err != nil {
+		return err
+	}
+
 	resource, err := r.engine.NewResourceFromID(resourceID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "error creating resource").SetInternal(err)
+	}
+
+	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleList, resource); err != nil {
+		return err
 	}
 
 	roles, err := r.engine.ListRoles(ctx, resource, "")
@@ -135,9 +157,18 @@ func (r *Router) roleDelete(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "error deleting resource").SetInternal(err)
 	}
 
+	subjectResource, err := r.currentSubject(c)
+	if err != nil {
+		return err
+	}
+
 	roleResource, err := r.engine.NewResourceFromID(roleResourceID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "error deleting resource").SetInternal(err)
+	}
+
+	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleDelete, roleResource); err != nil {
+		return err
 	}
 
 	_, err = r.engine.DeleteRole(ctx, roleResource, "")
@@ -163,9 +194,18 @@ func (r *Router) roleGetResource(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
 	}
 
+	subjectResource, err := r.currentSubject(c)
+	if err != nil {
+		return err
+	}
+
 	roleResource, err := r.engine.NewResourceFromID(roleResourceID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+	}
+
+	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleGet, roleResource); err != nil {
+		return err
 	}
 
 	resource, err := r.engine.GetRoleResource(ctx, roleResource, "")

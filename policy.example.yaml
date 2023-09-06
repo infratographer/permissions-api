@@ -31,6 +31,10 @@ unions:
       - tenant
 actions:
   - name: role_create
+  - name: role_get
+  - name: role_list
+  - name: role_update
+  - name: role_delete
   - name: loadbalancer_create
   - name: loadbalancer_get
   - name: loadbalancer_list
@@ -44,6 +48,34 @@ actionbindings:
       - relationshipaction:
           relation: parent
           actionname: role_create
+  - actionname: role_get
+    typename: resourceowner
+    conditions:
+      - rolebinding: {}
+      - relationshipaction:
+          relation: parent
+          actionname: role_get
+  - actionname: role_list
+    typename: resourceowner
+    conditions:
+      - rolebinding: {}
+      - relationshipaction:
+          relation: parent
+          actionname: role_list
+  - actionname: role_update
+    typename: resourceowner
+    conditions:
+      - rolebinding: {}
+      - relationshipaction:
+          relation: parent
+          actionname: role_update
+  - actionname: role_delete
+    typename: resourceowner
+    conditions:
+      - rolebinding: {}
+      - relationshipaction:
+          relation: parent
+          actionname: role_delete
   - actionname: loadbalancer_create
     typename: resourceowner
     conditions:
