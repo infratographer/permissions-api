@@ -83,7 +83,16 @@ func (r *Router) roleGet(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
 	}
 
-	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleGet, roleResource); err != nil {
+	// Roles belong to resources by way of the actions they can perform; do the permissions
+	// check on the role resource.
+	resource, err := r.engine.GetRoleResource(ctx, roleResource, "")
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+	}
+
+	// TODO: This shows an error for the role's resource, not the role. Determine if that
+	// matters.
+	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleGet, resource); err != nil {
 		return err
 	}
 
@@ -167,7 +176,14 @@ func (r *Router) roleDelete(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "error deleting resource").SetInternal(err)
 	}
 
-	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleDelete, roleResource); err != nil {
+	// Roles belong to resources by way of the actions they can perform; do the permissions
+	// check on the role resource.
+	resource, err := r.engine.GetRoleResource(ctx, roleResource, "")
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+	}
+
+	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleDelete, resource); err != nil {
 		return err
 	}
 
@@ -204,13 +220,15 @@ func (r *Router) roleGetResource(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
 	}
 
-	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleGet, roleResource); err != nil {
-		return err
-	}
-
+	// There's a little irony here in that getting a role's resource here is required to actually
+	// do the permissions check.
 	resource, err := r.engine.GetRoleResource(ctx, roleResource, "")
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "error getting resource").SetInternal(err)
+	}
+
+	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleGet, resource); err != nil {
+		return err
 	}
 
 	resp := resourceResponse{
