@@ -67,28 +67,37 @@ func (r *Router) checkAction(c echo.Context) error {
 	}
 
 	// Subject validation
-	subject, err := currentSubject(c)
+	subjectResource, err := r.currentSubject(c)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "failed to get the subject").SetInternal(err)
-	}
-
-	subjectResource, err := r.engine.NewResourceFromID(subject)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "error processing subject ID").SetInternal(err)
+		return err
 	}
 
 	// Check the permissions
-	err = r.engine.SubjectHasPermission(ctx, subjectResource, action, resource)
-	if err != nil && errors.Is(err, query.ErrActionNotAssigned) {
-		msg := fmt.Sprintf("subject '%s' does not have permission to perform action '%s' on resource '%s'",
-			subject, action, resourceIDStr)
-
-		return echo.NewHTTPError(http.StatusForbidden, msg).SetInternal(err)
-	} else if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "an error occurred checking permissions").SetInternal(err)
+	if err := r.checkActionWithResponse(ctx, subjectResource, action, resource); err != nil {
+		return err
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{})
+}
+
+func (r *Router) checkActionWithResponse(ctx context.Context, subjectResource types.Resource, action string, resource types.Resource) error {
+	err := r.engine.SubjectHasPermission(ctx, subjectResource, action, resource)
+
+	switch {
+	case errors.Is(err, query.ErrActionNotAssigned):
+		msg := fmt.Sprintf(
+			"subject '%s' does not have permission to perform action '%s' on resource '%s'",
+			subjectResource.ID.String(),
+			action,
+			resource.ID.String(),
+		)
+
+		return echo.NewHTTPError(http.StatusForbidden, msg).SetInternal(err)
+	case err != nil:
+		return echo.NewHTTPError(http.StatusInternalServerError, "an error occurred checking permissions").SetInternal(err)
+	default:
+		return nil
+	}
 }
 
 type checkPermissionsRequest struct {
@@ -124,14 +133,9 @@ func (r *Router) checkAllActions(c echo.Context) error {
 	defer span.End()
 
 	// Subject validation
-	subject, err := currentSubject(c)
+	subjectResource, err := r.currentSubject(c)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "failed to get the subject").SetInternal(err)
-	}
-
-	subjectResource, err := r.engine.NewResourceFromID(subject)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "error processing subject ID").SetInternal(err)
+		return err
 	}
 
 	var reqBody checkPermissionsRequest
@@ -223,8 +227,13 @@ func (r *Router) checkAllActions(c echo.Context) error {
 		case result := <-resultsCh:
 			if result.Error != nil {
 				if errors.Is(result.Error, query.ErrActionNotAssigned) {
-					err := fmt.Errorf("%w: subject '%s' does not have permission to perform action '%s' on resource '%s'",
-						ErrAccessDenied, subject, result.Request.Action, result.Request.Resource.ID.String())
+					err := fmt.Errorf(
+						"%w: subject '%s' does not have permission to perform action '%s' on resource '%s'",
+						ErrAccessDenied,
+						subjectResource.ID,
+						result.Request.Action,
+						result.Request.Resource.ID,
+					)
 
 					unauthorizedErrors++
 
@@ -254,7 +263,10 @@ func (r *Router) checkAllActions(c echo.Context) error {
 	}
 
 	if unauthorizedErrors != 0 {
-		msg := fmt.Sprintf("subject '%s' does not have permission to the requested resource actions", subject)
+		msg := fmt.Sprintf(
+			"subject '%s' does not have permission to the requested resource actions",
+			subjectResource.ID,
+		)
 
 		return echo.NewHTTPError(http.StatusForbidden, msg).SetInternal(multierr.Combine(allErrors...))
 	}

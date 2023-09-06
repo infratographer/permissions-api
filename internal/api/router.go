@@ -2,9 +2,11 @@ package api
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/labstack/echo/v4"
 	"go.infratographer.com/permissions-api/internal/query"
+	"go.infratographer.com/permissions-api/internal/types"
 	"go.infratographer.com/x/echojwtx"
 	"go.infratographer.com/x/gidx"
 	"go.opentelemetry.io/otel"
@@ -97,8 +99,18 @@ func WithCheckConcurrency(count int) Option {
 	}
 }
 
-func currentSubject(c echo.Context) (gidx.PrefixedID, error) {
-	subject := echojwtx.Actor(c)
+func (r *Router) currentSubject(c echo.Context) (types.Resource, error) {
+	subjectStr := echojwtx.Actor(c)
 
-	return gidx.Parse(subject)
+	subject, err := gidx.Parse(subjectStr)
+	if err != nil {
+		return types.Resource{}, echo.NewHTTPError(http.StatusBadRequest, "failed to get the subject").SetInternal(err)
+	}
+
+	subjectResource, err := r.engine.NewResourceFromID(subject)
+	if err != nil {
+		return types.Resource{}, echo.NewHTTPError(http.StatusBadRequest, "error processing subject ID").SetInternal(err)
+	}
+
+	return subjectResource, nil
 }
