@@ -9,6 +9,10 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+const (
+	actionRoleCreate = "role_create"
+)
+
 func (r *Router) roleCreate(c echo.Context) error {
 	resourceIDStr := c.Param("id")
 
@@ -27,9 +31,18 @@ func (r *Router) roleCreate(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "error parsing request body").SetInternal(err)
 	}
 
+	subjectResource, err := r.currentSubject(c)
+	if err != nil {
+		return err
+	}
+
 	resource, err := r.engine.NewResourceFromID(resourceID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "error creating resource").SetInternal(err)
+	}
+
+	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleCreate, resource); err != nil {
+		return err
 	}
 
 	role, _, err := r.engine.CreateRole(ctx, resource, reqBody.Actions)

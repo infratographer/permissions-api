@@ -30,12 +30,20 @@ unions:
     resourcetypenames:
       - tenant
 actions:
+  - name: role_create
   - name: loadbalancer_create
   - name: loadbalancer_get
   - name: loadbalancer_list
   - name: loadbalancer_update
   - name: loadbalancer_delete
 actionbindings:
+  - actionname: role_create
+    typename: resourceowner
+    conditions:
+      - rolebinding: {}
+      - relationshipaction:
+          relation: parent
+          actionname: role_create
   - actionname: loadbalancer_create
     typename: resourceowner
     conditions:
