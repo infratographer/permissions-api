@@ -25,28 +25,6 @@ type listRolesResponse struct {
 	Data []roleResponse `json:"data"`
 }
 
-type createRelationshipItem struct {
-	Relation  string `json:"relation" binding:"required"`
-	SubjectID string `json:"subject_id" binding:"required"`
-}
-
-type createRelationshipsRequest struct {
-	Relationships []createRelationshipItem `json:"relationships" binding:"required"`
-}
-
-type createRelationshipsResponse struct {
-	Success bool `json:"success"`
-}
-
-type deleteRelationshipRequest struct {
-	Relation  string `json:"relation" binding:"required"`
-	SubjectID string `json:"subject_id" binding:"required"`
-}
-
-type deleteRelationshipsResponse struct {
-	Success bool `json:"success"`
-}
-
 type relationshipItem struct {
 	ResourceID string `json:"resource_id,omitempty"`
 	Relation   string `json:"relation"`
