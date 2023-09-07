@@ -3,48 +3,11 @@ package api
 import (
 	"net/http"
 
-	"go.infratographer.com/permissions-api/internal/types"
-
 	"github.com/labstack/echo/v4"
 	"go.infratographer.com/x/gidx"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
-
-func (r *Router) buildRelationship(resource types.Resource, item createRelationshipItem) (types.Relationship, error) {
-	itemID, err := gidx.Parse(item.SubjectID)
-	if err != nil {
-		return types.Relationship{}, err
-	}
-
-	itemResource, err := r.engine.NewResourceFromID(itemID)
-	if err != nil {
-		return types.Relationship{}, err
-	}
-
-	out := types.Relationship{
-		Subject:  itemResource,
-		Relation: item.Relation,
-		Resource: resource,
-	}
-
-	return out, nil
-}
-
-func (r *Router) buildRelationships(subjResource types.Resource, items []createRelationshipItem) ([]types.Relationship, error) {
-	out := make([]types.Relationship, len(items))
-
-	for i, item := range items {
-		rel, err := r.buildRelationship(subjResource, item)
-		if err != nil {
-			return nil, err
-		}
-
-		out[i] = rel
-	}
-
-	return out, nil
-}
 
 func (r *Router) relationshipListFrom(c echo.Context) error {
 	resourceIDStr := c.Param("id")
