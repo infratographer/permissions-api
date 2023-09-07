@@ -29,21 +29,40 @@ func (r *Router) assignmentCreate(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "error parsing request body").SetInternal(err)
 	}
 
-	subjID, err := gidx.Parse(reqBody.SubjectID)
+	assigneeID, err := gidx.Parse(reqBody.SubjectID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "error parsing subject ID").SetInternal(err)
 	}
 
-	subjResource, err := r.engine.NewResourceFromID(subjID)
+	assigneeResource, err := r.engine.NewResourceFromID(assigneeID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "error creating resource").SetInternal(err)
+	}
+
+	subjectResource, err := r.currentSubject(c)
+	if err != nil {
+		return err
+	}
+
+	roleResource, err := r.engine.NewResourceFromID(roleID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+	}
+
+	resource, err := r.engine.GetRoleResource(ctx, roleResource, "")
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "error getting resource").SetInternal(err)
+	}
+
+	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleUpdate, resource); err != nil {
+		return err
 	}
 
 	role := types.Role{
 		ID: roleID,
 	}
 
-	_, err = r.engine.AssignSubjectRole(ctx, subjResource, role)
+	_, err = r.engine.AssignSubjectRole(ctx, assigneeResource, role)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "error creating resource").SetInternal(err)
 	}
@@ -65,6 +84,25 @@ func (r *Router) assignmentsList(c echo.Context) error {
 
 	ctx, span := tracer.Start(c.Request().Context(), "api.assignmentCreate", trace.WithAttributes(attribute.String("role_id", roleIDStr)))
 	defer span.End()
+
+	subjectResource, err := r.currentSubject(c)
+	if err != nil {
+		return err
+	}
+
+	roleResource, err := r.engine.NewResourceFromID(roleID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+	}
+
+	resource, err := r.engine.GetRoleResource(ctx, roleResource, "")
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "error getting resource").SetInternal(err)
+	}
+
+	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleGet, resource); err != nil {
+		return err
+	}
 
 	role := types.Role{
 		ID: roleID,
@@ -110,21 +148,40 @@ func (r *Router) assignmentDelete(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "error parsing request body").SetInternal(err)
 	}
 
-	subjID, err := gidx.Parse(reqBody.SubjectID)
+	assigneeID, err := gidx.Parse(reqBody.SubjectID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "error parsing subject ID").SetInternal(err)
 	}
 
-	subjResource, err := r.engine.NewResourceFromID(subjID)
+	assigneeResource, err := r.engine.NewResourceFromID(assigneeID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "error parsing resource type from subject").SetInternal(err)
+	}
+
+	subjectResource, err := r.currentSubject(c)
+	if err != nil {
+		return err
+	}
+
+	roleResource, err := r.engine.NewResourceFromID(roleID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+	}
+
+	resource, err := r.engine.GetRoleResource(ctx, roleResource, "")
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "error getting resource").SetInternal(err)
+	}
+
+	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleUpdate, resource); err != nil {
+		return err
 	}
 
 	role := types.Role{
 		ID: roleID,
 	}
 
-	_, err = r.engine.UnassignSubjectRole(ctx, subjResource, role)
+	_, err = r.engine.UnassignSubjectRole(ctx, assigneeResource, role)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "error deleting assignment").SetInternal(err)
 	}
