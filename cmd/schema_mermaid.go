@@ -26,7 +26,7 @@ var (
 	}
     {{- range $rel := $resource.Relationships }}
 	{{- range $targetName := $rel.TargetTypeNames }}
-	{{ $resource.Name }} ||--o{ {{ $targetName }} : {{ $rel.Relation }}
+	{{ $resource.Name }} }o--o{ {{ $targetName }} : {{ $rel.Relation }}
 	{{- end }}
 	{{- end }}
 {{- end }}
@@ -35,9 +35,14 @@ var (
 		{{- range $action := index $.Actions $union.Name }}
 		perm {{ $action }}
 		{{- end }}
+		{{- range $relation, $actions := index $.RelatedActions $union.Name }}
+		{{- range $action := $actions }}
+		{{ $relation }}_perm {{ $action }}
+		{{- end }}
+		{{- end }}
 	}
 	{{- range $typ := $union.ResourceTypeNames }}
-	{{ $union.Name }} }o--|| {{ $typ }} : alias
+	{{ $union.Name }} ||--|| {{ $typ }} : alias
 	{{- end }}
 {{- end }}`
 
