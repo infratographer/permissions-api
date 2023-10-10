@@ -16,11 +16,11 @@ var (
 	{{ $resource.Name }} {
 		id_prefix {{ $resource.IDPrefix }}
 		{{- range $action := index $.Actions $resource.Name }}
-		perm {{ $action }}
+		action {{ $action }}
 		{{- end }}
 		{{- range $relation, $actions := index $.RelatedActions $resource.Name }}
 		{{- range $action := $actions }}
-		{{ $relation }}_perm {{ $action }}
+		{{ $relation }}_action {{ $action }}
 		{{- end }}
 		{{- end }}
 	}
@@ -33,11 +33,11 @@ var (
 {{- range $union := .Unions }}
 	{{ $union.Name }} {
 		{{- range $action := index $.Actions $union.Name }}
-		perm {{ $action }}
+		action {{ $action }}
 		{{- end }}
 		{{- range $relation, $actions := index $.RelatedActions $union.Name }}
 		{{- range $action := $actions }}
-		{{ $relation }}_perm {{ $action }}
+		{{ $relation }}_action {{ $action }}
 		{{- end }}
 		{{- end }}
 	}
