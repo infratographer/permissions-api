@@ -16,28 +16,33 @@ var (
 	{{ $resource.Name }} {
 		id_prefix {{ $resource.IDPrefix }}
 		{{- range $action := index $.Actions $resource.Name }}
-		perm {{ $action }}
+		action {{ $action }}
 		{{- end }}
 		{{- range $relation, $actions := index $.RelatedActions $resource.Name }}
 		{{- range $action := $actions }}
-		{{ $relation }}_perm {{ $action }}
+		{{ $relation }}_action {{ $action }}
 		{{- end }}
 		{{- end }}
 	}
     {{- range $rel := $resource.Relationships }}
 	{{- range $targetName := $rel.TargetTypeNames }}
-	{{ $resource.Name }} ||--o{ {{ $targetName }} : {{ $rel.Relation }}
+	{{ $resource.Name }} }o--o{ {{ $targetName }} : {{ $rel.Relation }}
 	{{- end }}
 	{{- end }}
 {{- end }}
 {{- range $union := .Unions }}
 	{{ $union.Name }} {
 		{{- range $action := index $.Actions $union.Name }}
-		perm {{ $action }}
+		action {{ $action }}
+		{{- end }}
+		{{- range $relation, $actions := index $.RelatedActions $union.Name }}
+		{{- range $action := $actions }}
+		{{ $relation }}_action {{ $action }}
+		{{- end }}
 		{{- end }}
 	}
 	{{- range $typ := $union.ResourceTypeNames }}
-	{{ $union.Name }} }o--|| {{ $typ }} : alias
+	{{ $union.Name }} ||--|| {{ $typ }} : alias
 	{{- end }}
 {{- end }}`
 
