@@ -5,12 +5,13 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"go.infratographer.com/x/gidx"
+	"go.infratographer.com/x/viperx"
+
 	"go.infratographer.com/permissions-api/internal/config"
 	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/permissions-api/internal/spicedbx"
-	"go.infratographer.com/x/gidx"
-	"go.infratographer.com/x/viperx"
 )
 
 const (

@@ -7,8 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"go.infratographer.com/permissions-api/internal/query"
-	"go.infratographer.com/permissions-api/internal/types"
 	"go.infratographer.com/x/events"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -16,6 +14,9 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
+
+	"go.infratographer.com/permissions-api/internal/query"
+	"go.infratographer.com/permissions-api/internal/types"
 )
 
 const nakDelay = 10 * time.Second

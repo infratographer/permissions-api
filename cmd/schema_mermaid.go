@@ -6,8 +6,9 @@ import (
 	"os"
 	"text/template"
 
-	"go.infratographer.com/permissions-api/internal/iapl"
 	"gopkg.in/yaml.v3"
+
+	"go.infratographer.com/permissions-api/internal/iapl"
 )
 
 var (

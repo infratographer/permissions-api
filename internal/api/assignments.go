@@ -3,8 +3,9 @@ package api
 import (
 	"net/http"
 
-	"go.infratographer.com/permissions-api/internal/types"
 	"go.infratographer.com/x/gidx"
+
+	"go.infratographer.com/permissions-api/internal/types"
 
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel/attribute"

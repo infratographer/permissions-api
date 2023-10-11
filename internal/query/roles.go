@@ -1,8 +1,9 @@
 package query
 
 import (
-	"go.infratographer.com/permissions-api/internal/types"
 	"go.infratographer.com/x/gidx"
+
+	"go.infratographer.com/permissions-api/internal/types"
 )
 
 const (

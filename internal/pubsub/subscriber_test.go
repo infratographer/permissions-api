@@ -6,12 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"go.infratographer.com/permissions-api/internal/query"
-	"go.infratographer.com/permissions-api/internal/query/mock"
-	"go.infratographer.com/permissions-api/internal/testingx"
 	"go.infratographer.com/x/events"
 	"go.infratographer.com/x/gidx"
 	"go.infratographer.com/x/testing/eventtools"
+
+	"go.infratographer.com/permissions-api/internal/query"
+	"go.infratographer.com/permissions-api/internal/query/mock"
+	"go.infratographer.com/permissions-api/internal/testingx"
 
 	"github.com/stretchr/testify/require"
 )

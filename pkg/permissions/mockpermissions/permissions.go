@@ -6,9 +6,10 @@ import (
 	"context"
 
 	"github.com/stretchr/testify/mock"
-	"go.infratographer.com/permissions-api/pkg/permissions"
 	"go.infratographer.com/x/events"
 	"go.infratographer.com/x/gidx"
+
+	"go.infratographer.com/permissions-api/pkg/permissions"
 )
 
 var _ permissions.AuthRelationshipRequestHandler = (*MockPermissions)(nil)

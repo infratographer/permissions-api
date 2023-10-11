@@ -8,11 +8,12 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"go.infratographer.com/permissions-api/internal/query"
-	"go.infratographer.com/permissions-api/internal/types"
 	"go.infratographer.com/x/gidx"
 	"go.opentelemetry.io/otel/codes"
 	"go.uber.org/multierr"
+
+	"go.infratographer.com/permissions-api/internal/query"
+	"go.infratographer.com/permissions-api/internal/types"
 )
 
 const (

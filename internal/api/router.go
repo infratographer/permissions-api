@@ -5,12 +5,13 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	"go.infratographer.com/permissions-api/internal/query"
-	"go.infratographer.com/permissions-api/internal/types"
 	"go.infratographer.com/x/echojwtx"
 	"go.infratographer.com/x/gidx"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
+
+	"go.infratographer.com/permissions-api/internal/query"
+	"go.infratographer.com/permissions-api/internal/types"
 )
 
 var tracer = otel.Tracer("go.infratographer.com/permissions-api/internal/api")
