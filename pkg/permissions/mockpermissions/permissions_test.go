@@ -5,10 +5,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.infratographer.com/permissions-api/pkg/permissions"
-	"go.infratographer.com/permissions-api/pkg/permissions/mockpermissions"
 	"go.infratographer.com/x/events"
 	"go.infratographer.com/x/gidx"
+
+	"go.infratographer.com/permissions-api/pkg/permissions"
+	"go.infratographer.com/permissions-api/pkg/permissions/mockpermissions"
 )
 
 func TestPermissions(t *testing.T) {

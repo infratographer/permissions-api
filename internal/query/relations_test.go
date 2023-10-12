@@ -9,11 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"go.infratographer.com/x/gidx"
+
 	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/spicedbx"
 	"go.infratographer.com/permissions-api/internal/testingx"
 	"go.infratographer.com/permissions-api/internal/types"
-	"go.infratographer.com/x/gidx"
 )
 
 func testEngine(ctx context.Context, t *testing.T, namespace string) Engine {

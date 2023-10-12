@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"go.infratographer.com/permissions-api/internal/types"
+
 	"gopkg.in/yaml.v3"
 )
 

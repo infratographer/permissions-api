@@ -8,12 +8,13 @@ import (
 	"strings"
 
 	pb "github.com/authzed/authzed-go/proto/authzed/api/v1"
-	"go.infratographer.com/permissions-api/internal/types"
 	"go.infratographer.com/x/gidx"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
+
+	"go.infratographer.com/permissions-api/internal/types"
 )
 
 var roleSubjectRelation = "subject"

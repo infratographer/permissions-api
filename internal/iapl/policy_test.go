@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
 	"go.infratographer.com/permissions-api/internal/testingx"
 )
 

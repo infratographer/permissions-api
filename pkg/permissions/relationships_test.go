@@ -8,10 +8,11 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
-	"go.infratographer.com/permissions-api/pkg/permissions"
 	"go.infratographer.com/x/events"
 	"go.infratographer.com/x/gidx"
 	"go.infratographer.com/x/testing/eventtools"
+
+	"go.infratographer.com/permissions-api/pkg/permissions"
 )
 
 func TestMiddlewareMissing(t *testing.T) {
