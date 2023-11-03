@@ -20,6 +20,6 @@ func MustViperFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	flags.String("permissions-url", "", "sets the permissions url checks should be run against")
 	viperx.MustBindFlag(v, "permissions.url", flags.Lookup("permissions-url"))
 
-	flags.String("permissions-ignore-no-responders", "", "ignores no responder errors when auth relationship requests are published")
-	viperx.MustBindFlag(v, "permissions.ignoreAuthRelationshipNoResponders", flags.Lookup("permissions-ignore-no-responders"))
+	flags.Bool("permissions-ignore-no-responders", false, "ignores no responder errors when auth relationship requests are published")
+	viperx.MustBindFlag(v, "permissions.ignoreNoResponders", flags.Lookup("permissions-ignore-no-responders"))
 }
