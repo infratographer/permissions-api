@@ -8,6 +8,11 @@
       "matchUpdateTypes": ["minor", "patch"],
       "matchCurrentVersion": "!/^0/",
       "automerge": true
+    },
+    {
+      "matchPackagePrefixes": ["go.opentelemetry.io"],
+      "groupName": "Update OTEL",
+      "groupSlug": "update-otel"
     }
   ],
   "postUpdateOptions": [
