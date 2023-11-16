@@ -160,8 +160,7 @@ func (s *Subscriber) processEvent(msg events.Request[events.AuthRelationshipRequ
 
 func (s *Subscriber) createRelationships(ctx context.Context, relationships []types.Relationship) error {
 	// Attempt to create the relationships in SpiceDB.
-	_, err := s.qe.CreateRelationships(ctx, relationships)
-	if err != nil {
+	if err := s.qe.CreateRelationships(ctx, relationships); err != nil {
 		return fmt.Errorf("%w: error creating relationships", err)
 	}
 
@@ -169,8 +168,7 @@ func (s *Subscriber) createRelationships(ctx context.Context, relationships []ty
 }
 
 func (s *Subscriber) deleteRelationships(ctx context.Context, relationships []types.Relationship) error {
-	_, err := s.qe.DeleteRelationships(ctx, relationships...)
-	if err != nil {
+	if err := s.qe.DeleteRelationships(ctx, relationships...); err != nil {
 		return err
 	}
 

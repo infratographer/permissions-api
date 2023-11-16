@@ -98,13 +98,12 @@ func createRole(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("error creating subject resource", "error", err)
 	}
 
-	role, _, err := engine.CreateRole(ctx, resource, actions)
+	role, err := engine.CreateRole(ctx, resource, actions)
 	if err != nil {
 		logger.Fatalw("error creating role", "error", err)
 	}
 
-	_, err = engine.AssignSubjectRole(ctx, subjectResource, role)
-	if err != nil {
+	if err = engine.AssignSubjectRole(ctx, subjectResource, role); err != nil {
 		logger.Fatalw("error creating role", "error", err)
 	}
 

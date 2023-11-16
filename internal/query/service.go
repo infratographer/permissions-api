@@ -20,19 +20,19 @@ const (
 
 // Engine represents a client for making permissions queries.
 type Engine interface {
-	AssignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) (string, error)
-	UnassignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) (string, error)
-	CreateRelationships(ctx context.Context, rels []types.Relationship) (string, error)
-	CreateRole(ctx context.Context, res types.Resource, actions []string) (types.Role, string, error)
-	GetRole(ctx context.Context, roleResource types.Resource, queryToken string) (types.Role, error)
-	GetRoleResource(ctx context.Context, roleResource types.Resource, queryToken string) (types.Resource, error)
-	ListAssignments(ctx context.Context, role types.Role, queryToken string) ([]types.Resource, error)
-	ListRelationshipsFrom(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error)
-	ListRelationshipsTo(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error)
-	ListRoles(ctx context.Context, resource types.Resource, queryToken string) ([]types.Role, error)
-	DeleteRelationships(ctx context.Context, relationships ...types.Relationship) (string, error)
-	DeleteRole(ctx context.Context, roleResource types.Resource, queryToken string) (string, error)
-	DeleteResourceRelationships(ctx context.Context, resource types.Resource) (string, error)
+	AssignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) error
+	UnassignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) error
+	CreateRelationships(ctx context.Context, rels []types.Relationship) error
+	CreateRole(ctx context.Context, res types.Resource, actions []string) (types.Role, error)
+	GetRole(ctx context.Context, roleResource types.Resource) (types.Role, error)
+	GetRoleResource(ctx context.Context, roleResource types.Resource) (types.Resource, error)
+	ListAssignments(ctx context.Context, role types.Role) ([]types.Resource, error)
+	ListRelationshipsFrom(ctx context.Context, resource types.Resource) ([]types.Relationship, error)
+	ListRelationshipsTo(ctx context.Context, resource types.Resource) ([]types.Relationship, error)
+	ListRoles(ctx context.Context, resource types.Resource) ([]types.Role, error)
+	DeleteRelationships(ctx context.Context, relationships ...types.Relationship) error
+	DeleteRole(ctx context.Context, roleResource types.Resource) error
+	DeleteResourceRelationships(ctx context.Context, resource types.Resource) error
 	NewResourceFromID(id gidx.PrefixedID) (types.Resource, error)
 	GetResourceType(name string) *types.ResourceType
 	SubjectHasPermission(ctx context.Context, subject types.Resource, action string, resource types.Resource) error
