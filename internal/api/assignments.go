@@ -50,7 +50,7 @@ func (r *Router) assignmentCreate(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
 	}
 
-	resource, err := r.engine.GetRoleResource(ctx, roleResource, "")
+	resource, err := r.engine.GetRoleResource(ctx, roleResource)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "error getting resource").SetInternal(err)
 	}
@@ -63,8 +63,7 @@ func (r *Router) assignmentCreate(c echo.Context) error {
 		ID: roleID,
 	}
 
-	_, err = r.engine.AssignSubjectRole(ctx, assigneeResource, role)
-	if err != nil {
+	if err = r.engine.AssignSubjectRole(ctx, assigneeResource, role); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "error creating resource").SetInternal(err)
 	}
 
@@ -96,7 +95,7 @@ func (r *Router) assignmentsList(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
 	}
 
-	resource, err := r.engine.GetRoleResource(ctx, roleResource, "")
+	resource, err := r.engine.GetRoleResource(ctx, roleResource)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "error getting resource").SetInternal(err)
 	}
@@ -109,7 +108,7 @@ func (r *Router) assignmentsList(c echo.Context) error {
 		ID: roleID,
 	}
 
-	assignments, err := r.engine.ListAssignments(ctx, role, "")
+	assignments, err := r.engine.ListAssignments(ctx, role)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "error listing assignments").SetInternal(err)
 	}
@@ -169,7 +168,7 @@ func (r *Router) assignmentDelete(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
 	}
 
-	resource, err := r.engine.GetRoleResource(ctx, roleResource, "")
+	resource, err := r.engine.GetRoleResource(ctx, roleResource)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "error getting resource").SetInternal(err)
 	}
@@ -182,8 +181,7 @@ func (r *Router) assignmentDelete(c echo.Context) error {
 		ID: roleID,
 	}
 
-	_, err = r.engine.UnassignSubjectRole(ctx, assigneeResource, role)
-	if err != nil {
+	if err = r.engine.UnassignSubjectRole(ctx, assigneeResource, role); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "error deleting assignment").SetInternal(err)
 	}
 

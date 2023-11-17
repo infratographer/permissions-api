@@ -124,14 +124,14 @@ func TestCreateRoles(t *testing.T) {
 		tenRes, err := e.NewResourceFromID(tenID)
 		require.NoError(t, err)
 
-		_, queryToken, err := e.CreateRole(ctx, tenRes, actions)
+		_, err = e.CreateRole(ctx, tenRes, actions)
 		if err != nil {
 			return testingx.TestResult[[]types.Role]{
 				Err: err,
 			}
 		}
 
-		roles, err := e.ListRoles(ctx, tenRes, queryToken)
+		roles, err := e.ListRoles(ctx, tenRes)
 
 		return testingx.TestResult[[]types.Role]{
 			Success: roles,
@@ -151,7 +151,7 @@ func TestGetRoles(t *testing.T) {
 	tenRes, err := e.NewResourceFromID(tenID)
 	require.NoError(t, err)
 
-	role, queryToken, err := e.CreateRole(ctx, tenRes, []string{"loadbalancer_get"})
+	role, err := e.CreateRole(ctx, tenRes, []string{"loadbalancer_get"})
 	require.NoError(t, err)
 	roleRes, err := e.NewResourceFromID(role.ID)
 	require.NoError(t, err)
@@ -184,7 +184,7 @@ func TestGetRoles(t *testing.T) {
 	}
 
 	testFn := func(ctx context.Context, roleResource types.Resource) testingx.TestResult[types.Role] {
-		roles, err := e.GetRole(ctx, roleResource, queryToken)
+		roles, err := e.GetRole(ctx, roleResource)
 
 		return testingx.TestResult[types.Role]{
 			Success: roles,
@@ -205,9 +205,9 @@ func TestRoleDelete(t *testing.T) {
 	tenRes, err := e.NewResourceFromID(tenID)
 	require.NoError(t, err)
 
-	role, queryToken, err := e.CreateRole(ctx, tenRes, []string{"loadbalancer_get"})
+	role, err := e.CreateRole(ctx, tenRes, []string{"loadbalancer_get"})
 	require.NoError(t, err)
-	roles, err := e.ListRoles(ctx, tenRes, queryToken)
+	roles, err := e.ListRoles(ctx, tenRes)
 	require.NoError(t, err)
 	require.NotEmpty(t, roles)
 
@@ -237,14 +237,14 @@ func TestRoleDelete(t *testing.T) {
 			}
 		}
 
-		queryToken, err = e.DeleteRole(ctx, roleResource, queryToken)
+		err = e.DeleteRole(ctx, roleResource)
 		if err != nil {
 			return testingx.TestResult[[]types.Role]{
 				Err: err,
 			}
 		}
 
-		roles, err := e.ListRoles(ctx, tenRes, queryToken)
+		roles, err := e.ListRoles(ctx, tenRes)
 
 		return testingx.TestResult[[]types.Role]{
 			Success: roles,
@@ -268,7 +268,7 @@ func TestAssignments(t *testing.T) {
 	require.NoError(t, err)
 	subjRes, err := e.NewResourceFromID(subjID)
 	require.NoError(t, err)
-	role, _, err := e.CreateRole(
+	role, err := e.CreateRole(
 		ctx,
 		tenRes,
 		[]string{
@@ -293,14 +293,14 @@ func TestAssignments(t *testing.T) {
 	}
 
 	testFn := func(ctx context.Context, role types.Role) testingx.TestResult[[]types.Resource] {
-		queryToken, err := e.AssignSubjectRole(ctx, subjRes, role)
+		err := e.AssignSubjectRole(ctx, subjRes, role)
 		if err != nil {
 			return testingx.TestResult[[]types.Resource]{
 				Err: err,
 			}
 		}
 
-		resources, err := e.ListAssignments(ctx, role, queryToken)
+		resources, err := e.ListAssignments(ctx, role)
 
 		return testingx.TestResult[[]types.Resource]{
 			Success: resources,
@@ -324,7 +324,7 @@ func TestUnassignments(t *testing.T) {
 	require.NoError(t, err)
 	subjRes, err := e.NewResourceFromID(subjID)
 	require.NoError(t, err)
-	role, _, err := e.CreateRole(
+	role, err := e.CreateRole(
 		ctx,
 		tenRes,
 		[]string{
@@ -345,14 +345,14 @@ func TestUnassignments(t *testing.T) {
 	}
 
 	testFn := func(ctx context.Context, role types.Role) testingx.TestResult[[]types.Resource] {
-		queryToken, err := e.AssignSubjectRole(ctx, subjRes, role)
+		err := e.AssignSubjectRole(ctx, subjRes, role)
 		if err != nil {
 			return testingx.TestResult[[]types.Resource]{
 				Err: err,
 			}
 		}
 
-		resources, err := e.ListAssignments(ctx, role, queryToken)
+		resources, err := e.ListAssignments(ctx, role)
 		if err != nil {
 			return testingx.TestResult[[]types.Resource]{
 				Err: err,
@@ -371,14 +371,14 @@ func TestUnassignments(t *testing.T) {
 
 		require.True(t, found, "expected assignment to be found")
 
-		queryToken, err = e.UnassignSubjectRole(ctx, subjRes, role)
+		err = e.UnassignSubjectRole(ctx, subjRes, role)
 		if err != nil {
 			return testingx.TestResult[[]types.Resource]{
 				Err: err,
 			}
 		}
 
-		resources, err = e.ListAssignments(ctx, role, queryToken)
+		resources, err = e.ListAssignments(ctx, role)
 
 		return testingx.TestResult[[]types.Resource]{
 			Success: resources,
@@ -462,14 +462,14 @@ func TestRelationships(t *testing.T) {
 	}
 
 	testFn := func(ctx context.Context, input types.Relationship) testingx.TestResult[[]types.Relationship] {
-		queryToken, err := e.CreateRelationships(ctx, []types.Relationship{input})
+		err := e.CreateRelationships(ctx, []types.Relationship{input})
 		if err != nil {
 			return testingx.TestResult[[]types.Relationship]{
 				Err: err,
 			}
 		}
 
-		rels, err := e.ListRelationshipsFrom(ctx, input.Resource, queryToken)
+		rels, err := e.ListRelationshipsFrom(ctx, input.Resource)
 
 		return testingx.TestResult[[]types.Relationship]{
 			Success: rels,
@@ -500,10 +500,10 @@ func TestRelationshipDelete(t *testing.T) {
 		Subject:  parentRes,
 	}
 
-	queryToken, err := e.CreateRelationships(ctx, []types.Relationship{relReq})
+	err = e.CreateRelationships(ctx, []types.Relationship{relReq})
 	require.NoError(t, err)
 
-	createdResources, err := e.ListRelationshipsFrom(ctx, childRes, queryToken)
+	createdResources, err := e.ListRelationshipsFrom(ctx, childRes)
 	require.NoError(t, err)
 	require.NotEmpty(t, createdResources)
 
@@ -534,14 +534,14 @@ func TestRelationshipDelete(t *testing.T) {
 	}
 
 	testFn := func(ctx context.Context, input types.Relationship) testingx.TestResult[[]types.Relationship] {
-		queryToken, err := e.DeleteRelationships(ctx, input)
+		err := e.DeleteRelationships(ctx, input)
 		if err != nil {
 			return testingx.TestResult[[]types.Relationship]{
 				Err: err,
 			}
 		}
 
-		rels, err := e.ListRelationshipsFrom(ctx, input.Resource, queryToken)
+		rels, err := e.ListRelationshipsFrom(ctx, input.Resource)
 
 		return testingx.TestResult[[]types.Relationship]{
 			Success: rels,
@@ -569,7 +569,7 @@ func TestSubjectActions(t *testing.T) {
 	require.NoError(t, err)
 	subjRes, err := e.NewResourceFromID(subjID)
 	require.NoError(t, err)
-	role, _, err := e.CreateRole(
+	role, err := e.CreateRole(
 		ctx,
 		tenRes,
 		[]string{
@@ -577,7 +577,7 @@ func TestSubjectActions(t *testing.T) {
 		},
 	)
 	assert.NoError(t, err)
-	_, err = e.AssignSubjectRole(ctx, subjRes, role)
+	err = e.AssignSubjectRole(ctx, subjRes, role)
 	assert.NoError(t, err)
 
 	type testInput struct {

@@ -126,37 +126,35 @@ func (e *engine) SubjectHasPermission(ctx context.Context, subject types.Resourc
 }
 
 // AssignSubjectRole assigns the given role to the given subject.
-func (e *engine) AssignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) (string, error) {
+func (e *engine) AssignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) error {
 	request := &pb.WriteRelationshipsRequest{
 		Updates: []*pb.RelationshipUpdate{
 			e.subjectRoleRelCreate(subject, role),
 		},
 	}
-	r, err := e.client.WriteRelationships(ctx, request)
 
-	if err != nil {
-		return "", err
+	if _, err := e.client.WriteRelationships(ctx, request); err != nil {
+		return err
 	}
 
-	return r.WrittenAt.GetToken(), nil
+	return nil
 }
 
 // UnassignSubjectRole removes the given role from the given subject.
-func (e *engine) UnassignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) (string, error) {
+func (e *engine) UnassignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) error {
 	request := &pb.DeleteRelationshipsRequest{
 		RelationshipFilter: e.subjectRoleRelDelete(subject, role),
 	}
-	r, err := e.client.DeleteRelationships(ctx, request)
 
-	if err != nil {
-		return "", err
+	if _, err := e.client.DeleteRelationships(ctx, request); err != nil {
+		return err
 	}
 
-	return r.DeletedAt.GetToken(), nil
+	return nil
 }
 
 // ListAssignments returns the assigned subjects for a given role.
-func (e *engine) ListAssignments(ctx context.Context, role types.Role, queryToken string) ([]types.Resource, error) {
+func (e *engine) ListAssignments(ctx context.Context, role types.Role) ([]types.Resource, error) {
 	roleType := e.namespace + "/role"
 	filter := &pb.RelationshipFilter{
 		ResourceType:       roleType,
@@ -164,7 +162,7 @@ func (e *engine) ListAssignments(ctx context.Context, role types.Role, queryToke
 		OptionalRelation:   roleSubjectRelation,
 	}
 
-	relationships, err := e.readRelationships(ctx, filter, queryToken)
+	relationships, err := e.readRelationships(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +235,7 @@ func (e *engine) checkPermission(ctx context.Context, req *pb.CheckPermissionReq
 }
 
 // CreateRelationships atomically creates the given relationships in SpiceDB.
-func (e *engine) CreateRelationships(ctx context.Context, rels []types.Relationship) (string, error) {
+func (e *engine) CreateRelationships(ctx context.Context, rels []types.Relationship) error {
 	ctx, span := e.tracer.Start(ctx, "engine.CreateRelationships", trace.WithAttributes(attribute.Int("relationships", len(rels))))
 
 	defer span.End()
@@ -248,7 +246,7 @@ func (e *engine) CreateRelationships(ctx context.Context, rels []types.Relations
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
 
-			return "", err
+			return err
 		}
 	}
 
@@ -258,30 +256,28 @@ func (e *engine) CreateRelationships(ctx context.Context, rels []types.Relations
 		Updates: relUpdates,
 	}
 
-	r, err := e.client.WriteRelationships(ctx, request)
-	if err != nil {
+	if _, err := e.client.WriteRelationships(ctx, request); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 
-		return "", err
+		return err
 	}
 
-	return r.WrittenAt.GetToken(), nil
+	return nil
 }
 
 // CreateRole creates a role scoped to the given resource with the given actions.
-func (e *engine) CreateRole(ctx context.Context, res types.Resource, actions []string) (types.Role, string, error) {
+func (e *engine) CreateRole(ctx context.Context, res types.Resource, actions []string) (types.Role, error) {
 	role := newRole(actions)
 	roleRels := e.roleRelationships(role, res)
 
 	request := &pb.WriteRelationshipsRequest{Updates: roleRels}
 
-	r, err := e.client.WriteRelationships(ctx, request)
-	if err != nil {
-		return types.Role{}, "", err
+	if _, err := e.client.WriteRelationships(ctx, request); err != nil {
+		return types.Role{}, err
 	}
 
-	return role, r.WrittenAt.GetToken(), nil
+	return role, nil
 }
 
 func actionToRelation(action string) string {
@@ -348,17 +344,13 @@ func (e *engine) relationshipsToUpdates(rels []types.Relationship) []*pb.Relatio
 	return relUpdates
 }
 
-func (e *engine) readRelationships(ctx context.Context, filter *pb.RelationshipFilter, queryToken string) ([]*pb.Relationship, error) {
-	var req pb.ReadRelationshipsRequest
-
-	if queryToken != "" {
-		req.Consistency = &pb.Consistency{
-			Requirement: &pb.Consistency_AtLeastAsFresh{
-				AtLeastAsFresh: &pb.ZedToken{
-					Token: queryToken,
-				},
+func (e *engine) readRelationships(ctx context.Context, filter *pb.RelationshipFilter) ([]*pb.Relationship, error) {
+	req := pb.ReadRelationshipsRequest{
+		Consistency: &pb.Consistency{
+			Requirement: &pb.Consistency_FullyConsistent{
+				FullyConsistent: true,
 			},
-		}
+		},
 	}
 
 	req.RelationshipFilter = filter
@@ -390,7 +382,7 @@ func (e *engine) readRelationships(ctx context.Context, filter *pb.RelationshipF
 
 // DeleteRelationships removes the specified relationships.
 // If any relationships fails to be deleted, all completed deletions are re-created.
-func (e *engine) DeleteRelationships(ctx context.Context, relationships ...types.Relationship) (string, error) {
+func (e *engine) DeleteRelationships(ctx context.Context, relationships ...types.Relationship) error {
 	ctx, span := e.tracer.Start(ctx, "engine.DeleteRelationships", trace.WithAttributes(attribute.Int("relationships", len(relationships))))
 
 	defer span.End()
@@ -413,16 +405,15 @@ func (e *engine) DeleteRelationships(ctx context.Context, relationships ...types
 	if len(errors) != 0 {
 		span.SetStatus(codes.Error, "invalid relationships")
 
-		return "", multierr.Combine(errors...)
+		return multierr.Combine(errors...)
 	}
 
 	errors = []error{}
 
 	var (
-		complete   []types.Relationship
-		queryToken string
-		dErr       error
-		cErr       error
+		complete []types.Relationship
+		dErr     error
+		cErr     error
 	)
 
 	span.AddEvent("deleting relationships")
@@ -441,8 +432,7 @@ func (e *engine) DeleteRelationships(ctx context.Context, relationships ...types
 			},
 		}
 
-		queryToken, dErr = e.deleteRelationships(ctx, filter)
-		if dErr != nil {
+		if dErr = e.deleteRelationships(ctx, filter); dErr != nil {
 			e.logger.Errorf("%w: failed to delete relationship %d reverting %d completed deletes", dErr, i, len(complete))
 
 			err := fmt.Errorf("%w: failed to delete relationship %d", dErr, i)
@@ -463,8 +453,7 @@ func (e *engine) DeleteRelationships(ctx context.Context, relationships ...types
 		if len(complete) != 0 {
 			span.AddEvent("recreating deleted relationships")
 
-			_, cErr = e.CreateRelationships(ctx, complete)
-			if cErr != nil {
+			if cErr = e.CreateRelationships(ctx, complete); cErr != nil {
 				e.logger.Error("%w: failed to revert %d deleted relationships", cErr, len(complete))
 
 				err := fmt.Errorf("%w: failed to revert deleted relationships", cErr)
@@ -475,14 +464,14 @@ func (e *engine) DeleteRelationships(ctx context.Context, relationships ...types
 			}
 		}
 
-		return "", multierr.Combine(errors...)
+		return multierr.Combine(errors...)
 	}
 
-	return queryToken, nil
+	return nil
 }
 
 // DeleteResourceRelationships deletes all relationships originating from the given resource.
-func (e *engine) DeleteResourceRelationships(ctx context.Context, resource types.Resource) (string, error) {
+func (e *engine) DeleteResourceRelationships(ctx context.Context, resource types.Resource) error {
 	resType := e.namespace + "/" + resource.Type
 
 	filter := &pb.RelationshipFilter{
@@ -493,17 +482,16 @@ func (e *engine) DeleteResourceRelationships(ctx context.Context, resource types
 	return e.deleteRelationships(ctx, filter)
 }
 
-func (e *engine) deleteRelationships(ctx context.Context, filter *pb.RelationshipFilter) (string, error) {
+func (e *engine) deleteRelationships(ctx context.Context, filter *pb.RelationshipFilter) error {
 	request := &pb.DeleteRelationshipsRequest{
 		RelationshipFilter: filter,
 	}
-	r, err := e.client.DeleteRelationships(ctx, request)
 
-	if err != nil {
-		return "", err
+	if _, err := e.client.DeleteRelationships(ctx, request); err != nil {
+		return err
 	}
 
-	return r.DeletedAt.GetToken(), nil
+	return nil
 }
 
 func relationshipsToRoles(rels []*pb.Relationship) []types.Role {
@@ -582,7 +570,7 @@ func (e *engine) relationshipsToNonRoles(rels []*pb.Relationship) ([]types.Relat
 }
 
 // ListRelationshipsFrom returns all non-role relationships bound to a given resource.
-func (e *engine) ListRelationshipsFrom(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error) {
+func (e *engine) ListRelationshipsFrom(ctx context.Context, resource types.Resource) ([]types.Relationship, error) {
 	resType := e.namespace + "/" + resource.Type
 
 	filter := &pb.RelationshipFilter{
@@ -590,7 +578,7 @@ func (e *engine) ListRelationshipsFrom(ctx context.Context, resource types.Resou
 		OptionalResourceId: resource.ID.String(),
 	}
 
-	relationships, err := e.readRelationships(ctx, filter, queryToken)
+	relationships, err := e.readRelationships(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -599,7 +587,7 @@ func (e *engine) ListRelationshipsFrom(ctx context.Context, resource types.Resou
 }
 
 // ListRelationshipsTo returns all non-role relationships destined for a given resource.
-func (e *engine) ListRelationshipsTo(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error) {
+func (e *engine) ListRelationshipsTo(ctx context.Context, resource types.Resource) ([]types.Relationship, error) {
 	relTypes, ok := e.schemaSubjectRelationMap[resource.Type]
 	if !ok {
 		return nil, ErrInvalidType
@@ -615,7 +603,7 @@ func (e *engine) ListRelationshipsTo(ctx context.Context, resource types.Resourc
 					SubjectType:       e.namespace + "/" + resource.Type,
 					OptionalSubjectId: resource.ID.String(),
 				},
-			}, queryToken)
+			})
 			if err != nil {
 				return nil, err
 			}
@@ -628,7 +616,7 @@ func (e *engine) ListRelationshipsTo(ctx context.Context, resource types.Resourc
 }
 
 // ListRoles returns all roles bound to a given resource.
-func (e *engine) ListRoles(ctx context.Context, resource types.Resource, queryToken string) ([]types.Role, error) {
+func (e *engine) ListRoles(ctx context.Context, resource types.Resource) ([]types.Role, error) {
 	resType := e.namespace + "/" + resource.Type
 	roleType := e.namespace + "/role"
 
@@ -643,7 +631,7 @@ func (e *engine) ListRoles(ctx context.Context, resource types.Resource, queryTo
 		},
 	}
 
-	relationships, err := e.readRelationships(ctx, filter, queryToken)
+	relationships, err := e.readRelationships(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -655,7 +643,7 @@ func (e *engine) ListRoles(ctx context.Context, resource types.Resource, queryTo
 
 // listRoleResourceActions returns all resources and action relations for the provided resource type to the provided role.
 // Note: The actions returned by this function are the spicedb relationship action.
-func (e *engine) listRoleResourceActions(ctx context.Context, role types.Resource, resTypeName string, queryToken string) (map[types.Resource][]string, error) {
+func (e *engine) listRoleResourceActions(ctx context.Context, role types.Resource, resTypeName string) (map[types.Resource][]string, error) {
 	resType := e.namespace + "/" + resTypeName
 	roleType := e.namespace + "/role"
 
@@ -670,7 +658,7 @@ func (e *engine) listRoleResourceActions(ctx context.Context, role types.Resourc
 		},
 	}
 
-	relationships, err := e.readRelationships(ctx, filter, queryToken)
+	relationships, err := e.readRelationships(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -701,14 +689,14 @@ func (e *engine) listRoleResourceActions(ctx context.Context, role types.Resourc
 }
 
 // GetRole gets the role with it's actions.
-func (e *engine) GetRole(ctx context.Context, roleResource types.Resource, queryToken string) (types.Role, error) {
+func (e *engine) GetRole(ctx context.Context, roleResource types.Resource) (types.Role, error) {
 	var (
 		resActions map[types.Resource][]string
 		err        error
 	)
 
 	for _, resType := range e.schemaRoleables {
-		resActions, err = e.listRoleResourceActions(ctx, roleResource, resType.Name, queryToken)
+		resActions, err = e.listRoleResourceActions(ctx, roleResource, resType.Name)
 		if err != nil {
 			return types.Role{}, err
 		}
@@ -739,14 +727,14 @@ func (e *engine) GetRole(ctx context.Context, roleResource types.Resource, query
 }
 
 // GetRoleResource gets the role's assigned resource.
-func (e *engine) GetRoleResource(ctx context.Context, roleResource types.Resource, queryToken string) (types.Resource, error) {
+func (e *engine) GetRoleResource(ctx context.Context, roleResource types.Resource) (types.Resource, error) {
 	var (
 		resActions map[types.Resource][]string
 		err        error
 	)
 
 	for _, resType := range e.schemaRoleables {
-		resActions, err = e.listRoleResourceActions(ctx, roleResource, resType.Name, queryToken)
+		resActions, err = e.listRoleResourceActions(ctx, roleResource, resType.Name)
 		if err != nil {
 			return types.Resource{}, err
 		}
@@ -770,16 +758,16 @@ func (e *engine) GetRoleResource(ctx context.Context, roleResource types.Resourc
 }
 
 // DeleteRole removes all role actions from the assigned resource.
-func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource, queryToken string) (string, error) {
+func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource) error {
 	var (
 		resActions map[types.Resource][]string
 		err        error
 	)
 
 	for _, resType := range e.schemaRoleables {
-		resActions, err = e.listRoleResourceActions(ctx, roleResource, resType.Name, queryToken)
+		resActions, err = e.listRoleResourceActions(ctx, roleResource, resType.Name)
 		if err != nil {
-			return "", err
+			return err
 		}
 
 		// roles are only ever created for a single resource, so we can break after the first one is found.
@@ -789,7 +777,7 @@ func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource, qu
 	}
 
 	if len(resActions) == 0 {
-		return "", ErrRoleNotFound
+		return ErrRoleNotFound
 	}
 
 	roleType := e.namespace + "/role"
@@ -816,13 +804,12 @@ func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource, qu
 	}
 
 	for _, filter := range filters {
-		queryToken, err = e.deleteRelationships(ctx, filter)
-		if err != nil {
-			return "", fmt.Errorf("failed to delete role action %s: %w", filter.OptionalResourceId, err)
+		if err = e.deleteRelationships(ctx, filter); err != nil {
+			return fmt.Errorf("failed to delete role action %s: %w", filter.OptionalResourceId, err)
 		}
 	}
 
-	return queryToken, nil
+	return nil
 }
 
 // NewResourceFromID returns a new resource struct from a given id

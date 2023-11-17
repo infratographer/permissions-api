@@ -25,7 +25,7 @@ func (r *Router) relationshipListFrom(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "error listing relationships").SetInternal(err)
 	}
 
-	rels, err := r.engine.ListRelationshipsFrom(ctx, resource, "")
+	rels, err := r.engine.ListRelationshipsFrom(ctx, resource)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "error listing relationships").SetInternal(err)
 	}
@@ -62,7 +62,7 @@ func (r *Router) relationshipListTo(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "error listing relationships").SetInternal(err)
 	}
 
-	rels, err := r.engine.ListRelationshipsTo(ctx, resource, "")
+	rels, err := r.engine.ListRelationshipsTo(ctx, resource)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "error listing relationships").SetInternal(err)
 	}

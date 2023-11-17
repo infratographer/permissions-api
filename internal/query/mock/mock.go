@@ -26,24 +26,24 @@ type Engine struct {
 }
 
 // AssignSubjectRole does nothing but satisfies the Engine interface.
-func (e *Engine) AssignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) (string, error) {
-	return "", nil
+func (e *Engine) AssignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) error {
+	return nil
 }
 
 // UnassignSubjectRole does nothing but satisfies the Engine interface.
-func (e *Engine) UnassignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) (string, error) {
-	return "", nil
+func (e *Engine) UnassignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) error {
+	return nil
 }
 
 // CreateRelationships does nothing but satisfies the Engine interface.
-func (e *Engine) CreateRelationships(ctx context.Context, rels []types.Relationship) (string, error) {
+func (e *Engine) CreateRelationships(ctx context.Context, rels []types.Relationship) error {
 	args := e.Called()
 
-	return args.String(0), args.Error(1)
+	return args.Error(0)
 }
 
 // CreateRole creates a Role object and does not persist it anywhere.
-func (e *Engine) CreateRole(ctx context.Context, res types.Resource, actions []string) (types.Role, string, error) {
+func (e *Engine) CreateRole(ctx context.Context, res types.Resource, actions []string) (types.Role, error) {
 	// Copy actions instead of using the given slice
 	outActions := make([]string, len(actions))
 
@@ -54,58 +54,58 @@ func (e *Engine) CreateRole(ctx context.Context, res types.Resource, actions []s
 		Actions: outActions,
 	}
 
-	return role, "", nil
+	return role, nil
 }
 
 // GetRole returns nothing but satisfies the Engine interface.
-func (e *Engine) GetRole(ctx context.Context, roleResource types.Resource, queryToken string) (types.Role, error) {
+func (e *Engine) GetRole(ctx context.Context, roleResource types.Resource) (types.Role, error) {
 	return types.Role{}, nil
 }
 
 // GetRoleResource returns nothing but satisfies the Engine interface.
-func (e *Engine) GetRoleResource(ctx context.Context, roleResource types.Resource, queryToken string) (types.Resource, error) {
+func (e *Engine) GetRoleResource(ctx context.Context, roleResource types.Resource) (types.Resource, error) {
 	return types.Resource{}, nil
 }
 
 // ListAssignments returns nothing but satisfies the Engine interface.
-func (e *Engine) ListAssignments(ctx context.Context, role types.Role, queryToken string) ([]types.Resource, error) {
+func (e *Engine) ListAssignments(ctx context.Context, role types.Role) ([]types.Resource, error) {
 	return nil, nil
 }
 
 // ListRelationshipsFrom returns nothing but satisfies the Engine interface.
-func (e *Engine) ListRelationshipsFrom(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error) {
+func (e *Engine) ListRelationshipsFrom(ctx context.Context, resource types.Resource) ([]types.Relationship, error) {
 	return nil, nil
 }
 
 // ListRelationshipsTo returns nothing but satisfies the Engine interface.
-func (e *Engine) ListRelationshipsTo(ctx context.Context, resource types.Resource, queryToken string) ([]types.Relationship, error) {
+func (e *Engine) ListRelationshipsTo(ctx context.Context, resource types.Resource) ([]types.Relationship, error) {
 	return nil, nil
 }
 
 // ListRoles returns nothing but satisfies the Engine interface.
-func (e *Engine) ListRoles(ctx context.Context, resource types.Resource, queryToken string) ([]types.Role, error) {
+func (e *Engine) ListRoles(ctx context.Context, resource types.Resource) ([]types.Role, error) {
 	return nil, nil
 }
 
 // DeleteRelationships does nothing but satisfies the Engine interface.
-func (e *Engine) DeleteRelationships(ctx context.Context, relationships ...types.Relationship) (string, error) {
+func (e *Engine) DeleteRelationships(ctx context.Context, relationships ...types.Relationship) error {
 	args := e.Called()
 
-	return args.String(0), args.Error(1)
+	return args.Error(0)
 }
 
 // DeleteRole does nothing but satisfies the Engine interface.
-func (e *Engine) DeleteRole(ctx context.Context, roleResource types.Resource, queryToken string) (string, error) {
+func (e *Engine) DeleteRole(ctx context.Context, roleResource types.Resource) error {
 	args := e.Called()
 
-	return args.String(0), args.Error(1)
+	return args.Error(0)
 }
 
 // DeleteResourceRelationships does nothing but satisfies the Engine interface.
-func (e *Engine) DeleteResourceRelationships(ctx context.Context, resource types.Resource) (string, error) {
+func (e *Engine) DeleteResourceRelationships(ctx context.Context, resource types.Resource) error {
 	args := e.Called()
 
-	return args.String(0), args.Error(1)
+	return args.Error(0)
 }
 
 // NewResourceFromID creates a new resource object based on the given ID.

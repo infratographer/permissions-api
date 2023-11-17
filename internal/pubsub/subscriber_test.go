@@ -109,7 +109,7 @@ func TestNATS(t *testing.T) {
 			},
 			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
 				var engine mock.Engine
-				engine.On("CreateRelationships").Return("", nil)
+				engine.On("CreateRelationships").Return(nil)
 
 				return context.WithValue(ctx, contextKeyEngine, &engine)
 			},
@@ -130,7 +130,7 @@ func TestNATS(t *testing.T) {
 			},
 			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
 				var engine mock.Engine
-				engine.On("CreateRelationships").Return("", io.ErrUnexpectedEOF)
+				engine.On("CreateRelationships").Return(io.ErrUnexpectedEOF)
 
 				return context.WithValue(ctx, contextKeyEngine, &engine)
 			},
@@ -166,7 +166,7 @@ func TestNATS(t *testing.T) {
 			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
 				var engine mock.Engine
 				engine.Namespace = "gooddelete"
-				engine.On("DeleteRelationships").Return("", nil)
+				engine.On("DeleteRelationships").Return(nil)
 
 				return context.WithValue(ctx, contextKeyEngine, &engine)
 			},
