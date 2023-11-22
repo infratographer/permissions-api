@@ -4,6 +4,7 @@ package config
 import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"go.infratographer.com/x/crdbx"
 	"go.infratographer.com/x/echojwtx"
 	"go.infratographer.com/x/echox"
 	"go.infratographer.com/x/events"
@@ -23,6 +24,7 @@ type EventsConfig struct {
 
 // AppConfig is the struct used for configuring the app
 type AppConfig struct {
+	CRDB    crdbx.Config
 	OIDC    echojwtx.AuthConfig
 	Logging loggingx.Config
 	Server  echox.Config
