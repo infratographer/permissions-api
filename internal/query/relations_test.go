@@ -13,6 +13,7 @@ import (
 	"go.infratographer.com/x/gidx"
 	"go.infratographer.com/x/testing/eventtools"
 
+	"go.infratographer.com/permissions-api/internal/database/testdb"
 	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/spicedbx"
 	"go.infratographer.com/permissions-api/internal/testingx"
@@ -28,6 +29,8 @@ func testEngine(ctx context.Context, t *testing.T, namespace string) *engine {
 
 	client, err := spicedbx.NewClient(config, false)
 	require.NoError(t, err)
+
+	db, cleanPDB := testdb.NewTestDatabase(t)
 
 	policy := testPolicy()
 
@@ -50,11 +53,12 @@ func testEngine(ctx context.Context, t *testing.T, namespace string) *engine {
 
 	t.Cleanup(func() {
 		cleanDB(ctx, t, client, namespace)
+		cleanPDB()
 	})
 
 	// We call the constructor here to ensure the engine is created appropriately, but
 	// then return the underlying type so we can do testing with it.
-	out, err := NewEngine(namespace, client, kv, WithPolicy(policy))
+	out, err := NewEngine(namespace, client, kv, db, WithPolicy(policy))
 	require.NoError(t, err)
 
 	return out.(*engine)
@@ -138,8 +142,10 @@ func TestCreateRoles(t *testing.T) {
 		require.NoError(t, err)
 		tenRes, err := e.NewResourceFromID(tenID)
 		require.NoError(t, err)
+		actorRes, err := e.NewResourceFromID(gidx.MustNewID("idntusr"))
+		require.NoError(t, err)
 
-		_, err = e.CreateRole(ctx, tenRes, actions)
+		_, err = e.CreateRole(ctx, actorRes, tenRes, "test", actions)
 		if err != nil {
 			return testingx.TestResult[[]types.Role]{
 				Err: err,
@@ -165,8 +171,10 @@ func TestGetRoles(t *testing.T) {
 	require.NoError(t, err)
 	tenRes, err := e.NewResourceFromID(tenID)
 	require.NoError(t, err)
+	actorRes, err := e.NewResourceFromID(gidx.MustNewID("idntusr"))
+	require.NoError(t, err)
 
-	role, err := e.CreateRole(ctx, tenRes, []string{"loadbalancer_get"})
+	role, err := e.CreateRole(ctx, actorRes, tenRes, "test", []string{"loadbalancer_get"})
 	require.NoError(t, err)
 	roleRes, err := e.NewResourceFromID(role.ID)
 	require.NoError(t, err)
@@ -219,8 +227,10 @@ func TestRoleDelete(t *testing.T) {
 	require.NoError(t, err)
 	tenRes, err := e.NewResourceFromID(tenID)
 	require.NoError(t, err)
+	actorRes, err := e.NewResourceFromID(gidx.MustNewID("idntusr"))
+	require.NoError(t, err)
 
-	role, err := e.CreateRole(ctx, tenRes, []string{"loadbalancer_get"})
+	role, err := e.CreateRole(ctx, actorRes, tenRes, "test", []string{"loadbalancer_get"})
 	require.NoError(t, err)
 	roles, err := e.ListRoles(ctx, tenRes)
 	require.NoError(t, err)
@@ -283,9 +293,13 @@ func TestAssignments(t *testing.T) {
 	require.NoError(t, err)
 	subjRes, err := e.NewResourceFromID(subjID)
 	require.NoError(t, err)
+	actorRes, err := e.NewResourceFromID(gidx.MustNewID("idntusr"))
+	require.NoError(t, err)
 	role, err := e.CreateRole(
 		ctx,
+		actorRes,
 		tenRes,
+		"test",
 		[]string{
 			"loadbalancer_update",
 		},
@@ -339,9 +353,13 @@ func TestUnassignments(t *testing.T) {
 	require.NoError(t, err)
 	subjRes, err := e.NewResourceFromID(subjID)
 	require.NoError(t, err)
+	actorRes, err := e.NewResourceFromID(gidx.MustNewID("idntusr"))
+	require.NoError(t, err)
 	role, err := e.CreateRole(
 		ctx,
+		actorRes,
 		tenRes,
+		"test",
 		[]string{
 			"loadbalancer_update",
 		},
@@ -588,9 +606,13 @@ func TestSubjectActions(t *testing.T) {
 	require.NoError(t, err)
 	subjRes, err := e.NewResourceFromID(subjID)
 	require.NoError(t, err)
+	actorRes, err := e.NewResourceFromID(gidx.MustNewID("idntusr"))
+	require.NoError(t, err)
 	role, err := e.CreateRole(
 		ctx,
+		actorRes,
 		tenRes,
+		"test",
 		[]string{
 			"loadbalancer_update",
 		},

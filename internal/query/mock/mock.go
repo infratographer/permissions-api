@@ -3,6 +3,7 @@ package mock
 import (
 	"context"
 	"errors"
+	"time"
 
 	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/query"
@@ -43,15 +44,19 @@ func (e *Engine) CreateRelationships(ctx context.Context, rels []types.Relations
 }
 
 // CreateRole creates a Role object and does not persist it anywhere.
-func (e *Engine) CreateRole(ctx context.Context, res types.Resource, actions []string) (types.Role, error) {
+func (e *Engine) CreateRole(ctx context.Context, actor, res types.Resource, name string, actions []string) (types.Role, error) {
 	// Copy actions instead of using the given slice
 	outActions := make([]string, len(actions))
 
 	copy(outActions, actions)
 
 	role := types.Role{
-		ID:      gidx.MustNewID(query.ApplicationPrefix),
-		Actions: outActions,
+		ID:        gidx.MustNewID(query.ApplicationPrefix),
+		Name:      name,
+		Actions:   outActions,
+		Creator:   actor.ID,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 
 	return role, nil

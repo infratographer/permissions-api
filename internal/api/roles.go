@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"go.infratographer.com/x/gidx"
@@ -49,14 +50,19 @@ func (r *Router) roleCreate(c echo.Context) error {
 		return err
 	}
 
-	role, err := r.engine.CreateRole(ctx, resource, reqBody.Actions)
+	role, err := r.engine.CreateRole(ctx, subjectResource, resource, reqBody.Name, reqBody.Actions)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "error creating resource").SetInternal(err)
 	}
 
 	resp := roleResponse{
-		ID:      role.ID,
-		Actions: role.Actions,
+		ID:         role.ID,
+		Name:       role.Name,
+		Actions:    role.Actions,
+		ResourceID: role.ResourceID,
+		Creator:    role.Creator,
+		CreatedAt:  role.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:  role.UpdatedAt.Format(time.RFC3339),
 	}
 
 	return c.JSON(http.StatusCreated, resp)
@@ -102,8 +108,13 @@ func (r *Router) roleGet(c echo.Context) error {
 	}
 
 	resp := roleResponse{
-		ID:      role.ID,
-		Actions: role.Actions,
+		ID:         role.ID,
+		Name:       role.Name,
+		Actions:    role.Actions,
+		ResourceID: role.ResourceID,
+		Creator:    role.Creator,
+		CreatedAt:  role.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:  role.UpdatedAt.Format(time.RFC3339),
 	}
 
 	return c.JSON(http.StatusOK, resp)
@@ -145,8 +156,12 @@ func (r *Router) rolesList(c echo.Context) error {
 
 	for _, role := range roles {
 		roleResp := roleResponse{
-			ID:      role.ID,
-			Actions: role.Actions,
+			ID:        role.ID,
+			Name:      role.Name,
+			Actions:   role.Actions,
+			Creator:   role.Creator,
+			CreatedAt: role.CreatedAt.Format(time.RFC3339),
+			UpdatedAt: role.UpdatedAt.Format(time.RFC3339),
 		}
 
 		resp.Data = append(resp.Data, roleResp)

@@ -5,12 +5,19 @@ import (
 )
 
 type createRoleRequest struct {
+	Name    string   `json:"name" binding:"required"`
 	Actions []string `json:"actions" binding:"required"`
 }
 
 type roleResponse struct {
 	ID      gidx.PrefixedID `json:"id"`
+	Name    string          `json:"name"`
 	Actions []string        `json:"actions"`
+
+	ResourceID gidx.PrefixedID `json:"resource_id,omitempty"`
+	Creator    gidx.PrefixedID `json:"creator"`
+	CreatedAt  string          `json:"created_at"`
+	UpdatedAt  string          `json:"updated_at"`
 }
 
 type resourceResponse struct {

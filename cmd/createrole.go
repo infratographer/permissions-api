@@ -5,11 +5,13 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"go.infratographer.com/x/crdbx"
 	"go.infratographer.com/x/events"
 	"go.infratographer.com/x/gidx"
 	"go.infratographer.com/x/viperx"
 
 	"go.infratographer.com/permissions-api/internal/config"
+	"go.infratographer.com/permissions-api/internal/database"
 	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/permissions-api/internal/spicedbx"
@@ -19,6 +21,7 @@ const (
 	createRoleFlagSubject  = "subject"
 	createRoleFlagResource = "resource"
 	createRoleFlagActions  = "actions"
+	createRoleFlagName     = "name"
 )
 
 var (
@@ -38,20 +41,23 @@ func init() {
 	flags.String(createRoleFlagSubject, "", "subject to assign to created role")
 	flags.StringSlice(createRoleFlagActions, []string{}, "actions to assign to created role")
 	flags.String(createRoleFlagResource, "", "resource to bind to created role")
+	flags.String(createRoleFlagName, "", "name of role to create")
 
 	v := viper.GetViper()
 
 	viperx.MustBindFlag(v, createRoleFlagSubject, flags.Lookup(createRoleFlagSubject))
 	viperx.MustBindFlag(v, createRoleFlagActions, flags.Lookup(createRoleFlagActions))
 	viperx.MustBindFlag(v, createRoleFlagResource, flags.Lookup(createRoleFlagResource))
+	viperx.MustBindFlag(v, createRoleFlagName, flags.Lookup(createRoleFlagName))
 }
 
 func createRole(ctx context.Context, cfg *config.AppConfig) {
 	subjectIDStr := viper.GetString(createRoleFlagSubject)
 	actions := viper.GetStringSlice(createRoleFlagActions)
 	resourceIDStr := viper.GetString(createRoleFlagResource)
+	name := viper.GetString(createRoleFlagName)
 
-	if subjectIDStr == "" || len(actions) == 0 || resourceIDStr == "" {
+	if subjectIDStr == "" || len(actions) == 0 || resourceIDStr == "" || name == "" {
 		logger.Fatal("invalid config")
 	}
 
@@ -69,6 +75,13 @@ func createRole(ctx context.Context, cfg *config.AppConfig) {
 	if err != nil {
 		logger.Fatalw("failed to initialize KV", "error", err)
 	}
+
+	db, err := crdbx.NewDB(cfg.CRDB, cfg.Tracing.Enabled)
+	if err != nil {
+		logger.Fatalw("unable to initialize permissions-api database", "error", err)
+	}
+
+	permDB := database.NewDatabase(db)
 
 	var policy iapl.Policy
 
@@ -97,7 +110,7 @@ func createRole(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("error parsing subject ID", "error", err)
 	}
 
-	engine, err := query.NewEngine("infratographer", spiceClient, kv, query.WithPolicy(policy), query.WithLogger(logger))
+	engine, err := query.NewEngine("infratographer", spiceClient, kv, permDB, query.WithPolicy(policy), query.WithLogger(logger))
 	if err != nil {
 		logger.Fatalw("error creating engine", "error", err)
 	}
@@ -112,7 +125,7 @@ func createRole(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("error creating subject resource", "error", err)
 	}
 
-	role, err := engine.CreateRole(ctx, resource, actions)
+	role, err := engine.CreateRole(ctx, subjectResource, resource, name, actions)
 	if err != nil {
 		logger.Fatalw("error creating role", "error", err)
 	}

@@ -13,7 +13,9 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
+	"go.uber.org/zap"
 
+	"go.infratographer.com/permissions-api/internal/database"
 	"go.infratographer.com/permissions-api/internal/types"
 )
 
@@ -274,15 +276,41 @@ func (e *engine) CreateRelationships(ctx context.Context, rels []types.Relations
 }
 
 // CreateRole creates a role scoped to the given resource with the given actions.
-func (e *engine) CreateRole(ctx context.Context, res types.Resource, actions []string) (types.Role, error) {
-	role := newRole(actions)
+func (e *engine) CreateRole(ctx context.Context, actor, res types.Resource, roleName string, actions []string) (types.Role, error) {
+	ctx, span := e.tracer.Start(ctx, "engine.CreateRole")
+
+	defer span.End()
+
+	role := newRole(roleName, actions)
 	roleRels := e.roleRelationships(role, res)
+
+	dbRole, err := e.db.CreateRole(ctx, actor.ID, role.ID, roleName, res.ID)
+	if err != nil {
+		return types.Role{}, err
+	}
+
+	defer dbRole.Rollback()
 
 	request := &pb.WriteRelationshipsRequest{Updates: roleRels}
 
 	if _, err := e.client.WriteRelationships(ctx, request); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
 		return types.Role{}, err
 	}
+
+	if err = dbRole.Commit(); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		return types.Role{}, err
+	}
+
+	role.Creator = dbRole.CreatorID
+	role.ResourceID = dbRole.ResourceID
+	role.CreatedAt = dbRole.CreatedAt
+	role.UpdatedAt = dbRole.UpdatedAt
 
 	return role, nil
 }
@@ -638,12 +666,49 @@ func (e *engine) ListRoles(ctx context.Context, resource types.Resource) ([]type
 		},
 	}
 
+	dbDone := make(chan struct{}, 1)
+
+	var (
+		dbRoles []*database.Role
+		dbErr   error
+	)
+
+	go func() {
+		defer close(dbDone)
+
+		dbRoles, dbErr = e.db.ListResourceRoles(ctx, resource.ID)
+	}()
+
 	relationships, err := e.readRelationships(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
 
 	out := relationshipsToRoles(relationships)
+
+	<-dbDone
+
+	if dbErr != nil {
+		if !errors.Is(dbErr, database.ErrNoRoleFound) {
+			return nil, dbErr
+		}
+	} else {
+		rolesByID := make(map[string]*database.Role, len(dbRoles))
+		for _, role := range dbRoles {
+			rolesByID[role.ID.String()] = role
+		}
+
+		for i, role := range out {
+			if dbRole, ok := rolesByID[role.ID.String()]; ok {
+				role.Name = dbRole.Name
+				role.Creator = dbRole.CreatorID
+				role.CreatedAt = dbRole.CreatedAt
+				role.UpdatedAt = dbRole.UpdatedAt
+
+				out[i] = role
+			}
+		}
+	}
 
 	return out, nil
 }
@@ -724,9 +789,24 @@ func (e *engine) GetRole(ctx context.Context, roleResource types.Resource) (type
 			actions[i] = relationToAction(action)
 		}
 
+		dbRole, err := e.db.GetRoleByID(ctx, roleResource.ID)
+		if err != nil && !errors.Is(err, database.ErrNoRoleFound) {
+			e.logger.Error("error while getting role", zap.Error(err))
+		}
+
+		if dbRole == nil {
+			dbRole = new(database.Role)
+		}
+
 		return types.Role{
 			ID:      roleResource.ID,
+			Name:    dbRole.Name,
 			Actions: actions,
+
+			ResourceID: dbRole.ResourceID,
+			Creator:    dbRole.CreatorID,
+			CreatedAt:  dbRole.CreatedAt,
+			UpdatedAt:  dbRole.UpdatedAt,
 		}, nil
 	}
 
@@ -766,6 +846,10 @@ func (e *engine) GetRoleResource(ctx context.Context, roleResource types.Resourc
 
 // DeleteRole removes all role actions from the assigned resource.
 func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource) error {
+	ctx, span := e.tracer.Start(ctx, "engine.DeleteRole")
+
+	defer span.End()
+
 	var (
 		resActions map[types.Resource][]string
 		err        error
@@ -810,9 +894,35 @@ func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource) er
 		}
 	}
 
+	dbRole, err := e.db.DeleteRole(ctx, roleResource.ID)
+	if err != nil {
+		// If the role doesn't exist, simply ignore.
+		if !errors.Is(err, database.ErrNoRoleFound) {
+			return err
+		}
+	} else {
+		// Setup rollback in case an error occurs before we commit.
+		defer dbRole.Rollback()
+	}
+
 	for _, filter := range filters {
 		if err = e.deleteRelationships(ctx, filter); err != nil {
-			return fmt.Errorf("failed to delete role action %s: %w", filter.OptionalResourceId, err)
+			err = fmt.Errorf("failed to delete role action %s: %w", filter.OptionalResourceId, err)
+
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+
+			return err
+		}
+	}
+
+	// If the role was not found, dbRole will be nil.
+	if dbRole != nil {
+		if err = dbRole.Commit(); err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+
+			return err
 		}
 	}
 

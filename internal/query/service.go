@@ -10,6 +10,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 
+	"go.infratographer.com/permissions-api/internal/database"
 	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/types"
 )
@@ -24,7 +25,7 @@ type Engine interface {
 	AssignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) error
 	UnassignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) error
 	CreateRelationships(ctx context.Context, rels []types.Relationship) error
-	CreateRole(ctx context.Context, res types.Resource, actions []string) (types.Role, error)
+	CreateRole(ctx context.Context, actor, res types.Resource, roleName string, actions []string) (types.Role, error)
 	GetRole(ctx context.Context, roleResource types.Resource) (types.Role, error)
 	GetRoleResource(ctx context.Context, roleResource types.Resource) (types.Resource, error)
 	ListAssignments(ctx context.Context, role types.Role) ([]types.Resource, error)
@@ -45,6 +46,7 @@ type engine struct {
 	namespace                string
 	client                   *authzed.Client
 	kv                       nats.KeyValue
+	db                       database.Database
 	schema                   []types.ResourceType
 	schemaPrefixMap          map[string]types.ResourceType
 	schemaTypeMap            map[string]types.ResourceType
@@ -91,7 +93,7 @@ func resourceHasRoleBindings(resType types.ResourceType) bool {
 }
 
 // NewEngine returns a new client for making permissions queries.
-func NewEngine(namespace string, client *authzed.Client, kv nats.KeyValue, options ...Option) (Engine, error) {
+func NewEngine(namespace string, client *authzed.Client, kv nats.KeyValue, db database.Database, options ...Option) (Engine, error) {
 	tracer := otel.GetTracerProvider().Tracer("go.infratographer.com/permissions-api/internal/query")
 
 	e := &engine{
@@ -99,6 +101,7 @@ func NewEngine(namespace string, client *authzed.Client, kv nats.KeyValue, optio
 		namespace: namespace,
 		client:    client,
 		kv:        kv,
+		db:        db,
 		tracer:    tracer,
 	}
 

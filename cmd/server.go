@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"go.infratographer.com/x/crdbx"
 	"go.infratographer.com/x/echojwtx"
 	"go.infratographer.com/x/echox"
 	"go.infratographer.com/x/events"
@@ -14,6 +15,7 @@ import (
 
 	"go.infratographer.com/permissions-api/internal/api"
 	"go.infratographer.com/permissions-api/internal/config"
+	"go.infratographer.com/permissions-api/internal/database"
 	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/permissions-api/internal/spicedbx"
@@ -63,6 +65,13 @@ func serve(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("failed to initialize KV", "error", err)
 	}
 
+	db, err := crdbx.NewDB(cfg.CRDB, cfg.Tracing.Enabled)
+	if err != nil {
+		logger.Fatalw("unable to initialize permissions-api database", "error", err)
+	}
+
+	permDB := database.NewDatabase(db)
+
 	var policy iapl.Policy
 
 	if cfg.SpiceDB.PolicyFile != "" {
@@ -80,7 +89,7 @@ func serve(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("invalid spicedb policy", "error", err)
 	}
 
-	engine, err := query.NewEngine("infratographer", spiceClient, kv, query.WithPolicy(policy))
+	engine, err := query.NewEngine("infratographer", spiceClient, kv, permDB, query.WithPolicy(policy))
 	if err != nil {
 		logger.Fatalw("error creating engine", "error", err)
 	}

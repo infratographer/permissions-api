@@ -13,9 +13,10 @@ const (
 	RolePrefix string = ApplicationPrefix + "rol"
 )
 
-func newRole(actions []string) types.Role {
+func newRole(name string, actions []string) types.Role {
 	return types.Role{
 		ID:      gidx.MustNewID(RolePrefix),
+		Name:    name,
 		Actions: actions,
 	}
 }
