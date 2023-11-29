@@ -62,6 +62,11 @@ func (e *Engine) CreateRole(ctx context.Context, actor, res types.Resource, name
 	return role, nil
 }
 
+// UpdateRole returns nothing but satisfies the Engine interface.
+func (e *Engine) UpdateRole(ctx context.Context, actor, roleResource types.Resource, newName string, newActions []string) (types.Role, error) {
+	return types.Role{}, nil
+}
+
 // GetRole returns nothing but satisfies the Engine interface.
 func (e *Engine) GetRole(ctx context.Context, roleResource types.Resource) (types.Role, error) {
 	return types.Role{}, nil

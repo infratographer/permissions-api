@@ -9,6 +9,11 @@ type createRoleRequest struct {
 	Actions []string `json:"actions" binding:"required"`
 }
 
+type updateRoleRequest struct {
+	Name    string   `json:"name"`
+	Actions []string `json:"actions"`
+}
+
 type roleResponse struct {
 	ID      gidx.PrefixedID `json:"id"`
 	Name    string          `json:"name"`

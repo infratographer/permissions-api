@@ -315,6 +315,130 @@ func (e *engine) CreateRole(ctx context.Context, actor, res types.Resource, role
 	return role, nil
 }
 
+// actionsDiff determines which actions needs to be added and removed.
+// If no new actions are provided it is assumed no changes are requested.
+func actionsDiff(oldActions, newActions []string) ([]string, []string) {
+	if len(newActions) == 0 {
+		return nil, nil
+	}
+
+	old := make(map[string]bool, len(oldActions))
+	new := make(map[string]bool, len(newActions))
+
+	var add, rem []string
+
+	for _, action := range oldActions {
+		old[action] = true
+	}
+
+	for _, action := range newActions {
+		new[action] = true
+
+		// If the new action is not in the old actions, then we need to add the action.
+		if !old[action] {
+			add = append(add, action)
+		}
+	}
+
+	for _, action := range oldActions {
+		// If the old action is not in the new actions, then we need to remove it.
+		if !new[action] {
+			rem = append(rem, action)
+		}
+	}
+
+	return add, rem
+}
+
+// UpdateRole allows for updating an existing role with a new name and new actions.
+// If new name is empty, no change is made.
+// If new actions is an empty slice, no change is made.
+func (e *engine) UpdateRole(ctx context.Context, actor, roleResource types.Resource, newName string, newActions []string) (types.Role, error) {
+	ctx, span := e.tracer.Start(ctx, "engine.UpdateRole")
+
+	defer span.End()
+
+	role, err := e.GetRole(ctx, roleResource)
+	if err != nil {
+		return types.Role{}, err
+	}
+
+	newName = strings.TrimSpace(newName)
+
+	addActions, remActions := actionsDiff(role.Actions, newActions)
+
+	// If no changes, return existing role with no changes.
+	if role.Name == newName && len(addActions) == 0 && len(remActions) == 0 {
+		return role, nil
+	}
+
+	resourceID := role.ResourceID
+
+	// If the resource id is not found in the permissions database, then we must locate it in the spicedb database.
+	if resourceID == gidx.NullPrefixedID {
+		resource, err := e.GetRoleResource(ctx, roleResource)
+		if err != nil {
+			return types.Role{}, fmt.Errorf("failed to locate roles associated resource: %s: %w", roleResource.ID.String(), err)
+		}
+
+		resourceID = resource.ID
+	}
+
+	resource, err := e.NewResourceFromID(resourceID)
+	if err != nil {
+		return types.Role{}, err
+	}
+
+	var (
+		dbRole *database.Role
+		dbErr  error
+	)
+
+	// If new name has changed, commit change to permissions database.
+	if newName != "" && role.Name != newName {
+		dbRole, dbErr = e.db.UpdateRole(ctx, actor.ID, role.ID, newName, resourceID)
+		if dbErr != nil {
+			return types.Role{}, dbErr
+		}
+
+		defer dbRole.Rollback() //nolint:errcheck // error is logged in function
+	}
+
+	// If a change in actions, apply changes to spicedb.
+	if len(addActions) != 0 || len(remActions) != 0 {
+		roleRels := e.roleResourceRelationshipsTouchDelete(roleResource, resource, addActions, remActions)
+
+		request := &pb.WriteRelationshipsRequest{Updates: roleRels}
+
+		if _, err := e.client.WriteRelationships(ctx, request); err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+
+			return types.Role{}, err
+		}
+
+		role.Actions = newActions
+	}
+
+	// Only commit if dbRole is defined meaning the name was also updated.
+	if dbRole != nil {
+		if err = dbRole.Commit(); err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+
+			return types.Role{}, err
+		}
+
+		role.Name = dbRole.Name
+		role.Creator = dbRole.CreatorID
+		role.ResourceID = dbRole.ResourceID
+		role.CreatedAt = dbRole.CreatedAt
+		role.UpdatedAt = dbRole.UpdatedAt
+	}
+
+	return role, nil
+}
+
 func actionToRelation(action string) string {
 	return action + "_rel"
 }
@@ -343,6 +467,43 @@ func (e *engine) roleRelationships(role types.Role, resource types.Resource) []*
 	for _, action := range role.Actions {
 		rels = append(rels, &pb.RelationshipUpdate{
 			Operation: pb.RelationshipUpdate_OPERATION_TOUCH,
+			Relationship: &pb.Relationship{
+				Resource: resourceRef,
+				Relation: actionToRelation(action),
+				Subject: &pb.SubjectReference{
+					Object:           roleRef,
+					OptionalRelation: roleSubjectRelation,
+				},
+			},
+		})
+	}
+
+	return rels
+}
+
+func (e *engine) roleResourceRelationshipsTouchDelete(roleResource, resource types.Resource, touchActions, deleteActions []string) []*pb.RelationshipUpdate {
+	var rels []*pb.RelationshipUpdate
+
+	resourceRef := resourceToSpiceDBRef(e.namespace, resource)
+	roleRef := resourceToSpiceDBRef(e.namespace, roleResource)
+
+	for _, action := range touchActions {
+		rels = append(rels, &pb.RelationshipUpdate{
+			Operation: pb.RelationshipUpdate_OPERATION_TOUCH,
+			Relationship: &pb.Relationship{
+				Resource: resourceRef,
+				Relation: actionToRelation(action),
+				Subject: &pb.SubjectReference{
+					Object:           roleRef,
+					OptionalRelation: roleSubjectRelation,
+				},
+			},
+		})
+	}
+
+	for _, action := range deleteActions {
+		rels = append(rels, &pb.RelationshipUpdate{
+			Operation: pb.RelationshipUpdate_OPERATION_DELETE,
 			Relationship: &pb.Relationship{
 				Resource: resourceRef,
 				Relation: actionToRelation(action),

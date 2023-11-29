@@ -218,6 +218,68 @@ func TestGetRoles(t *testing.T) {
 	testingx.RunTests(ctx, t, testCases, testFn)
 }
 
+func TestRoleUpdate(t *testing.T) {
+	namespace := "testroles"
+	ctx := context.Background()
+	e := testEngine(ctx, t, namespace)
+
+	tenID, err := gidx.NewID("tnntten")
+	require.NoError(t, err)
+	tenRes, err := e.NewResourceFromID(tenID)
+	require.NoError(t, err)
+	actorRes, err := e.NewResourceFromID(gidx.MustNewID("idntusr"))
+	require.NoError(t, err)
+
+	role, err := e.CreateRole(ctx, actorRes, tenRes, "test", []string{"loadbalancer_get"})
+	require.NoError(t, err)
+	roles, err := e.ListRoles(ctx, tenRes)
+	require.NoError(t, err)
+	require.NotEmpty(t, roles)
+
+	testCases := []testingx.TestCase[gidx.PrefixedID, types.Role]{
+		{
+			Name:  "UpdateMissingRole",
+			Input: gidx.MustNewID(RolePrefix),
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+				assert.Error(t, res.Err)
+			},
+		},
+		{
+			Name:  "UpdateSuccess",
+			Input: role.ID,
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+				assert.NoError(t, res.Err)
+				require.Equal(t, "test2", res.Success.Name)
+			},
+		},
+	}
+
+	testFn := func(ctx context.Context, roleID gidx.PrefixedID) testingx.TestResult[types.Role] {
+		roleResource, err := e.NewResourceFromID(roleID)
+		if err != nil {
+			return testingx.TestResult[types.Role]{
+				Err: err,
+			}
+		}
+
+		_, err = e.UpdateRole(ctx, actorRes, roleResource, "test2", nil)
+		if err != nil {
+			return testingx.TestResult[types.Role]{
+				Err: err,
+			}
+		}
+
+		updatedRole, err := e.GetRole(ctx, roleResource)
+
+		return testingx.TestResult[types.Role]{
+			Success: updatedRole,
+			Err:     err,
+		}
+	}
+
+	testingx.RunTests(ctx, t, testCases, testFn)
+}
+
 func TestRoleDelete(t *testing.T) {
 	namespace := "testroles"
 	ctx := context.Background()

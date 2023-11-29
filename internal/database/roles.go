@@ -45,7 +45,7 @@ func (r *Role) Rollback() error {
 	}
 
 	err := r.rollback()
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrTxDone) {
 		r.logger.Errorw("failed to rollback role", "role_id", r.ID, zap.Error(err))
 	}
 
