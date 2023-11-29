@@ -289,7 +289,7 @@ func (e *engine) CreateRole(ctx context.Context, actor, res types.Resource, role
 		return types.Role{}, err
 	}
 
-	defer dbRole.Rollback()
+	defer dbRole.Rollback() //nolint:errcheck // error is logged in function
 
 	request := &pb.WriteRelationshipsRequest{Updates: roleRels}
 
@@ -902,7 +902,7 @@ func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource) er
 		}
 	} else {
 		// Setup rollback in case an error occurs before we commit.
-		defer dbRole.Rollback()
+		defer dbRole.Rollback() //nolint:errcheck // error is logged in function
 	}
 
 	for _, filter := range filters {

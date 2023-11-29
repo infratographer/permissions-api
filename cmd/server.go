@@ -70,7 +70,7 @@ func serve(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("unable to initialize permissions-api database", "error", err)
 	}
 
-	permDB := database.NewDatabase(db)
+	permDB := database.NewDatabase(db, database.WithLogger(logger))
 
 	var policy iapl.Policy
 
@@ -110,6 +110,7 @@ func serve(ctx context.Context, cfg *config.AppConfig) {
 
 	srv.AddHandler(r)
 	srv.AddReadinessCheck("spicedb", spicedbx.Healthcheck(spiceClient))
+	srv.AddReadinessCheck("database", permDB.HealthCheck)
 
 	if err := srv.Run(); err != nil {
 		logger.Fatal("failed to run server", zap.Error(err))

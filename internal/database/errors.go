@@ -15,6 +15,10 @@ var (
 
 	// ErrRoleNameTaken is returned when the role name provided already exists under the same resource id.
 	ErrRoleNameTaken = errors.New("role name already taken")
+
+	// ErrMethodUnavailable is returned when the provided method is called is unavailable in the current environment.
+	// For example there is nothing to commit after getting a role so calling Commit on a Role after retrieving it will return this error.
+	ErrMethodUnavailable = errors.New("method unavailable")
 )
 
 func pqIsRoleAlreadyExistsError(err error) bool {

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"go.infratographer.com/x/gidx"
+	"go.uber.org/zap"
 )
 
 // Role represents a role in the database.
@@ -19,8 +20,36 @@ type Role struct {
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 
-	Commit   func() error
-	Rollback func() error
+	logger   *zap.SugaredLogger
+	commit   func() error
+	rollback func() error
+}
+
+// Commit calls commit on the transaction if the role has been created within a transaction.
+// If not the method returns an ErrMethodUnavailable error.
+func (r *Role) Commit() error {
+	if r.commit == nil {
+		return ErrMethodUnavailable
+	}
+
+	return r.commit()
+}
+
+// Rollback calls rollback on the transaction if the role has been created within a transaction.
+// If not the method returns an ErrMethodUnavailable error.
+//
+// To simplify rollbacks, logging has automatically been setup to log any errors produced if a rollback fails.
+func (r *Role) Rollback() error {
+	if r.rollback == nil {
+		return ErrMethodUnavailable
+	}
+
+	err := r.rollback()
+	if err != nil {
+		r.logger.Errorw("failed to rollback role", "role_id", r.ID, zap.Error(err))
+	}
+
+	return err
 }
 
 // GetRoleByID retrieves a role from the database by the provided prefixed ID.
@@ -174,8 +203,9 @@ func (db *database) CreateRole(ctx context.Context, actorID, roleID gidx.Prefixe
 		return nil, err
 	}
 
-	role.Commit = tx.Commit
-	role.Rollback = tx.Rollback
+	role.logger = db.logger.Named("role")
+	role.commit = tx.Commit
+	role.rollback = tx.Rollback
 
 	return &role, nil
 }
@@ -215,8 +245,9 @@ func (db *database) UpdateRole(ctx context.Context, actorID, roleID gidx.Prefixe
 		return nil, err
 	}
 
-	role.Commit = tx.Commit
-	role.Rollback = tx.Rollback
+	role.logger = db.logger.Named("role")
+	role.commit = tx.Commit
+	role.rollback = tx.Rollback
 
 	return &role, nil
 }
@@ -244,7 +275,8 @@ func (db *database) DeleteRole(ctx context.Context, roleID gidx.PrefixedID) (*Ro
 
 	return &Role{
 		ID:       roleID,
-		Commit:   tx.Commit,
-		Rollback: tx.Rollback,
+		logger:   db.logger.Named("role"),
+		commit:   tx.Commit,
+		rollback: tx.Rollback,
 	}, nil
 }

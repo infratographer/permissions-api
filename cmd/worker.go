@@ -69,7 +69,7 @@ func worker(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("unable to initialize permissions-api database", "error", err)
 	}
 
-	permDB := database.NewDatabase(db)
+	permDB := database.NewDatabase(db, database.WithLogger(logger))
 
 	var policy iapl.Policy
 
@@ -123,6 +123,7 @@ func worker(ctx context.Context, cfg *config.AppConfig) {
 	}
 
 	srv.AddReadinessCheck("spicedb", spicedbx.Healthcheck(spiceClient))
+	srv.AddReadinessCheck("database", permDB.HealthCheck)
 
 	quit := make(chan os.Signal, 1)
 
