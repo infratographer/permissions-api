@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"go.infratographer.com/x/gidx"
-	"go.uber.org/zap"
 )
+
+// TxRole defines a Role Transaction.
+type TxRole = *Transaction[*Role]
 
 // Role represents a role in the database.
 type Role struct {
@@ -19,37 +21,6 @@ type Role struct {
 	CreatorID  gidx.PrefixedID
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
-
-	logger   *zap.SugaredLogger
-	commit   func() error
-	rollback func() error
-}
-
-// Commit calls commit on the transaction if the role has been created within a transaction.
-// If not the method returns an ErrMethodUnavailable error.
-func (r *Role) Commit() error {
-	if r.commit == nil {
-		return ErrMethodUnavailable
-	}
-
-	return r.commit()
-}
-
-// Rollback calls rollback on the transaction if the role has been created within a transaction.
-// If not the method returns an ErrMethodUnavailable error.
-//
-// To simplify rollbacks, logging has automatically been setup to log any errors produced if a rollback fails.
-func (r *Role) Rollback() error {
-	if r.rollback == nil {
-		return ErrMethodUnavailable
-	}
-
-	err := r.rollback()
-	if err != nil && !errors.Is(err, sql.ErrTxDone) {
-		r.logger.Errorw("failed to rollback role", "role_id", r.ID, zap.Error(err))
-	}
-
-	return err
 }
 
 // GetRoleByID retrieves a role from the database by the provided prefixed ID.
@@ -165,10 +136,13 @@ func (db *database) ListResourceRoles(ctx context.Context, resourceID gidx.Prefi
 	return roles, nil
 }
 
-// CreateRole creates a role with the provided details returning the new Role entry.
+// CreateRoleTransaction creates a role with the provided details in a new transaction which must be committed.
 // If a role already exists with the given roleID an ErrRoleAlreadyExists error is returned.
 // If a role already exists with the same name under the given resource ID then an ErrRoleNameTaken error is returned.
-func (db *database) CreateRole(ctx context.Context, actorID, roleID gidx.PrefixedID, name string, resourceID gidx.PrefixedID) (*Role, error) {
+//
+// Transaction.Commit() or Transaction.Rollback() should be called if error is nil otherwise the database will hold
+// the indexes waiting for the transaction to complete.
+func (db *database) CreateRoleTransaction(ctx context.Context, actorID, roleID gidx.PrefixedID, name string, resourceID gidx.PrefixedID) (TxRole, error) {
 	var role Role
 
 	tx, err := db.BeginTx(ctx, nil)
@@ -203,17 +177,16 @@ func (db *database) CreateRole(ctx context.Context, actorID, roleID gidx.Prefixe
 		return nil, err
 	}
 
-	role.logger = db.logger.Named("role")
-	role.commit = tx.Commit
-	role.rollback = tx.Rollback
-
-	return &role, nil
+	return newTransaction(db.logger.With("role_id", role.ID), tx, &role), nil
 }
 
-// UpdateRole updates an existing role if one exists.
-// If no role already exists, a new role is created in the same way as CreateRole.
+// UpdateRoleTransaction starts a new transaction to update an existing role if one exists.
+// If no role already exists, a new role is created in the same way as CreateRoleTransaction.
 // If changing the name and the new name results in a duplicate name error, an ErrRoleNameTaken error is returned.
-func (db *database) UpdateRole(ctx context.Context, actorID, roleID gidx.PrefixedID, name string, resourceID gidx.PrefixedID) (*Role, error) {
+//
+// Transaction.Commit() or Transaction.Rollback() should be called if error is nil otherwise the database will hold
+// the indexes waiting for the transaction to complete.
+func (db *database) UpdateRoleTransaction(ctx context.Context, actorID, roleID gidx.PrefixedID, name string, resourceID gidx.PrefixedID) (TxRole, error) {
 	var role Role
 
 	tx, err := db.BeginTx(ctx, nil)
@@ -245,15 +218,15 @@ func (db *database) UpdateRole(ctx context.Context, actorID, roleID gidx.Prefixe
 		return nil, err
 	}
 
-	role.logger = db.logger.Named("role")
-	role.commit = tx.Commit
-	role.rollback = tx.Rollback
-
-	return &role, nil
+	return newTransaction(db.logger.With("role_id", role.ID), tx, &role), nil
 }
 
-// DeleteRole deletes the role id provided, if no rows are affected an ErrNoRoleFound error is returned.
-func (db *database) DeleteRole(ctx context.Context, roleID gidx.PrefixedID) (*Role, error) {
+// DeleteRoleTransaction starts a new transaction to delete the role for the id provided.
+// If no rows are affected an ErrNoRoleFound error is returned.
+//
+// Transaction.Commit() or Transaction.Rollback() should be called if error is nil otherwise the database will hold
+// the indexes waiting for the transaction to complete.
+func (db *database) DeleteRoleTransaction(ctx context.Context, roleID gidx.PrefixedID) (TxRole, error) {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -273,10 +246,9 @@ func (db *database) DeleteRole(ctx context.Context, roleID gidx.PrefixedID) (*Ro
 		return nil, ErrNoRoleFound
 	}
 
-	return &Role{
-		ID:       roleID,
-		logger:   db.logger.Named("role"),
-		commit:   tx.Commit,
-		rollback: tx.Rollback,
-	}, nil
+	role := Role{
+		ID: roleID,
+	}
+
+	return newTransaction(db.logger.With("role_id", role.ID), tx, &role), nil
 }

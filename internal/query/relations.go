@@ -284,12 +284,12 @@ func (e *engine) CreateRole(ctx context.Context, actor, res types.Resource, role
 	role := newRole(roleName, actions)
 	roleRels := e.roleRelationships(role, res)
 
-	dbRole, err := e.db.CreateRole(ctx, actor.ID, role.ID, roleName, res.ID)
+	dbTx, err := e.db.CreateRoleTransaction(ctx, actor.ID, role.ID, roleName, res.ID)
 	if err != nil {
 		return types.Role{}, err
 	}
 
-	defer dbRole.Rollback() //nolint:errcheck // error is logged in function
+	defer dbTx.Rollback() //nolint:errcheck // error is logged in function
 
 	request := &pb.WriteRelationshipsRequest{Updates: roleRels}
 
@@ -300,17 +300,17 @@ func (e *engine) CreateRole(ctx context.Context, actor, res types.Resource, role
 		return types.Role{}, err
 	}
 
-	if err = dbRole.Commit(); err != nil {
+	if err = dbTx.Commit(); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 
 		return types.Role{}, err
 	}
 
-	role.Creator = dbRole.CreatorID
-	role.ResourceID = dbRole.ResourceID
-	role.CreatedAt = dbRole.CreatedAt
-	role.UpdatedAt = dbRole.UpdatedAt
+	role.Creator = dbTx.Record.CreatorID
+	role.ResourceID = dbTx.Record.ResourceID
+	role.CreatedAt = dbTx.Record.CreatedAt
+	role.UpdatedAt = dbTx.Record.UpdatedAt
 
 	return role, nil
 }
@@ -390,18 +390,18 @@ func (e *engine) UpdateRole(ctx context.Context, actor, roleResource types.Resou
 	}
 
 	var (
-		dbRole *database.Role
-		dbErr  error
+		dbTx  database.TxRole
+		dbErr error
 	)
 
 	// If new name has changed, commit change to permissions database.
 	if newName != "" && role.Name != newName {
-		dbRole, dbErr = e.db.UpdateRole(ctx, actor.ID, role.ID, newName, resourceID)
+		dbTx, dbErr = e.db.UpdateRoleTransaction(ctx, actor.ID, role.ID, newName, resourceID)
 		if dbErr != nil {
 			return types.Role{}, dbErr
 		}
 
-		defer dbRole.Rollback() //nolint:errcheck // error is logged in function
+		defer dbTx.Rollback() //nolint:errcheck // error is logged in function
 	}
 
 	// If a change in actions, apply changes to spicedb.
@@ -420,20 +420,20 @@ func (e *engine) UpdateRole(ctx context.Context, actor, roleResource types.Resou
 		role.Actions = newActions
 	}
 
-	// Only commit if dbRole is defined meaning the name was also updated.
-	if dbRole != nil {
-		if err = dbRole.Commit(); err != nil {
+	// Only commit if dbTx is defined meaning the name was also updated.
+	if dbTx != nil {
+		if err = dbTx.Commit(); err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
 
 			return types.Role{}, err
 		}
 
-		role.Name = dbRole.Name
-		role.Creator = dbRole.CreatorID
-		role.ResourceID = dbRole.ResourceID
-		role.CreatedAt = dbRole.CreatedAt
-		role.UpdatedAt = dbRole.UpdatedAt
+		role.Name = dbTx.Record.Name
+		role.Creator = dbTx.Record.CreatorID
+		role.ResourceID = dbTx.Record.ResourceID
+		role.CreatedAt = dbTx.Record.CreatedAt
+		role.UpdatedAt = dbTx.Record.UpdatedAt
 	}
 
 	return role, nil
@@ -1055,7 +1055,7 @@ func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource) er
 		}
 	}
 
-	dbRole, err := e.db.DeleteRole(ctx, roleResource.ID)
+	dbTx, err := e.db.DeleteRoleTransaction(ctx, roleResource.ID)
 	if err != nil {
 		// If the role doesn't exist, simply ignore.
 		if !errors.Is(err, database.ErrNoRoleFound) {
@@ -1063,7 +1063,7 @@ func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource) er
 		}
 	} else {
 		// Setup rollback in case an error occurs before we commit.
-		defer dbRole.Rollback() //nolint:errcheck // error is logged in function
+		defer dbTx.Rollback() //nolint:errcheck // error is logged in function
 	}
 
 	for _, filter := range filters {
@@ -1077,9 +1077,9 @@ func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource) er
 		}
 	}
 
-	// If the role was not found, dbRole will be nil.
-	if dbRole != nil {
-		if err = dbRole.Commit(); err != nil {
+	// If the role was not found, dbTx will be nil.
+	if dbTx != nil {
+		if err = dbTx.Commit(); err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
 

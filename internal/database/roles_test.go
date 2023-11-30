@@ -29,11 +29,11 @@ func TestGetRoleByID(t *testing.T) {
 	assert.ErrorIs(t, err, database.ErrNoRoleFound)
 	require.Nil(t, role, "no role expected to be returned")
 
-	createdRole, err := db.CreateRole(ctx, actorID, roleID, roleName, resourceID)
+	tx, err := db.CreateRoleTransaction(ctx, actorID, roleID, roleName, resourceID)
 
 	require.NoError(t, err, "no error expected while seeding database role")
 
-	err = createdRole.Commit()
+	err = tx.Commit()
 
 	require.NoError(t, err, "no error expected while committing role creation")
 
@@ -47,8 +47,8 @@ func TestGetRoleByID(t *testing.T) {
 	assert.Equal(t, roleName, role.Name)
 	assert.Equal(t, resourceID, role.ResourceID)
 	assert.Equal(t, actorID, role.CreatorID)
-	assert.Equal(t, createdRole.CreatedAt, role.CreatedAt)
-	assert.Equal(t, createdRole.UpdatedAt, role.UpdatedAt)
+	assert.Equal(t, tx.Record.CreatedAt, role.CreatedAt)
+	assert.Equal(t, tx.Record.UpdatedAt, role.UpdatedAt)
 }
 
 func TestGetResourceRoleByName(t *testing.T) {
@@ -68,11 +68,11 @@ func TestGetResourceRoleByName(t *testing.T) {
 	assert.ErrorIs(t, err, database.ErrNoRoleFound)
 	require.Nil(t, role, "role expected to be returned")
 
-	createdRole, err := db.CreateRole(ctx, actorID, roleID, roleName, resourceID)
+	roleTx, err := db.CreateRoleTransaction(ctx, actorID, roleID, roleName, resourceID)
 
 	require.NoError(t, err, "no error expected while seeding database role")
 
-	err = createdRole.Commit()
+	err = roleTx.Commit()
 
 	require.NoError(t, err, "no error expected while committing role creation")
 
@@ -86,8 +86,8 @@ func TestGetResourceRoleByName(t *testing.T) {
 	assert.Equal(t, roleName, role.Name)
 	assert.Equal(t, resourceID, role.ResourceID)
 	assert.Equal(t, actorID, role.CreatorID)
-	assert.Equal(t, createdRole.CreatedAt, role.CreatedAt)
-	assert.Equal(t, createdRole.UpdatedAt, role.UpdatedAt)
+	assert.Equal(t, roleTx.Record.CreatedAt, role.CreatedAt)
+	assert.Equal(t, roleTx.Record.UpdatedAt, role.UpdatedAt)
 }
 
 func TestListResourceRoles(t *testing.T) {
@@ -112,11 +112,11 @@ func TestListResourceRoles(t *testing.T) {
 	}
 
 	for roleName, roleID := range groups {
-		role, err := db.CreateRole(ctx, actorID, roleID, roleName, resourceID)
+		roleTx, err := db.CreateRoleTransaction(ctx, actorID, roleID, roleName, resourceID)
 
-		require.NoError(t, err, "no error expected creating role", roleName)
+		require.NoError(t, err, "no error expected creating role transaction", roleName)
 
-		err = role.Commit()
+		err = roleTx.Commit()
 
 		require.NoError(t, err, "no error expected while committing role", roleName)
 	}
@@ -139,7 +139,7 @@ func TestListResourceRoles(t *testing.T) {
 	}
 }
 
-func TestCreateRole(t *testing.T) {
+func TestCreateRoleTransaction(t *testing.T) {
 	db, dbClose := testdb.NewTestDatabase(t)
 	defer dbClose()
 
@@ -150,28 +150,28 @@ func TestCreateRole(t *testing.T) {
 	roleName := "admins"
 	resourceID := gidx.PrefixedID("testten-jkl789")
 
-	role, err := db.CreateRole(ctx, actorID, roleID, roleName, resourceID)
+	roleTx, err := db.CreateRoleTransaction(ctx, actorID, roleID, roleName, resourceID)
 
 	require.NoError(t, err, "no error expected while creating role")
 
-	err = role.Commit()
+	err = roleTx.Commit()
 
 	require.NoError(t, err, "no error expected while committing role creation")
 
-	assert.Equal(t, roleID, role.ID)
-	assert.Equal(t, roleName, role.Name)
-	assert.Equal(t, resourceID, role.ResourceID)
-	assert.Equal(t, actorID, role.CreatorID)
-	assert.False(t, role.CreatedAt.IsZero())
-	assert.False(t, role.UpdatedAt.IsZero())
+	assert.Equal(t, roleID, roleTx.Record.ID)
+	assert.Equal(t, roleName, roleTx.Record.Name)
+	assert.Equal(t, resourceID, roleTx.Record.ResourceID)
+	assert.Equal(t, actorID, roleTx.Record.CreatorID)
+	assert.False(t, roleTx.Record.CreatedAt.IsZero())
+	assert.False(t, roleTx.Record.UpdatedAt.IsZero())
 
-	dupeRole, err := db.CreateRole(ctx, actorID, roleID, roleName, resourceID)
+	dupeRole, err := db.CreateRoleTransaction(ctx, actorID, roleID, roleName, resourceID)
 
 	assert.Error(t, err, "expected error for duplicate index")
 	assert.ErrorIs(t, err, database.ErrRoleAlreadyExists, "expected error to be for role already exists")
 	require.Nil(t, dupeRole, "expected role to be nil")
 
-	takenNameRole, err := db.CreateRole(ctx, actorID, roleID2, roleName, resourceID)
+	takenNameRole, err := db.CreateRoleTransaction(ctx, actorID, roleID2, roleName, resourceID)
 
 	assert.Error(t, err, "expected error for already taken name")
 	assert.ErrorIs(t, err, database.ErrRoleNameTaken, "expected error to be for already taken name")
@@ -191,50 +191,51 @@ func TestUpdateRole(t *testing.T) {
 	roleName2 := "temps"
 	resourceID := gidx.PrefixedID("testten-jkl789")
 
-	createdRole, err := db.CreateRole(ctx, createActorID, roleID1, roleName, resourceID)
+	createdRoleTx, err := db.CreateRoleTransaction(ctx, createActorID, roleID1, roleName, resourceID)
 	require.NoError(t, err, "no error expected while seeding database role")
 
-	err = createdRole.Commit()
+	err = createdRoleTx.Commit()
 
 	require.NoError(t, err, "no error expected while committing role creation")
 
-	createdRole2, err := db.CreateRole(ctx, createActorID, roleID2, roleName2, resourceID)
+	createdRole2Tx, err := db.CreateRoleTransaction(ctx, createActorID, roleID2, roleName2, resourceID)
 	require.NoError(t, err, "no error expected while seeding database role 2")
 
-	err = createdRole2.Commit()
+	err = createdRole2Tx.Commit()
 
 	require.NoError(t, err, "no error expected while committing role 2 creation")
 
 	updateActorID := gidx.PrefixedID("idntusr-abc456")
 
 	t.Run("update error", func(t *testing.T) {
-		role, err := db.UpdateRole(ctx, updateActorID, roleID2, roleName, resourceID)
+		roleTx, err := db.UpdateRoleTransaction(ctx, updateActorID, roleID2, roleName, resourceID)
 
 		assert.Error(t, err, "expected error updating role name to an already taken role name")
 		assert.ErrorIs(t, err, database.ErrRoleNameTaken, "expected error to be role name taken error")
-		assert.Nil(t, role, "expected role to be nil")
+		assert.Nil(t, roleTx, "expected role to be nil")
 	})
 
 	updateRoleName := "new-admins"
 	updateResourceID := gidx.PrefixedID("testten-mno101")
 
 	t.Run("existing role", func(t *testing.T) {
-		role, err := db.UpdateRole(ctx, updateActorID, roleID1, updateRoleName, updateResourceID)
+		updateTx, err := db.UpdateRoleTransaction(ctx, updateActorID, roleID1, updateRoleName, updateResourceID)
 
 		require.NoError(t, err, "no error expected while updating role")
 
-		require.NotNil(t, role, "role expected to be returned")
+		require.NotNil(t, updateTx, "transaction expected to be returned")
+		require.NotNil(t, updateTx.Record, "role expected to be returned")
 
-		err = role.Commit()
+		err = updateTx.Commit()
 
 		require.NoError(t, err, "no error expected while committing role update")
 
-		assert.Equal(t, roleID1, role.ID)
-		assert.Equal(t, updateRoleName, role.Name)
-		assert.Equal(t, updateResourceID, role.ResourceID)
-		assert.Equal(t, createActorID, role.CreatorID)
-		assert.Equal(t, createdRole.CreatedAt, role.CreatedAt)
-		assert.NotEqual(t, createdRole.UpdatedAt, role.UpdatedAt)
+		assert.Equal(t, roleID1, updateTx.Record.ID)
+		assert.Equal(t, updateRoleName, updateTx.Record.Name)
+		assert.Equal(t, updateResourceID, updateTx.Record.ResourceID)
+		assert.Equal(t, createActorID, updateTx.Record.CreatorID)
+		assert.Equal(t, createdRoleTx.Record.CreatedAt, updateTx.Record.CreatedAt)
+		assert.NotEqual(t, createdRoleTx.Record.UpdatedAt, updateTx.Record.UpdatedAt)
 	})
 
 	t.Run("new role", func(t *testing.T) {
@@ -242,22 +243,23 @@ func TestUpdateRole(t *testing.T) {
 		newRoleName := "users"
 		newResourceID := gidx.PrefixedID("testten-lmn159")
 
-		role, err := db.UpdateRole(ctx, updateActorID, newRoleID, newRoleName, newResourceID)
+		updateTx, err := db.UpdateRoleTransaction(ctx, updateActorID, newRoleID, newRoleName, newResourceID)
 
 		require.NoError(t, err, "no error expected while updating role")
 
-		require.NotNil(t, role, "role expected to be returned")
+		require.NotNil(t, updateTx, "transaction expected to be returned")
+		require.NotNil(t, updateTx.Record, "role expected to be returned")
 
-		err = role.Commit()
+		err = updateTx.Commit()
 
 		require.NoError(t, err, "no error expected while committing new role from update")
 
-		assert.Equal(t, newRoleID, role.ID)
-		assert.Equal(t, newRoleName, role.Name)
-		assert.Equal(t, newResourceID, role.ResourceID)
-		assert.Equal(t, updateActorID, role.CreatorID)
-		assert.False(t, createdRole.CreatedAt.IsZero())
-		assert.False(t, createdRole.UpdatedAt.IsZero())
+		assert.Equal(t, newRoleID, updateTx.Record.ID)
+		assert.Equal(t, newRoleName, updateTx.Record.Name)
+		assert.Equal(t, newResourceID, updateTx.Record.ResourceID)
+		assert.Equal(t, updateActorID, updateTx.Record.CreatorID)
+		assert.False(t, createdRoleTx.Record.CreatedAt.IsZero())
+		assert.False(t, createdRoleTx.Record.UpdatedAt.IsZero())
 	})
 }
 
@@ -271,28 +273,28 @@ func TestDeleteRole(t *testing.T) {
 	roleName := "admins"
 	resourceID := gidx.PrefixedID("testten-jkl789")
 
-	_, err := db.DeleteRole(ctx, roleID)
+	_, err := db.DeleteRoleTransaction(ctx, roleID)
 
 	require.Error(t, err, "error expected while deleting role which doesn't exist")
 	require.ErrorIs(t, err, database.ErrNoRoleFound, "expected no role found error for missing role")
 
-	role, err := db.CreateRole(ctx, actorID, roleID, roleName, resourceID)
+	createTx, err := db.CreateRoleTransaction(ctx, actorID, roleID, roleName, resourceID)
 
 	require.NoError(t, err, "no error expected while seeding database role")
 
-	err = role.Commit()
+	err = createTx.Commit()
 
 	require.NoError(t, err, "no error expected while committing role creation")
 
-	role, err = db.DeleteRole(ctx, roleID)
+	deleteTx, err := db.DeleteRoleTransaction(ctx, roleID)
 
 	require.NoError(t, err, "no error expected while deleting role")
 
-	err = role.Commit()
+	err = deleteTx.Commit()
 
 	require.NoError(t, err, "no error expected while committing role deletion")
 
-	role, err = db.GetRoleByID(ctx, roleID)
+	role, err := db.GetRoleByID(ctx, roleID)
 
 	require.Error(t, err, "expected error retrieving role")
 	assert.ErrorIs(t, err, database.ErrNoRoleFound, "expected no rows error")

@@ -14,9 +14,9 @@ type Database interface {
 	GetRoleByID(ctx context.Context, id gidx.PrefixedID) (*Role, error)
 	GetResourceRoleByName(ctx context.Context, resourceID gidx.PrefixedID, name string) (*Role, error)
 	ListResourceRoles(ctx context.Context, resourceID gidx.PrefixedID) ([]*Role, error)
-	CreateRole(ctx context.Context, actorID gidx.PrefixedID, roleID gidx.PrefixedID, name string, resourceID gidx.PrefixedID) (*Role, error)
-	UpdateRole(ctx context.Context, actorID gidx.PrefixedID, roleID gidx.PrefixedID, name string, resourceID gidx.PrefixedID) (*Role, error)
-	DeleteRole(ctx context.Context, roleID gidx.PrefixedID) (*Role, error)
+	CreateRoleTransaction(ctx context.Context, actorID gidx.PrefixedID, roleID gidx.PrefixedID, name string, resourceID gidx.PrefixedID) (*Transaction[*Role], error)
+	UpdateRoleTransaction(ctx context.Context, actorID gidx.PrefixedID, roleID gidx.PrefixedID, name string, resourceID gidx.PrefixedID) (*Transaction[*Role], error)
+	DeleteRoleTransaction(ctx context.Context, roleID gidx.PrefixedID) (*Transaction[*Role], error)
 	HealthCheck(ctx context.Context) error
 }
 
