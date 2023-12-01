@@ -1,0 +1,70 @@
+{{- if has .Values.config.crdb.migrateHook (list "pre-sync" "manual") }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  {{- if eq .Values.config.crdb.migrateHook "manual" }}
+  name: {{ include "common.names.name" . }}-migrate-database
+  {{- else }}
+  generateName: migrate-database-
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+  {{- end }}
+spec:
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      service: migrate-database
+      {{- include "common.labels.matchLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        service: migrate-database
+        {{- include "common.labels.standard" . | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      terminationGracePeriodSeconds: 30
+      {{- with .Values.deployment.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.deployment.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.deployment.podSecurityContext | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ include "common.names.name" . }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - migrate
+            - up
+            - --config
+            - /config/config.yaml
+          {{- with .Values.config.crdb.uriSecretName }}
+          env:
+            - name: PERMISSIONSAPI_CRDB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: uri
+          {{- end }}
+          {{- with .Values.deployment.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts: {{ include "permapi.server.volumeMounts" . | nindent 12 }}
+      {{- with .Values.deployment.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.deployment.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.deployment.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes: {{ include "permapi.server.volumes" . | nindent 8 }}
+{{- end }}

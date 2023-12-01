@@ -11,6 +11,7 @@ metadata:
     {{- end }}
   {{- with .Values.deployment.annotations }}
   annotations:
+    checksum/config: {{ include (print $.Template.BasePath "/config-server.yaml") . | sha256sum }}
     {{ toYaml . | nindent 4 }}
   {{- end }}
 spec:
@@ -43,6 +44,30 @@ spec:
       securityContext:
         {{- toYaml .Values.deployment.podSecurityContext | nindent 8 }}
       {{- end }}
+      {{- if eq .Values.config.crdb.migrateHook "init" }}
+      initContainers:
+        - name: {{ include "common.names.name" . }}-migrate-database-init
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - migrate
+            - up
+            - --config
+            - /config/config.yaml
+          {{- with .Values.config.crdb.uriSecretName }}
+          env:
+            - name: PERMISSIONSAPI_CRDB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: uri
+          {{- end }}
+          {{- with .Values.deployment.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts: {{ include "permapi.server.volumeMounts" . | nindent 12 }}
+      {{- end }}
       containers:
         - name: {{ include "common.names.name" . }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
@@ -54,6 +79,13 @@ spec:
           env:
             - name: PERMISSIONSAPI_SERVER_LISTEN
               value: ":{{ include "permapi.listenPort" . }}"
+          {{- with .Values.config.crdb.uriSecretName }}
+            - name: PERMISSIONSAPI_CRDB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: uri
+          {{- end }}
           {{- if .Values.config.spicedb.policyConfigMapName }}
             - name: PERMISSIONSAPI_SPICEDB_POLICYFILE
               value: /policy/policy.yaml
