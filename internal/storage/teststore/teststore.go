@@ -1,6 +1,6 @@
-// Package testdb is a testing helper package which initializes a new crdb database and runs migrations
-// returning a new database which may be used during testing.
-package testdb
+// Package teststore is a testing helper package which initializes a new crdb database and runs migrations
+// returning a new store which may be used during testing.
+package teststore
 
 import (
 	"testing"
@@ -8,12 +8,11 @@ import (
 	"github.com/cockroachdb/cockroach-go/v2/testserver"
 	"github.com/pressly/goose/v3"
 
-	dbm "go.infratographer.com/permissions-api/db"
-	"go.infratographer.com/permissions-api/internal/database"
+	"go.infratographer.com/permissions-api/internal/storage"
 )
 
-// NewTestDatabase creates a new permissions database instance for testing.
-func NewTestDatabase(t *testing.T) (database.Database, func()) {
+// NewTestStorage creates a new permissions database instance for testing.
+func NewTestStorage(t *testing.T) (storage.Storage, func()) {
 	t.Helper()
 
 	server, err := testserver.NewTestServer()
@@ -24,7 +23,7 @@ func NewTestDatabase(t *testing.T) (database.Database, func()) {
 		return nil, func() {}
 	}
 
-	goose.SetBaseFS(dbm.Migrations)
+	goose.SetBaseFS(storage.Migrations)
 
 	db, err := goose.OpenDBWithDriver("postgres", server.PGURL().String())
 	if err != nil {
@@ -44,5 +43,5 @@ func NewTestDatabase(t *testing.T) (database.Database, func()) {
 		return nil, func() {}
 	}
 
-	return database.NewDatabase(db), func() { db.Close() }
+	return storage.New(db), func() { db.Close() }
 }

@@ -14,8 +14,8 @@ import (
 	"go.infratographer.com/x/viperx"
 	"go.uber.org/zap"
 
-	dbm "go.infratographer.com/permissions-api/db"
 	"go.infratographer.com/permissions-api/internal/config"
+	"go.infratographer.com/permissions-api/internal/storage"
 )
 
 var (
@@ -50,7 +50,7 @@ func init() {
 
 	// Add migrate command
 	goosex.RegisterCobraCommand(rootCmd, func() {
-		goosex.SetBaseFS(dbm.Migrations)
+		goosex.SetBaseFS(storage.Migrations)
 		goosex.SetLogger(logger)
 		goosex.SetDBURI(globalCfg.CRDB.GetURI())
 	})

@@ -54,7 +54,7 @@ func (e *Engine) CreateRole(ctx context.Context, actor, res types.Resource, name
 		ID:        gidx.MustNewID(query.ApplicationPrefix),
 		Name:      name,
 		Actions:   outActions,
-		Creator:   actor.ID,
+		CreatorID: actor.ID,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}

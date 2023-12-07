@@ -15,7 +15,7 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 
-	"go.infratographer.com/permissions-api/internal/database"
+	"go.infratographer.com/permissions-api/internal/storage"
 	"go.infratographer.com/permissions-api/internal/types"
 )
 
@@ -281,15 +281,20 @@ func (e *engine) CreateRole(ctx context.Context, actor, res types.Resource, role
 
 	defer span.End()
 
+	roleName = strings.TrimSpace(roleName)
+
 	role := newRole(roleName, actions)
 	roleRels := e.roleRelationships(role, res)
 
-	dbTx, err := e.db.CreateRoleTransaction(ctx, actor.ID, role.ID, roleName, res.ID)
+	dbCtx, err := e.store.BeginContext(ctx)
+	if err != nil {
+		return types.Role{}, nil
+	}
+
+	dbRole, err := e.store.CreateRole(dbCtx, actor.ID, role.ID, roleName, res.ID)
 	if err != nil {
 		return types.Role{}, err
 	}
-
-	defer dbTx.Rollback() //nolint:errcheck // error is logged in function
 
 	request := &pb.WriteRelationshipsRequest{Updates: roleRels}
 
@@ -297,20 +302,24 @@ func (e *engine) CreateRole(ctx context.Context, actor, res types.Resource, role
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
 		return types.Role{}, err
 	}
 
-	if err = dbTx.Commit(); err != nil {
+	if err = e.store.CommitContext(dbCtx); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
 		return types.Role{}, err
 	}
 
-	role.Creator = dbTx.Record.CreatorID
-	role.ResourceID = dbTx.Record.ResourceID
-	role.CreatedAt = dbTx.Record.CreatedAt
-	role.UpdatedAt = dbTx.Record.UpdatedAt
+	role.CreatorID = dbRole.CreatorID
+	role.ResourceID = dbRole.ResourceID
+	role.CreatedAt = dbRole.CreatedAt
+	role.UpdatedAt = dbRole.UpdatedAt
 
 	return role, nil
 }
@@ -365,10 +374,15 @@ func (e *engine) UpdateRole(ctx context.Context, actor, roleResource types.Resou
 
 	newName = strings.TrimSpace(newName)
 
+	// If the name is the same, then clear the changed name.
+	if role.Name == newName {
+		newName = ""
+	}
+
 	addActions, remActions := actionsDiff(role.Actions, newActions)
 
 	// If no changes, return existing role with no changes.
-	if role.Name == newName && len(addActions) == 0 && len(remActions) == 0 {
+	if newName == "" && len(addActions) == 0 && len(remActions) == 0 {
 		return role, nil
 	}
 
@@ -389,19 +403,16 @@ func (e *engine) UpdateRole(ctx context.Context, actor, roleResource types.Resou
 		return types.Role{}, err
 	}
 
-	var (
-		dbTx  database.TxRole
-		dbErr error
-	)
+	dbCtx, err := e.store.BeginContext(ctx)
+	if err != nil {
+		return types.Role{}, err
+	}
 
-	// If new name has changed, commit change to permissions database.
-	if newName != "" && role.Name != newName {
-		dbTx, dbErr = e.db.UpdateRoleTransaction(ctx, actor.ID, role.ID, newName, resourceID)
-		if dbErr != nil {
-			return types.Role{}, dbErr
-		}
+	dbRole, err := e.store.UpdateRole(dbCtx, role.ID, newName)
+	if err != nil {
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
 
-		defer dbTx.Rollback() //nolint:errcheck // error is logged in function
+		return types.Role{}, err
 	}
 
 	// If a change in actions, apply changes to spicedb.
@@ -414,29 +425,36 @@ func (e *engine) UpdateRole(ctx context.Context, actor, roleResource types.Resou
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
 
+			logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
 			return types.Role{}, err
 		}
 
 		role.Actions = newActions
 	}
 
-	// Only commit if dbTx is defined meaning the name was also updated.
-	if dbTx != nil {
-		if err = dbTx.Commit(); err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
+	if err := e.store.CommitContext(dbCtx); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 
-			return types.Role{}, err
-		}
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
 
-		role.Name = dbTx.Record.Name
-		role.Creator = dbTx.Record.CreatorID
-		role.ResourceID = dbTx.Record.ResourceID
-		role.CreatedAt = dbTx.Record.CreatedAt
-		role.UpdatedAt = dbTx.Record.UpdatedAt
+		return types.Role{}, err
 	}
 
+	role.Name = dbRole.Name
+	role.CreatorID = dbRole.CreatorID
+	role.ResourceID = dbRole.ResourceID
+	role.CreatedAt = dbRole.CreatedAt
+	role.UpdatedAt = dbRole.UpdatedAt
+
 	return role, nil
+}
+
+func logRollbackErr(logger *zap.SugaredLogger, err error, args ...interface{}) {
+	if err != nil {
+		logger.With(args...).Error("error while rolling back", zap.Error(err))
+	}
 }
 
 func actionToRelation(action string) string {
@@ -827,18 +845,10 @@ func (e *engine) ListRoles(ctx context.Context, resource types.Resource) ([]type
 		},
 	}
 
-	dbDone := make(chan struct{}, 1)
-
-	var (
-		dbRoles []*database.Role
-		dbErr   error
-	)
-
-	go func() {
-		defer close(dbDone)
-
-		dbRoles, dbErr = e.db.ListResourceRoles(ctx, resource.ID)
-	}()
+	dbRoles, err := e.store.ListResourceRoles(ctx, resource.ID)
+	if err != nil {
+		return nil, err
+	}
 
 	relationships, err := e.readRelationships(ctx, filter)
 	if err != nil {
@@ -847,27 +857,19 @@ func (e *engine) ListRoles(ctx context.Context, resource types.Resource) ([]type
 
 	out := relationshipsToRoles(relationships)
 
-	<-dbDone
+	rolesByID := make(map[string]storage.Role, len(dbRoles))
+	for _, role := range dbRoles {
+		rolesByID[role.ID.String()] = role
+	}
 
-	if dbErr != nil {
-		if !errors.Is(dbErr, database.ErrNoRoleFound) {
-			return nil, dbErr
-		}
-	} else {
-		rolesByID := make(map[string]*database.Role, len(dbRoles))
-		for _, role := range dbRoles {
-			rolesByID[role.ID.String()] = role
-		}
+	for i, role := range out {
+		if dbRole, ok := rolesByID[role.ID.String()]; ok {
+			role.Name = dbRole.Name
+			role.CreatorID = dbRole.CreatorID
+			role.CreatedAt = dbRole.CreatedAt
+			role.UpdatedAt = dbRole.UpdatedAt
 
-		for i, role := range out {
-			if dbRole, ok := rolesByID[role.ID.String()]; ok {
-				role.Name = dbRole.Name
-				role.Creator = dbRole.CreatorID
-				role.CreatedAt = dbRole.CreatedAt
-				role.UpdatedAt = dbRole.UpdatedAt
-
-				out[i] = role
-			}
+			out[i] = role
 		}
 	}
 
@@ -950,13 +952,9 @@ func (e *engine) GetRole(ctx context.Context, roleResource types.Resource) (type
 			actions[i] = relationToAction(action)
 		}
 
-		dbRole, err := e.db.GetRoleByID(ctx, roleResource.ID)
-		if err != nil && !errors.Is(err, database.ErrNoRoleFound) {
+		dbRole, err := e.store.GetRoleByID(ctx, roleResource.ID)
+		if err != nil && !errors.Is(err, storage.ErrNoRoleFound) {
 			e.logger.Error("error while getting role", zap.Error(err))
-		}
-
-		if dbRole == nil {
-			dbRole = new(database.Role)
 		}
 
 		return types.Role{
@@ -965,7 +963,7 @@ func (e *engine) GetRole(ctx context.Context, roleResource types.Resource) (type
 			Actions: actions,
 
 			ResourceID: dbRole.ResourceID,
-			Creator:    dbRole.CreatorID,
+			CreatorID:  dbRole.CreatorID,
 			CreatedAt:  dbRole.CreatedAt,
 			UpdatedAt:  dbRole.UpdatedAt,
 		}, nil
@@ -1055,15 +1053,16 @@ func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource) er
 		}
 	}
 
-	dbTx, err := e.db.DeleteRoleTransaction(ctx, roleResource.ID)
+	dbCtx, err := e.store.BeginContext(ctx)
 	if err != nil {
-		// If the role doesn't exist, simply ignore.
-		if !errors.Is(err, database.ErrNoRoleFound) {
-			return err
-		}
-	} else {
-		// Setup rollback in case an error occurs before we commit.
-		defer dbTx.Rollback() //nolint:errcheck // error is logged in function
+		return err
+	}
+
+	_, err = e.store.DeleteRole(dbCtx, roleResource.ID)
+	if err != nil {
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return err
 	}
 
 	for _, filter := range filters {
@@ -1073,18 +1072,19 @@ func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource) er
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
 
+			logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
 			return err
 		}
 	}
 
-	// If the role was not found, dbTx will be nil.
-	if dbTx != nil {
-		if err = dbTx.Commit(); err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
+	if err = e.store.CommitContext(dbCtx); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 
-			return err
-		}
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return err
 	}
 
 	return nil

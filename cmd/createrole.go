@@ -11,10 +11,10 @@ import (
 	"go.infratographer.com/x/viperx"
 
 	"go.infratographer.com/permissions-api/internal/config"
-	"go.infratographer.com/permissions-api/internal/database"
 	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/permissions-api/internal/spicedbx"
+	"go.infratographer.com/permissions-api/internal/storage"
 )
 
 const (
@@ -81,7 +81,7 @@ func createRole(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("unable to initialize permissions-api database", "error", err)
 	}
 
-	permDB := database.NewDatabase(db, database.WithLogger(logger))
+	store := storage.New(db, storage.WithLogger(logger))
 
 	var policy iapl.Policy
 
@@ -110,7 +110,7 @@ func createRole(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("error parsing subject ID", "error", err)
 	}
 
-	engine, err := query.NewEngine("infratographer", spiceClient, kv, permDB, query.WithPolicy(policy), query.WithLogger(logger))
+	engine, err := query.NewEngine("infratographer", spiceClient, kv, store, query.WithPolicy(policy), query.WithLogger(logger))
 	if err != nil {
 		logger.Fatalw("error creating engine", "error", err)
 	}

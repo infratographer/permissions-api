@@ -15,10 +15,10 @@ import (
 
 	"go.infratographer.com/permissions-api/internal/api"
 	"go.infratographer.com/permissions-api/internal/config"
-	"go.infratographer.com/permissions-api/internal/database"
 	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/permissions-api/internal/spicedbx"
+	"go.infratographer.com/permissions-api/internal/storage"
 )
 
 var (
@@ -70,7 +70,7 @@ func serve(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("unable to initialize permissions-api database", "error", err)
 	}
 
-	permDB := database.NewDatabase(db, database.WithLogger(logger))
+	store := storage.New(db, storage.WithLogger(logger))
 
 	var policy iapl.Policy
 
@@ -89,7 +89,7 @@ func serve(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("invalid spicedb policy", "error", err)
 	}
 
-	engine, err := query.NewEngine("infratographer", spiceClient, kv, permDB, query.WithPolicy(policy))
+	engine, err := query.NewEngine("infratographer", spiceClient, kv, store, query.WithPolicy(policy))
 	if err != nil {
 		logger.Fatalw("error creating engine", "error", err)
 	}
@@ -110,7 +110,7 @@ func serve(ctx context.Context, cfg *config.AppConfig) {
 
 	srv.AddHandler(r)
 	srv.AddReadinessCheck("spicedb", spicedbx.Healthcheck(spiceClient))
-	srv.AddReadinessCheck("database", permDB.HealthCheck)
+	srv.AddReadinessCheck("storage", store.HealthCheck)
 
 	if err := srv.Run(); err != nil {
 		logger.Fatal("failed to run server", zap.Error(err))

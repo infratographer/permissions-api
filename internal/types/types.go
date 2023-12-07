@@ -14,7 +14,7 @@ type Role struct {
 	Actions []string
 
 	ResourceID gidx.PrefixedID
-	Creator    gidx.PrefixedID
+	CreatorID  gidx.PrefixedID
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 }

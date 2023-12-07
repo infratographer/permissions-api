@@ -60,7 +60,7 @@ func (r *Router) roleCreate(c echo.Context) error {
 		Name:       role.Name,
 		Actions:    role.Actions,
 		ResourceID: role.ResourceID,
-		Creator:    role.Creator,
+		Creator:    role.CreatorID,
 		CreatedAt:  role.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:  role.UpdatedAt.Format(time.RFC3339),
 	}
@@ -117,7 +117,7 @@ func (r *Router) roleUpdate(c echo.Context) error {
 		Name:       role.Name,
 		Actions:    role.Actions,
 		ResourceID: role.ResourceID,
-		Creator:    role.Creator,
+		Creator:    role.CreatorID,
 		CreatedAt:  role.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:  role.UpdatedAt.Format(time.RFC3339),
 	}
@@ -169,7 +169,7 @@ func (r *Router) roleGet(c echo.Context) error {
 		Name:       role.Name,
 		Actions:    role.Actions,
 		ResourceID: role.ResourceID,
-		Creator:    role.Creator,
+		Creator:    role.CreatorID,
 		CreatedAt:  role.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:  role.UpdatedAt.Format(time.RFC3339),
 	}
@@ -216,7 +216,7 @@ func (r *Router) rolesList(c echo.Context) error {
 			ID:        role.ID,
 			Name:      role.Name,
 			Actions:   role.Actions,
-			Creator:   role.Creator,
+			Creator:   role.CreatorID,
 			CreatedAt: role.CreatedAt.Format(time.RFC3339),
 			UpdatedAt: role.UpdatedAt.Format(time.RFC3339),
 		}
