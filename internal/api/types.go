@@ -20,7 +20,8 @@ type roleResponse struct {
 	Actions []string        `json:"actions"`
 
 	ResourceID gidx.PrefixedID `json:"resource_id,omitempty"`
-	Creator    gidx.PrefixedID `json:"creator"`
+	CreatedBy  gidx.PrefixedID `json:"created_by"`
+	UpdatedBy  gidx.PrefixedID `json:"updated_by"`
 	CreatedAt  string          `json:"created_at"`
 	UpdatedAt  string          `json:"updated_at"`
 }

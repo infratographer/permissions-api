@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -8,6 +9,8 @@ import (
 	"go.infratographer.com/x/gidx"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+
+	"go.infratographer.com/permissions-api/internal/query"
 )
 
 const (
@@ -60,7 +63,8 @@ func (r *Router) roleCreate(c echo.Context) error {
 		Name:       role.Name,
 		Actions:    role.Actions,
 		ResourceID: role.ResourceID,
-		Creator:    role.CreatorID,
+		CreatedBy:  role.CreatedBy,
+		UpdatedBy:  role.UpdatedBy,
 		CreatedAt:  role.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:  role.UpdatedAt.Format(time.RFC3339),
 	}
@@ -100,7 +104,11 @@ func (r *Router) roleUpdate(c echo.Context) error {
 	// check on the role resource.
 	resource, err := r.engine.GetRoleResource(ctx, roleResource)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+		if errors.Is(err, query.ErrRoleNotFound) {
+			return echo.NewHTTPError(http.StatusNotFound, "resource not found").SetInternal(err)
+		}
+
+		return echo.NewHTTPError(http.StatusInternalServerError, "error getting resource").SetInternal(err)
 	}
 
 	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleUpdate, resource); err != nil {
@@ -117,7 +125,8 @@ func (r *Router) roleUpdate(c echo.Context) error {
 		Name:       role.Name,
 		Actions:    role.Actions,
 		ResourceID: role.ResourceID,
-		Creator:    role.CreatorID,
+		CreatedBy:  role.CreatedBy,
+		UpdatedBy:  role.UpdatedBy,
 		CreatedAt:  role.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:  role.UpdatedAt.Format(time.RFC3339),
 	}
@@ -169,7 +178,8 @@ func (r *Router) roleGet(c echo.Context) error {
 		Name:       role.Name,
 		Actions:    role.Actions,
 		ResourceID: role.ResourceID,
-		Creator:    role.CreatorID,
+		CreatedBy:  role.CreatedBy,
+		UpdatedBy:  role.UpdatedBy,
 		CreatedAt:  role.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:  role.UpdatedAt.Format(time.RFC3339),
 	}
@@ -216,7 +226,8 @@ func (r *Router) rolesList(c echo.Context) error {
 			ID:        role.ID,
 			Name:      role.Name,
 			Actions:   role.Actions,
-			Creator:   role.CreatorID,
+			CreatedBy: role.CreatedBy,
+			UpdatedBy: role.UpdatedBy,
 			CreatedAt: role.CreatedAt.Format(time.RFC3339),
 			UpdatedAt: role.UpdatedAt.Format(time.RFC3339),
 		}

@@ -27,17 +27,30 @@ var (
 	ErrorInvalidContextTx = errors.New("invalid type for transaction context")
 )
 
+const (
+	pqIndexRolesPrimaryKey     = "roles_pkey"
+	pqIndexRolesResourceIDName = "roles_resource_id_name"
+)
+
+// pqIsRoleAlreadyExistsError checks that the provided error is a postgres error.
+// If so, checks if postgres threw a unique_violation error on the roles primary key index.
+// If postgres has raised a unique violation error on this index it means a record already exists
+// with a matching primary key (role id).
 func pqIsRoleAlreadyExistsError(err error) bool {
 	if pqErr, ok := err.(*pq.Error); ok {
-		return pqErr.Code.Name() == "unique_violation" && pqErr.Constraint == "roles_pkey"
+		return pqErr.Code.Name() == "unique_violation" && pqErr.Constraint == pqIndexRolesPrimaryKey
 	}
 
 	return false
 }
 
+// pqIsRoleNameTakenError checks that the provided error is a postgres error.
+// If so, checks if postgres threw a unique_violation error on the roles resource id name index.
+// If postgres has raised a unique violation error on this index it means a record already exists
+// with the same resource id and role name combination.
 func pqIsRoleNameTakenError(err error) bool {
 	if pqErr, ok := err.(*pq.Error); ok {
-		return pqErr.Code.Name() == "unique_violation" && pqErr.Constraint == "roles_resource_id_name"
+		return pqErr.Code.Name() == "unique_violation" && pqErr.Constraint == pqIndexRolesResourceIDName
 	}
 
 	return false

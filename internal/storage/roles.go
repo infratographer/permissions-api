@@ -16,7 +16,7 @@ type RoleService interface {
 	GetResourceRoleByName(ctx context.Context, resourceID gidx.PrefixedID, name string) (Role, error)
 	ListResourceRoles(ctx context.Context, resourceID gidx.PrefixedID) ([]Role, error)
 	CreateRole(ctx context.Context, actorID gidx.PrefixedID, roleID gidx.PrefixedID, name string, resourceID gidx.PrefixedID) (Role, error)
-	UpdateRole(ctx context.Context, roleID gidx.PrefixedID, name string) (Role, error)
+	UpdateRole(ctx context.Context, actorID, roleID gidx.PrefixedID, name string) (Role, error)
 	DeleteRole(ctx context.Context, roleID gidx.PrefixedID) (Role, error)
 }
 
@@ -25,7 +25,8 @@ type Role struct {
 	ID         gidx.PrefixedID
 	Name       string
 	ResourceID gidx.PrefixedID
-	CreatorID  gidx.PrefixedID
+	CreatedBy  gidx.PrefixedID
+	UpdatedBy  gidx.PrefixedID
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 }
@@ -33,14 +34,20 @@ type Role struct {
 // GetRoleByID retrieves a role from the database by the provided prefixed ID.
 // If no role exists an ErrRoleNotFound error is returned.
 func (e *engine) GetRoleByID(ctx context.Context, id gidx.PrefixedID) (Role, error) {
+	db, err := getContextDBQuery(ctx, e)
+	if err != nil {
+		return Role{}, err
+	}
+
 	var role Role
 
-	err := e.QueryRowContext(ctx, `
+	err = db.QueryRowContext(ctx, `
 		SELECT
 			id,
 			name,
 			resource_id,
-			creator_id,
+			created_by,
+			updated_by,
 			created_at,
 			updated_at
 		FROM roles
@@ -50,7 +57,8 @@ func (e *engine) GetRoleByID(ctx context.Context, id gidx.PrefixedID) (Role, err
 		&role.ID,
 		&role.Name,
 		&role.ResourceID,
-		&role.CreatorID,
+		&role.CreatedBy,
+		&role.UpdatedBy,
 		&role.CreatedAt,
 		&role.UpdatedAt,
 	)
@@ -69,14 +77,20 @@ func (e *engine) GetRoleByID(ctx context.Context, id gidx.PrefixedID) (Role, err
 // GetResourceRoleByName retrieves a role from the database by the provided resource ID and role name.
 // If no role exists an ErrRoleNotFound error is returned.
 func (e *engine) GetResourceRoleByName(ctx context.Context, resourceID gidx.PrefixedID, name string) (Role, error) {
+	db, err := getContextDBQuery(ctx, e)
+	if err != nil {
+		return Role{}, err
+	}
+
 	var role Role
 
-	err := e.QueryRowContext(ctx, `
+	err = db.QueryRowContext(ctx, `
 		SELECT
 			id,
 			name,
 			resource_id,
-			creator_id,
+			created_by,
+			updated_by,
 			created_at,
 			updated_at
 		FROM roles
@@ -90,7 +104,8 @@ func (e *engine) GetResourceRoleByName(ctx context.Context, resourceID gidx.Pref
 		&role.ID,
 		&role.Name,
 		&role.ResourceID,
-		&role.CreatorID,
+		&role.CreatedBy,
+		&role.UpdatedBy,
 		&role.CreatedAt,
 		&role.UpdatedAt,
 	)
@@ -109,12 +124,18 @@ func (e *engine) GetResourceRoleByName(ctx context.Context, resourceID gidx.Pref
 // ListResourceRoles retrieves all roles associated with the provided resource ID.
 // If no roles are found an empty slice is returned.
 func (e *engine) ListResourceRoles(ctx context.Context, resourceID gidx.PrefixedID) ([]Role, error) {
-	rows, err := e.QueryContext(ctx, `
+	db, err := getContextDBQuery(ctx, e)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := db.QueryContext(ctx, `
 		SELECT
 			id,
 			name,
 			resource_id,
-			creator_id,
+			created_by,
+			updated_by,
 			created_at,
 			updated_at
 		FROM roles
@@ -133,7 +154,7 @@ func (e *engine) ListResourceRoles(ctx context.Context, resourceID gidx.Prefixed
 	for rows.Next() {
 		var role Role
 
-		if err := rows.Scan(&role.ID, &role.Name, &role.ResourceID, &role.CreatorID, &role.CreatedAt, &role.UpdatedAt); err != nil {
+		if err := rows.Scan(&role.ID, &role.Name, &role.ResourceID, &role.CreatedBy, &role.UpdatedBy, &role.CreatedAt, &role.UpdatedAt); err != nil {
 			return nil, err
 		}
 
@@ -159,15 +180,16 @@ func (e *engine) CreateRole(ctx context.Context, actorID, roleID gidx.PrefixedID
 
 	err = tx.QueryRowContext(ctx, `
 		INSERT
-			INTO roles (id, name, resource_id, creator_id, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, now(), now())
-		RETURNING id, name, resource_id, creator_id, created_at, updated_at
+			INTO roles (id, name, resource_id, created_by, updated_by, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $4, now(), now())
+		RETURNING id, name, resource_id, created_by, updated_by, created_at, updated_at
 		`, roleID.String(), name, resourceID.String(), actorID.String(),
 	).Scan(
 		&role.ID,
 		&role.Name,
 		&role.ResourceID,
-		&role.CreatorID,
+		&role.CreatedBy,
+		&role.UpdatedBy,
 		&role.CreatedAt,
 		&role.UpdatedAt,
 	)
@@ -187,41 +209,29 @@ func (e *engine) CreateRole(ctx context.Context, actorID, roleID gidx.PrefixedID
 	return role, nil
 }
 
-// UpdateRole updates an existing role if one exists.
-// If no role already exists, a new role is created in the same way as CreateRole.
+// UpdateRole updates an existing role.
 // If changing the name and the new name results in a duplicate name error, an ErrRoleNameTaken error is returned.
 //
 // This method must be called with a context returned from BeginContext.
 // CommitContext or RollbackContext must be called afterwards if this method returns no error.
-func (e *engine) UpdateRole(ctx context.Context, roleID gidx.PrefixedID, name string) (Role, error) {
+func (e *engine) UpdateRole(ctx context.Context, actorID, roleID gidx.PrefixedID, name string) (Role, error) {
 	tx, err := getContextTx(ctx)
 	if err != nil {
 		return Role{}, err
 	}
 
-	var row *sql.Row
-
-	// If no name is provided, only update the updated_at timestamp.
-	if name == "" {
-		row = tx.QueryRowContext(ctx, `
-			UPDATE roles SET updated_at = now() WHERE id = $1
-			RETURNING id, name, resource_id, creator_id, created_at, updated_at
-		`, roleID.String())
-	} else {
-		row = tx.QueryRowContext(ctx, `
-			UPDATE roles SET name = $1, updated_at = now() WHERE id = $2
-			RETURNING id, name, resource_id, creator_id, created_at, updated_at
-			`, name, roleID.String(),
-		)
-	}
-
 	var role Role
 
-	err = row.Scan(
+	err = tx.QueryRowContext(ctx, `
+		UPDATE roles SET name = $1, updated_by = $2, updated_at = now() WHERE id = $3
+		RETURNING id, name, resource_id, created_by, updated_by, created_at, updated_at
+		`, name, actorID.String(), roleID.String(),
+	).Scan(
 		&role.ID,
 		&role.Name,
 		&role.ResourceID,
-		&role.CreatorID,
+		&role.CreatedBy,
+		&role.UpdatedBy,
 		&role.CreatedAt,
 		&role.UpdatedAt,
 	)

@@ -54,7 +54,8 @@ func (e *Engine) CreateRole(ctx context.Context, actor, res types.Resource, name
 		ID:        gidx.MustNewID(query.ApplicationPrefix),
 		Name:      name,
 		Actions:   outActions,
-		CreatorID: actor.ID,
+		CreatedBy: actor.ID,
+		UpdatedBy: actor.ID,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -62,9 +63,13 @@ func (e *Engine) CreateRole(ctx context.Context, actor, res types.Resource, name
 	return role, nil
 }
 
-// UpdateRole returns nothing but satisfies the Engine interface.
+// UpdateRole returns the provided mock results.
 func (e *Engine) UpdateRole(ctx context.Context, actor, roleResource types.Resource, newName string, newActions []string) (types.Role, error) {
-	return types.Role{}, nil
+	args := e.Called(actor, roleResource, newName, newActions)
+
+	retRole := args.Get(0).(types.Role)
+
+	return retRole, args.Error(1)
 }
 
 // GetRole returns nothing but satisfies the Engine interface.

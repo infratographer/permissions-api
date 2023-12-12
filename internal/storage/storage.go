@@ -20,9 +20,16 @@ type Storage interface {
 // *sql.DB implements these methods.
 type DB interface {
 	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
+	PingContext(ctx context.Context) error
+
+	DBQuery
+}
+
+// DBQuery are required methods for querying the database.
+type DBQuery interface {
 	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
 	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
-	PingContext(ctx context.Context) error
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 }
 
 type engine struct {

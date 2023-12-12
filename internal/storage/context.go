@@ -39,6 +39,19 @@ func getContextTx(ctx context.Context) (*sql.Tx, error) {
 	}
 }
 
+func getContextDBQuery(ctx context.Context, def DBQuery) (DBQuery, error) {
+	tx, err := getContextTx(ctx)
+
+	switch err {
+	case nil:
+		return tx, nil
+	case ErrorMissingContextTx:
+		return def, nil
+	default:
+		return nil, err
+	}
+}
+
 func commitContextTx(ctx context.Context) error {
 	tx, err := getContextTx(ctx)
 	if err != nil {

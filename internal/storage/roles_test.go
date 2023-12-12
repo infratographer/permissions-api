@@ -54,7 +54,7 @@ func TestGetRoleByID(t *testing.T) {
 				assert.Equal(t, roleID, res.Success.ID)
 				assert.Equal(t, roleName, res.Success.Name)
 				assert.Equal(t, resourceID, res.Success.ResourceID)
-				assert.Equal(t, actorID, res.Success.CreatorID)
+				assert.Equal(t, actorID, res.Success.CreatedBy)
 				assert.Equal(t, createdRole.CreatedAt, res.Success.CreatedAt)
 				assert.Equal(t, createdRole.UpdatedAt, res.Success.UpdatedAt)
 			},
@@ -124,7 +124,7 @@ func TestListResourceRoles(t *testing.T) {
 					require.NotEmpty(t, role.Name)
 					assert.Equal(t, groups[role.Name], role.ID)
 					assert.Equal(t, resourceID, role.ResourceID)
-					assert.Equal(t, actorID, role.CreatorID)
+					assert.Equal(t, actorID, role.CreatedBy)
 					assert.False(t, role.CreatedAt.IsZero())
 					assert.False(t, role.UpdatedAt.IsZero())
 				}
@@ -172,7 +172,7 @@ func TestCreateRole(t *testing.T) {
 				assert.Equal(t, "permrol-abc123", res.Success.ID.String())
 				assert.Equal(t, "admins", res.Success.Name)
 				assert.Equal(t, resourceID, res.Success.ResourceID)
-				assert.Equal(t, actorID, res.Success.CreatorID)
+				assert.Equal(t, actorID, res.Success.CreatedBy)
 				assert.False(t, res.Success.CreatedAt.IsZero())
 				assert.False(t, res.Success.UpdatedAt.IsZero())
 			},
@@ -290,7 +290,7 @@ func TestUpdateRole(t *testing.T) {
 
 				assert.Equal(t, role1ID, res.Success.ID)
 				assert.Equal(t, "root-admins", res.Success.Name)
-				assert.Equal(t, actorID, res.Success.CreatorID)
+				assert.Equal(t, actorID, res.Success.CreatedBy)
 				assert.Equal(t, createdDBRole1.CreatedAt, res.Success.CreatedAt)
 				assert.NotEqual(t, createdDBRole1.UpdatedAt, res.Success.UpdatedAt)
 			},
@@ -320,7 +320,7 @@ func TestUpdateRole(t *testing.T) {
 			return result
 		}
 
-		result.Success, result.Err = store.UpdateRole(dbCtx, input.id, input.name)
+		result.Success, result.Err = store.UpdateRole(dbCtx, actorID, input.id, input.name)
 		if result.Err != nil {
 			store.RollbackContext(dbCtx) //nolint:errcheck // skip check in test
 

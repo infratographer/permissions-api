@@ -313,10 +313,16 @@ func (e *engine) CreateRole(ctx context.Context, actor, res types.Resource, role
 
 		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
 
+		// No rollback of spicedb relations are done here.
+		// This does result in dangling unused entries in spicedb,
+		// however there are no assignments to these newly created
+		// and now discarded roles and so they won't be used.
+
 		return types.Role{}, err
 	}
 
-	role.CreatorID = dbRole.CreatorID
+	role.CreatedBy = dbRole.CreatedBy
+	role.UpdatedBy = dbRole.UpdatedBy
 	role.ResourceID = dbRole.ResourceID
 	role.CreatedAt = dbRole.CreatedAt
 	role.UpdatedAt = dbRole.UpdatedAt
@@ -367,48 +373,35 @@ func (e *engine) UpdateRole(ctx context.Context, actor, roleResource types.Resou
 
 	defer span.End()
 
-	role, err := e.GetRole(ctx, roleResource)
+	dbCtx, err := e.store.BeginContext(ctx)
+	if err != nil {
+		return types.Role{}, err
+	}
+
+	role, err := e.GetRole(dbCtx, roleResource)
 	if err != nil {
 		return types.Role{}, err
 	}
 
 	newName = strings.TrimSpace(newName)
 
-	// If the name is the same, then clear the changed name.
-	if role.Name == newName {
-		newName = ""
+	if newName == "" {
+		newName = role.Name
 	}
 
 	addActions, remActions := actionsDiff(role.Actions, newActions)
 
 	// If no changes, return existing role with no changes.
-	if newName == "" && len(addActions) == 0 && len(remActions) == 0 {
+	if newName == role.Name && len(addActions) == 0 && len(remActions) == 0 {
 		return role, nil
 	}
 
-	resourceID := role.ResourceID
-
-	// If the resource id is not found in the permissions database, then we must locate it in the spicedb database.
-	if resourceID == gidx.NullPrefixedID {
-		resource, err := e.GetRoleResource(ctx, roleResource)
-		if err != nil {
-			return types.Role{}, fmt.Errorf("failed to locate roles associated resource: %s: %w", roleResource.ID.String(), err)
-		}
-
-		resourceID = resource.ID
-	}
-
-	resource, err := e.NewResourceFromID(resourceID)
+	resource, err := e.NewResourceFromID(role.ResourceID)
 	if err != nil {
 		return types.Role{}, err
 	}
 
-	dbCtx, err := e.store.BeginContext(ctx)
-	if err != nil {
-		return types.Role{}, err
-	}
-
-	dbRole, err := e.store.UpdateRole(dbCtx, role.ID, newName)
+	dbRole, err := e.store.UpdateRole(dbCtx, actor.ID, role.ID, newName)
 	if err != nil {
 		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
 
@@ -439,11 +432,14 @@ func (e *engine) UpdateRole(ctx context.Context, actor, roleResource types.Resou
 
 		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
 
+		// TODO: add spicedb rollback logic.
+
 		return types.Role{}, err
 	}
 
 	role.Name = dbRole.Name
-	role.CreatorID = dbRole.CreatorID
+	role.CreatedBy = dbRole.CreatedBy
+	role.UpdatedBy = dbRole.UpdatedBy
 	role.ResourceID = dbRole.ResourceID
 	role.CreatedAt = dbRole.CreatedAt
 	role.UpdatedAt = dbRole.UpdatedAt
@@ -865,7 +861,8 @@ func (e *engine) ListRoles(ctx context.Context, resource types.Resource) ([]type
 	for i, role := range out {
 		if dbRole, ok := rolesByID[role.ID.String()]; ok {
 			role.Name = dbRole.Name
-			role.CreatorID = dbRole.CreatorID
+			role.CreatedBy = dbRole.CreatedBy
+			role.UpdatedBy = dbRole.UpdatedBy
 			role.CreatedAt = dbRole.CreatedAt
 			role.UpdatedAt = dbRole.UpdatedAt
 
@@ -963,7 +960,8 @@ func (e *engine) GetRole(ctx context.Context, roleResource types.Resource) (type
 			Actions: actions,
 
 			ResourceID: dbRole.ResourceID,
-			CreatorID:  dbRole.CreatorID,
+			CreatedBy:  dbRole.CreatedBy,
+			UpdatedBy:  dbRole.UpdatedBy,
 			CreatedAt:  dbRole.CreatedAt,
 			UpdatedAt:  dbRole.UpdatedAt,
 		}, nil
