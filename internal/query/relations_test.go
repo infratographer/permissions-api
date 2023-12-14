@@ -229,6 +229,8 @@ func TestRoleUpdate(t *testing.T) {
 	require.NoError(t, err)
 	actorRes, err := e.NewResourceFromID(gidx.MustNewID("idntusr"))
 	require.NoError(t, err)
+	actorUpdateRes, err := e.NewResourceFromID(gidx.MustNewID("idntusr"))
+	require.NoError(t, err)
 
 	role, err := e.CreateRole(ctx, actorRes, tenRes, "test", []string{"loadbalancer_get"})
 	require.NoError(t, err)
@@ -241,15 +243,21 @@ func TestRoleUpdate(t *testing.T) {
 			Name:  "UpdateMissingRole",
 			Input: gidx.MustNewID(RolePrefix),
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
-				assert.Error(t, res.Err)
+				require.Error(t, res.Err)
+				assert.ErrorIs(t, res.Err, ErrRoleNotFound)
 			},
 		},
 		{
 			Name:  "UpdateSuccess",
 			Input: role.ID,
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
-				assert.NoError(t, res.Err)
-				require.Equal(t, "test2", res.Success.Name)
+				require.NoError(t, res.Err)
+				assert.Equal(t, "test2", res.Success.Name)
+				assert.Equal(t, role.Actions, res.Success.Actions)
+				assert.Equal(t, role.CreatedBy, res.Success.CreatedBy)
+				assert.Equal(t, actorUpdateRes.ID, res.Success.UpdatedBy)
+				assert.Equal(t, role.CreatedAt, res.Success.CreatedAt)
+				assert.NotEqual(t, role.UpdatedAt, res.Success.UpdatedAt)
 			},
 		},
 	}
@@ -262,7 +270,7 @@ func TestRoleUpdate(t *testing.T) {
 			}
 		}
 
-		_, err = e.UpdateRole(ctx, actorRes, roleResource, "test2", nil)
+		_, err = e.UpdateRole(ctx, actorUpdateRes, roleResource, "test2", nil)
 		if err != nil {
 			return testingx.TestResult[types.Role]{
 				Err: err,

@@ -337,27 +337,27 @@ func actionsDiff(oldActions, newActions []string) ([]string, []string) {
 		return nil, nil
 	}
 
-	old := make(map[string]bool, len(oldActions))
-	new := make(map[string]bool, len(newActions))
+	old := make(map[string]struct{}, len(oldActions))
+	new := make(map[string]struct{}, len(newActions))
 
 	var add, rem []string
 
 	for _, action := range oldActions {
-		old[action] = true
+		old[action] = struct{}{}
 	}
 
 	for _, action := range newActions {
-		new[action] = true
+		new[action] = struct{}{}
 
 		// If the new action is not in the old actions, then we need to add the action.
-		if !old[action] {
+		if _, ok := old[action]; !ok {
 			add = append(add, action)
 		}
 	}
 
 	for _, action := range oldActions {
 		// If the old action is not in the new actions, then we need to remove it.
-		if !new[action] {
+		if _, ok := new[action]; !ok {
 			rem = append(rem, action)
 		}
 	}
@@ -432,7 +432,10 @@ func (e *engine) UpdateRole(ctx context.Context, actor, roleResource types.Resou
 
 		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
 
-		// TODO: add spicedb rollback logic.
+		// At this point, spicedb changes have already been applied.
+		// Attempting to rollback could result in failures that could result in the same situation.
+		//
+		// TODO: add spicedb rollback logic along with rollback failure scenarios.
 
 		return types.Role{}, err
 	}
@@ -853,13 +856,13 @@ func (e *engine) ListRoles(ctx context.Context, resource types.Resource) ([]type
 
 	out := relationshipsToRoles(relationships)
 
-	rolesByID := make(map[string]storage.Role, len(dbRoles))
+	rolesByID := make(map[gidx.PrefixedID]storage.Role, len(dbRoles))
 	for _, role := range dbRoles {
-		rolesByID[role.ID.String()] = role
+		rolesByID[role.ID] = role
 	}
 
 	for i, role := range out {
-		if dbRole, ok := rolesByID[role.ID.String()]; ok {
+		if dbRole, ok := rolesByID[role.ID]; ok {
 			role.Name = dbRole.Name
 			role.CreatedBy = dbRole.CreatedBy
 			role.UpdatedBy = dbRole.UpdatedBy
@@ -1072,6 +1075,11 @@ func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource) er
 
 			logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
 
+			// At this point, some spicedb changes may have already been applied.
+			// Attempting to rollback could result in failures that could result in the same situation.
+			//
+			// TODO: add spicedb rollback logic along with rollback failure scenarios.
+
 			return err
 		}
 	}
@@ -1081,6 +1089,11 @@ func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource) er
 		span.SetStatus(codes.Error, err.Error())
 
 		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		// At this point, spicedb changes have already been applied.
+		// Attempting to rollback could result in failures that could result in the same situation.
+		//
+		// TODO: add spicedb rollback logic along with rollback failure scenarios.
 
 		return err
 	}
