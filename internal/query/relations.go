@@ -378,8 +378,22 @@ func (e *engine) UpdateRole(ctx context.Context, actor, roleResource types.Resou
 		return types.Role{}, err
 	}
 
+	err = e.store.LockRoleForUpdate(dbCtx, roleResource.ID)
+	if err != nil {
+		sErr := fmt.Errorf("failed to lock role: %s: %w", roleResource.ID, err)
+
+		span.RecordError(sErr)
+		span.SetStatus(codes.Error, sErr.Error())
+
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return types.Role{}, err
+	}
+
 	role, err := e.GetRole(dbCtx, roleResource)
 	if err != nil {
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
 		return types.Role{}, err
 	}
 
@@ -1010,14 +1024,30 @@ func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource) er
 
 	defer span.End()
 
-	var (
-		resActions map[types.Resource][]string
-		err        error
-	)
+	dbCtx, err := e.store.BeginContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = e.store.LockRoleForUpdate(dbCtx, roleResource.ID)
+	if err != nil {
+		sErr := fmt.Errorf("failed to lock role: %s: %w", roleResource.ID, err)
+
+		span.RecordError(sErr)
+		span.SetStatus(codes.Error, sErr.Error())
+
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return err
+	}
+
+	var resActions map[types.Resource][]string
 
 	for _, resType := range e.schemaRoleables {
 		resActions, err = e.listRoleResourceActions(ctx, roleResource, resType.Name)
 		if err != nil {
+			logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
 			return err
 		}
 
@@ -1025,10 +1055,6 @@ func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource) er
 		if len(resActions) != 0 {
 			break
 		}
-	}
-
-	if len(resActions) == 0 {
-		return ErrRoleNotFound
 	}
 
 	roleType := e.namespace + "/role"
@@ -1052,11 +1078,6 @@ func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource) er
 				OptionalSubjectFilter: roleSubjectFilter,
 			})
 		}
-	}
-
-	dbCtx, err := e.store.BeginContext(ctx)
-	if err != nil {
-		return err
 	}
 
 	_, err = e.store.DeleteRole(dbCtx, roleResource.ID)

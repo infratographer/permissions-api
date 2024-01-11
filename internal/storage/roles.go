@@ -18,6 +18,7 @@ type RoleService interface {
 	CreateRole(ctx context.Context, actorID gidx.PrefixedID, roleID gidx.PrefixedID, name string, resourceID gidx.PrefixedID) (Role, error)
 	UpdateRole(ctx context.Context, actorID, roleID gidx.PrefixedID, name string) (Role, error)
 	DeleteRole(ctx context.Context, roleID gidx.PrefixedID) (Role, error)
+	LockRoleForUpdate(ctx context.Context, roleID gidx.PrefixedID) error
 }
 
 // Role represents a role in the database.
@@ -72,6 +73,31 @@ func (e *engine) GetRoleByID(ctx context.Context, id gidx.PrefixedID) (Role, err
 	}
 
 	return role, nil
+}
+
+// LockRoleForUpdate locks the provided role's record to be updated to ensure consistency.
+// If no role exists an ErrNoRoleFound error is returned.
+func (e *engine) LockRoleForUpdate(ctx context.Context, id gidx.PrefixedID) error {
+	db, err := getContextDBQuery(ctx, e)
+	if err != nil {
+		return err
+	}
+
+	result, err := db.ExecContext(ctx, `SELECT 1 FROM roles WHERE id = $1 FOR UPDATE`, id.String())
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrNoRoleFound
+	}
+
+	return nil
 }
 
 // GetResourceRoleByName retrieves a role from the database by the provided resource ID and role name.

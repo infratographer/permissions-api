@@ -15,6 +15,7 @@ import (
 
 	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/spicedbx"
+	"go.infratographer.com/permissions-api/internal/storage"
 	"go.infratographer.com/permissions-api/internal/storage/teststore"
 	"go.infratographer.com/permissions-api/internal/testingx"
 	"go.infratographer.com/permissions-api/internal/types"
@@ -244,7 +245,7 @@ func TestRoleUpdate(t *testing.T) {
 			Input: gidx.MustNewID(RolePrefix),
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				require.Error(t, res.Err)
-				assert.ErrorIs(t, res.Err, ErrRoleNotFound)
+				assert.ErrorIs(t, res.Err, storage.ErrNoRoleFound)
 			},
 		},
 		{
