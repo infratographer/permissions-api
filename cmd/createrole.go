@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"go.infratographer.com/x/events"
 	"go.infratographer.com/x/gidx"
 	"go.infratographer.com/x/viperx"
 
@@ -59,6 +60,16 @@ func createRole(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("unable to initialize spicedb client", "error", err)
 	}
 
+	eventsConn, err := events.NewConnection(cfg.Events.Config, events.WithLogger(logger))
+	if err != nil {
+		logger.Fatalw("failed to initialize events", "error", err)
+	}
+
+	kv, err := initializeKV(cfg.Events, eventsConn)
+	if err != nil {
+		logger.Fatalw("failed to initialize KV", "error", err)
+	}
+
 	var policy iapl.Policy
 
 	if cfg.SpiceDB.PolicyFile != "" {
@@ -86,7 +97,10 @@ func createRole(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("error parsing subject ID", "error", err)
 	}
 
-	engine := query.NewEngine("infratographer", spiceClient, query.WithPolicy(policy), query.WithLogger(logger))
+	engine, err := query.NewEngine("infratographer", spiceClient, kv, query.WithPolicy(policy), query.WithLogger(logger))
+	if err != nil {
+		logger.Fatalw("error creating engine", "error", err)
+	}
 
 	resource, err := engine.NewResourceFromID(resourceID)
 	if err != nil {

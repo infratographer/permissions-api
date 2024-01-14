@@ -88,14 +88,18 @@ func (e *engine) SubjectHasPermission(ctx context.Context, subject types.Resourc
 
 	defer span.End()
 
+	consistency, consName := e.determineConsistency(ctx, resource)
+	span.SetAttributes(
+		attribute.String(
+			"permissions.consistency",
+			consName,
+		),
+	)
+
 	req := &pb.CheckPermissionRequest{
-		Consistency: &pb.Consistency{
-			Requirement: &pb.Consistency_FullyConsistent{
-				FullyConsistent: true,
-			},
-		},
-		Resource:   resourceToSpiceDBRef(e.namespace, resource),
-		Permission: action,
+		Consistency: consistency,
+		Resource:    resourceToSpiceDBRef(e.namespace, resource),
+		Permission:  action,
 		Subject: &pb.SubjectReference{
 			Object: resourceToSpiceDBRef(e.namespace, subject),
 		},
@@ -256,12 +260,15 @@ func (e *engine) CreateRelationships(ctx context.Context, rels []types.Relations
 		Updates: relUpdates,
 	}
 
-	if _, err := e.client.WriteRelationships(ctx, request); err != nil {
+	resp, err := e.client.WriteRelationships(ctx, request)
+	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 
 		return err
 	}
+
+	e.updateRelationshipZedTokens(ctx, rels, resp.WrittenAt.Token)
 
 	return nil
 }

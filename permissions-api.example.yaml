@@ -2,3 +2,7 @@ oidc:
   issuer: http://mock-oauth2-server:8081/default
 spicedb:
   policyFile: /workspace/policy.example.yaml
+events:
+  nats:
+    credsFile: /tmp/user.creds
+  zedTokenBucket: zedtokens

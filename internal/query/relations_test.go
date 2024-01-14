@@ -6,10 +6,12 @@ import (
 
 	pb "github.com/authzed/authzed-go/proto/authzed/api/v1"
 	"github.com/authzed/authzed-go/v1"
+	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"go.infratographer.com/x/gidx"
+	"go.infratographer.com/x/testing/eventtools"
 
 	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/spicedbx"
@@ -36,11 +38,22 @@ func testEngine(ctx context.Context, t *testing.T, namespace string) Engine {
 	_, err = client.WriteSchema(ctx, request)
 	require.NoError(t, err)
 
+	natsSrv, err := eventtools.NewNatsServer()
+	require.NoError(t, err)
+
+	kvCfg := nats.KeyValueConfig{
+		Bucket: "zedtokens",
+	}
+
+	kv, err := natsSrv.JetStream.CreateKeyValue(&kvCfg)
+	require.NoError(t, err)
+
 	t.Cleanup(func() {
 		cleanDB(ctx, t, client, namespace)
 	})
 
-	out := NewEngine(namespace, client, WithPolicy(policy))
+	out, err := NewEngine(namespace, client, kv, WithPolicy(policy))
+	require.NoError(t, err)
 
 	return out
 }
@@ -557,6 +570,10 @@ func TestSubjectActions(t *testing.T) {
 	ctx := context.Background()
 	e := testEngine(ctx, t, namespace)
 
+	parentID, err := gidx.NewID("tnntten")
+	require.NoError(t, err)
+	parentRes, err := e.NewResourceFromID(parentID)
+	require.NoError(t, err)
 	tenID, err := gidx.NewID("tnntten")
 	require.NoError(t, err)
 	tenRes, err := e.NewResourceFromID(tenID)
@@ -579,6 +596,23 @@ func TestSubjectActions(t *testing.T) {
 	assert.NoError(t, err)
 	err = e.AssignSubjectRole(ctx, subjRes, role)
 	assert.NoError(t, err)
+
+	// Force a ZedToken to be created for the relevant resources. This creates a hierarchy where
+	// the tenRes tenant and otherRes tenant are both child resources of the parentRes tenant.
+	rels := []types.Relationship{
+		{
+			Resource: tenRes,
+			Relation: "parent",
+			Subject:  parentRes,
+		},
+		{
+			Resource: otherRes,
+			Relation: "parent",
+			Subject:  parentRes,
+		},
+	}
+	err = e.CreateRelationships(ctx, rels)
+	require.NoError(t, err)
 
 	type testInput struct {
 		resource types.Resource
