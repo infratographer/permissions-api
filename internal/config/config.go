@@ -16,8 +16,9 @@ import (
 
 // EventsConfig stores the configuration for a load-balancer-api events config
 type EventsConfig struct {
-	events.Config `mapstructure:",squash"`
-	Topics        []string
+	events.Config  `mapstructure:",squash"`
+	Topics         []string
+	ZedTokenBucket string
 }
 
 // AppConfig is the struct used for configuring the app
@@ -34,4 +35,7 @@ type AppConfig struct {
 func MustViperFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	flags.StringSlice("events-topics", []string{}, "event topics to subscribe to")
 	viperx.MustBindFlag(v, "events.topics", flags.Lookup("events-topics"))
+
+	flags.String("events-zedtokenbucket", "", "NATS KV bucket to use for caching ZedTokens")
+	viperx.MustBindFlag(v, "events.zedtokenbucket", flags.Lookup("events-zedtokenbucket"))
 }

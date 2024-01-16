@@ -10,4 +10,4 @@ metadata:
     service: server
 data:
   config.yaml: |
-    {{- pick .Values.config "server" "oidc" "spicedb" "tracing" | toYaml | nindent 4 }}
+    {{- pick .Values.config "server" "oidc" "spicedb" "tracing" "events" | toYaml | nindent 4 }}

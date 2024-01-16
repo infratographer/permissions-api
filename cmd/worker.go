@@ -69,14 +69,22 @@ func worker(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("invalid spicedb policy", "error", err)
 	}
 
-	engine := query.NewEngine("infratographer", spiceClient, query.WithPolicy(policy), query.WithLogger(logger))
-
-	events, err := events.NewConnection(cfg.Events.Config, events.WithLogger(logger))
+	eventsConn, err := events.NewConnection(cfg.Events.Config, events.WithLogger(logger))
 	if err != nil {
 		logger.Fatalw("failed to initialize events", "error", err)
 	}
 
-	subscriber, err := pubsub.NewSubscriber(ctx, events, engine,
+	kv, err := initializeKV(cfg.Events, eventsConn)
+	if err != nil {
+		logger.Fatalw("failed to initialize KV", "error", err)
+	}
+
+	engine, err := query.NewEngine("infratographer", spiceClient, kv, query.WithPolicy(policy), query.WithLogger(logger))
+	if err != nil {
+		logger.Fatalw("error creating engine", "error", err)
+	}
+
+	subscriber, err := pubsub.NewSubscriber(ctx, eventsConn, engine,
 		pubsub.WithLogger(logger),
 	)
 	if err != nil {
@@ -140,7 +148,7 @@ func worker(ctx context.Context, cfg *config.AppConfig) {
 
 	defer cancel()
 
-	if err := events.Shutdown(ctx); err != nil {
+	if err := eventsConn.Shutdown(ctx); err != nil {
 		logger.Fatalw("failed to shutdown events gracefully", "error", "err")
 	}
 }

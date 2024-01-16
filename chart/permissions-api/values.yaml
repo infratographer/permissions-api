@@ -47,6 +47,9 @@ config:
     policyConfigMapName: ""
 
   events:
+    # zedTokenBucket is the NATS bucket to use for caching ZedTokens
+    zedTokenBucket: ""
+
     # topics are the list of topics to subscribe to
     topics: []
 

@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/viper"
 	"go.infratographer.com/x/echojwtx"
 	"go.infratographer.com/x/echox"
+	"go.infratographer.com/x/events"
 	"go.infratographer.com/x/otelx"
 	"go.infratographer.com/x/versionx"
 	"go.uber.org/zap"
@@ -38,6 +39,7 @@ func init() {
 	echox.MustViperFlags(v, serverCmd.Flags(), apiDefaultListen)
 	otelx.MustViperFlags(v, serverCmd.Flags())
 	echojwtx.MustViperFlags(v, serverCmd.Flags())
+	events.MustViperFlags(v, serverCmd.Flags(), appName)
 }
 
 func serve(ctx context.Context, cfg *config.AppConfig) {
@@ -49,6 +51,16 @@ func serve(ctx context.Context, cfg *config.AppConfig) {
 	spiceClient, err := spicedbx.NewClient(cfg.SpiceDB, cfg.Tracing.Enabled)
 	if err != nil {
 		logger.Fatalw("unable to initialize spicedb client", "error", err)
+	}
+
+	eventsConn, err := events.NewConnection(cfg.Events.Config, events.WithLogger(logger))
+	if err != nil {
+		logger.Fatalw("failed to initialize events", "error", err)
+	}
+
+	kv, err := initializeKV(cfg.Events, eventsConn)
+	if err != nil {
+		logger.Fatalw("failed to initialize KV", "error", err)
 	}
 
 	var policy iapl.Policy
@@ -68,7 +80,10 @@ func serve(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("invalid spicedb policy", "error", err)
 	}
 
-	engine := query.NewEngine("infratographer", spiceClient, query.WithPolicy(policy))
+	engine, err := query.NewEngine("infratographer", spiceClient, kv, query.WithPolicy(policy))
+	if err != nil {
+		logger.Fatalw("error creating engine", "error", err)
+	}
 
 	srv, err := echox.NewServer(
 		logger.Desugar(),
