@@ -13,6 +13,11 @@
   secret:
     secretName: {{ . }}
 {{- end }}
+{{- with .Values.config.events.nats.credsSecretName }}
+- name: nats-creds
+  secret:
+    secretName: {{ . }}
+{{- end }}
 {{- with .Values.config.spicedb.policyConfigMapName }}
 - name: policy-file
   configMap:
@@ -26,6 +31,10 @@
 {{- if .Values.config.spicedb.caSecretName }}
 - name: spicedb-ca
   mountPath: /etc/ssl/spicedb/
+{{- end }}
+{{- if .Values.config.events.nats.credsSecretName }}
+- name: nats-creds
+  mountPath: /nats
 {{- end }}
 {{- if .Values.config.spicedb.policyConfigMapName }}
 - name: policy-file
