@@ -19,7 +19,7 @@ import (
 	"go.infratographer.com/permissions-api/internal/types"
 )
 
-func testEngine(ctx context.Context, t *testing.T, namespace string) Engine {
+func testEngine(ctx context.Context, t *testing.T, namespace string) *engine {
 	config := spicedbx.Config{
 		Endpoint: "spicedb:50051",
 		Key:      "infradev",
@@ -52,10 +52,12 @@ func testEngine(ctx context.Context, t *testing.T, namespace string) Engine {
 		cleanDB(ctx, t, client, namespace)
 	})
 
+	// We call the constructor here to ensure the engine is created appropriately, but
+	// then return the underlying type so we can do testing with it.
 	out, err := NewEngine(namespace, client, kv, WithPolicy(policy))
 	require.NoError(t, err)
 
-	return out
+	return out.(*engine)
 }
 
 func testPolicy() iapl.Policy {
