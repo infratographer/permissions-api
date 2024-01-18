@@ -844,6 +844,11 @@ func (e *engine) ListRelationshipsTo(ctx context.Context, resource types.Resourc
 
 // ListRoles returns all roles bound to a given resource.
 func (e *engine) ListRoles(ctx context.Context, resource types.Resource) ([]types.Role, error) {
+	dbRoles, err := e.store.ListResourceRoles(ctx, resource.ID)
+	if err != nil {
+		return nil, err
+	}
+
 	resType := e.namespace + "/" + resource.Type
 	roleType := e.namespace + "/role"
 
@@ -858,32 +863,33 @@ func (e *engine) ListRoles(ctx context.Context, resource types.Resource) ([]type
 		},
 	}
 
-	dbRoles, err := e.store.ListResourceRoles(ctx, resource.ID)
-	if err != nil {
-		return nil, err
-	}
-
 	relationships, err := e.readRelationships(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
 
-	out := relationshipsToRoles(relationships)
+	spicedbRoles := relationshipsToRoles(relationships)
 
-	rolesByID := make(map[gidx.PrefixedID]storage.Role, len(dbRoles))
-	for _, role := range dbRoles {
+	rolesByID := make(map[gidx.PrefixedID]types.Role, len(spicedbRoles))
+
+	for _, role := range spicedbRoles {
 		rolesByID[role.ID] = role
 	}
 
-	for i, role := range out {
-		if dbRole, ok := rolesByID[role.ID]; ok {
-			role.Name = dbRole.Name
-			role.CreatedBy = dbRole.CreatedBy
-			role.UpdatedBy = dbRole.UpdatedBy
-			role.CreatedAt = dbRole.CreatedAt
-			role.UpdatedAt = dbRole.UpdatedAt
+	out := make([]types.Role, len(dbRoles))
 
-			out[i] = role
+	for i, dbRole := range dbRoles {
+		spicedbRole := rolesByID[dbRole.ID]
+
+		out[i] = types.Role{
+			ID:         dbRole.ID,
+			Name:       dbRole.Name,
+			Actions:    spicedbRole.Actions,
+			ResourceID: dbRole.ResourceID,
+			CreatedBy:  dbRole.CreatedBy,
+			UpdatedBy:  dbRole.UpdatedBy,
+			CreatedAt:  dbRole.CreatedAt,
+			UpdatedAt:  dbRole.UpdatedAt,
 		}
 	}
 

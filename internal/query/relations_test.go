@@ -289,6 +289,91 @@ func TestRoleUpdate(t *testing.T) {
 	testingx.RunTests(ctx, t, testCases, testFn)
 }
 
+func TestListRoles(t *testing.T) {
+	namespace := "testroles"
+	ctx := context.Background()
+	e := testEngine(ctx, t, namespace)
+
+	actorRes, err := e.NewResourceFromID(gidx.MustNewID("idntusr"))
+	require.NoError(t, err)
+
+	type (
+		tenCtxKey  struct{}
+		roleCtxKey struct{}
+	)
+
+	var (
+		tenCtx  tenCtxKey
+		roleCtx roleCtxKey
+	)
+
+	testCases := []testingx.TestCase[any, []types.Role]{
+		{
+			Name: "RoleFoundWithActions",
+			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+				tenID, err := gidx.NewID("tnntten")
+				require.NoError(t, err)
+
+				tenRes, err := e.NewResourceFromID(tenID)
+				require.NoError(t, err)
+
+				role, err := e.CreateRole(ctx, actorRes, tenRes, t.Name(), []string{"loadbalancer_get"})
+				require.NoError(t, err)
+				require.NotEmpty(t, role.ID)
+
+				ctx = context.WithValue(ctx, tenCtx, tenRes)
+				ctx = context.WithValue(ctx, roleCtx, role)
+
+				return ctx
+			},
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
+				assert.NoError(t, res.Err)
+				require.NotEmpty(t, res.Success)
+				assert.Equal(t, ctx.Value(roleCtx), res.Success[0])
+				assert.NotEmpty(t, res.Success[0].Actions)
+			},
+		},
+		{
+			Name: "RoleFoundWithoutActions",
+			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+				tenID, err := gidx.NewID("tnntten")
+				require.NoError(t, err)
+
+				tenRes, err := e.NewResourceFromID(tenID)
+				require.NoError(t, err)
+
+				role, err := e.CreateRole(ctx, actorRes, tenRes, t.Name(), nil)
+				require.NoError(t, err)
+				require.NotEmpty(t, role.ID)
+
+				ctx = context.WithValue(ctx, tenCtx, tenRes)
+				ctx = context.WithValue(ctx, roleCtx, role)
+
+				return ctx
+			},
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
+				assert.NoError(t, res.Err)
+				require.NotEmpty(t, res.Success)
+				assert.Equal(t, ctx.Value(roleCtx), res.Success[0])
+				assert.Empty(t, res.Success[0].Actions)
+			},
+		},
+	}
+
+	testFn := func(ctx context.Context, _ any) testingx.TestResult[[]types.Role] {
+		tenRes := ctx.Value(tenCtx).(types.Resource)
+
+		roles, err := e.ListRoles(ctx, tenRes)
+
+		return testingx.TestResult[[]types.Role]{
+			Success: roles,
+			Err:     err,
+		}
+	}
+
+	testingx.RunTests(ctx, t, testCases, testFn)
+}
+
 func TestRoleDelete(t *testing.T) {
 	namespace := "testroles"
 	ctx := context.Background()
