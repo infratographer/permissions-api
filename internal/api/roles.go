@@ -1,12 +1,16 @@
 package api
 
 import (
+	"errors"
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"go.infratographer.com/x/gidx"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+
+	"go.infratographer.com/permissions-api/internal/query"
 )
 
 const (
@@ -49,17 +53,85 @@ func (r *Router) roleCreate(c echo.Context) error {
 		return err
 	}
 
-	role, err := r.engine.CreateRole(ctx, resource, reqBody.Actions)
+	role, err := r.engine.CreateRole(ctx, subjectResource, resource, reqBody.Name, reqBody.Actions)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "error creating resource").SetInternal(err)
 	}
 
 	resp := roleResponse{
-		ID:      role.ID,
-		Actions: role.Actions,
+		ID:         role.ID,
+		Name:       role.Name,
+		Actions:    role.Actions,
+		ResourceID: role.ResourceID,
+		CreatedBy:  role.CreatedBy,
+		UpdatedBy:  role.UpdatedBy,
+		CreatedAt:  role.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:  role.UpdatedAt.Format(time.RFC3339),
 	}
 
 	return c.JSON(http.StatusCreated, resp)
+}
+
+func (r *Router) roleUpdate(c echo.Context) error {
+	roleIDStr := c.Param("role_id")
+
+	ctx, span := tracer.Start(c.Request().Context(), "api.roleUpdate", trace.WithAttributes(attribute.String("id", roleIDStr)))
+	defer span.End()
+
+	roleID, err := gidx.Parse(roleIDStr)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing role ID").SetInternal(err)
+	}
+
+	var reqBody updateRoleRequest
+
+	err = c.Bind(&reqBody)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing request body").SetInternal(err)
+	}
+
+	subjectResource, err := r.currentSubject(c)
+	if err != nil {
+		return err
+	}
+
+	roleResource, err := r.engine.NewResourceFromID(roleID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error updating role").SetInternal(err)
+	}
+
+	// Roles belong to resources by way of the actions they can perform; do the permissions
+	// check on the role resource.
+	resource, err := r.engine.GetRoleResource(ctx, roleResource)
+	if err != nil {
+		if errors.Is(err, query.ErrRoleNotFound) {
+			return echo.NewHTTPError(http.StatusNotFound, "resource not found").SetInternal(err)
+		}
+
+		return echo.NewHTTPError(http.StatusInternalServerError, "error getting resource").SetInternal(err)
+	}
+
+	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleUpdate, resource); err != nil {
+		return err
+	}
+
+	role, err := r.engine.UpdateRole(ctx, subjectResource, roleResource, reqBody.Name, reqBody.Actions)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "error updating resource").SetInternal(err)
+	}
+
+	resp := roleResponse{
+		ID:         role.ID,
+		Name:       role.Name,
+		Actions:    role.Actions,
+		ResourceID: role.ResourceID,
+		CreatedBy:  role.CreatedBy,
+		UpdatedBy:  role.UpdatedBy,
+		CreatedAt:  role.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:  role.UpdatedAt.Format(time.RFC3339),
+	}
+
+	return c.JSON(http.StatusOK, resp)
 }
 
 func (r *Router) roleGet(c echo.Context) error {
@@ -102,8 +174,14 @@ func (r *Router) roleGet(c echo.Context) error {
 	}
 
 	resp := roleResponse{
-		ID:      role.ID,
-		Actions: role.Actions,
+		ID:         role.ID,
+		Name:       role.Name,
+		Actions:    role.Actions,
+		ResourceID: role.ResourceID,
+		CreatedBy:  role.CreatedBy,
+		UpdatedBy:  role.UpdatedBy,
+		CreatedAt:  role.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:  role.UpdatedAt.Format(time.RFC3339),
 	}
 
 	return c.JSON(http.StatusOK, resp)
@@ -145,8 +223,13 @@ func (r *Router) rolesList(c echo.Context) error {
 
 	for _, role := range roles {
 		roleResp := roleResponse{
-			ID:      role.ID,
-			Actions: role.Actions,
+			ID:        role.ID,
+			Name:      role.Name,
+			Actions:   role.Actions,
+			CreatedBy: role.CreatedBy,
+			UpdatedBy: role.UpdatedBy,
+			CreatedAt: role.CreatedAt.Format(time.RFC3339),
+			UpdatedAt: role.UpdatedAt.Format(time.RFC3339),
 		}
 
 		resp.Data = append(resp.Data, roleResp)

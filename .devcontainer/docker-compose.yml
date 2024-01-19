@@ -3,6 +3,7 @@ version: '3.8'
 networks:
   infradev:
 
+
 volumes:
   crdb:
     null
@@ -39,7 +40,11 @@ services:
   create_databases:
     image: cockroachdb/cockroach:v23.1.12
     restart: on-failure:5
-    command: "sql --insecure -e 'CREATE DATABASE IF NOT EXISTS spicedb;'"
+    command: |
+      sql --insecure -e '
+        CREATE DATABASE IF NOT EXISTS permissionsapi;
+        CREATE DATABASE IF NOT EXISTS spicedb;
+      '
     env_file:
       - .env
     depends_on:

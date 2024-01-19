@@ -15,6 +15,8 @@ import (
 
 	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/spicedbx"
+	"go.infratographer.com/permissions-api/internal/storage"
+	"go.infratographer.com/permissions-api/internal/storage/teststore"
 	"go.infratographer.com/permissions-api/internal/testingx"
 	"go.infratographer.com/permissions-api/internal/types"
 )
@@ -28,6 +30,8 @@ func testEngine(ctx context.Context, t *testing.T, namespace string) *engine {
 
 	client, err := spicedbx.NewClient(config, false)
 	require.NoError(t, err)
+
+	store, cleanStore := teststore.NewTestStorage(t)
 
 	policy := testPolicy()
 
@@ -50,11 +54,12 @@ func testEngine(ctx context.Context, t *testing.T, namespace string) *engine {
 
 	t.Cleanup(func() {
 		cleanDB(ctx, t, client, namespace)
+		cleanStore()
 	})
 
 	// We call the constructor here to ensure the engine is created appropriately, but
 	// then return the underlying type so we can do testing with it.
-	out, err := NewEngine(namespace, client, kv, WithPolicy(policy))
+	out, err := NewEngine(namespace, client, kv, store, WithPolicy(policy))
 	require.NoError(t, err)
 
 	return out.(*engine)
@@ -138,8 +143,10 @@ func TestCreateRoles(t *testing.T) {
 		require.NoError(t, err)
 		tenRes, err := e.NewResourceFromID(tenID)
 		require.NoError(t, err)
+		actorRes, err := e.NewResourceFromID(gidx.MustNewID("idntusr"))
+		require.NoError(t, err)
 
-		_, err = e.CreateRole(ctx, tenRes, actions)
+		_, err = e.CreateRole(ctx, actorRes, tenRes, "test", actions)
 		if err != nil {
 			return testingx.TestResult[[]types.Role]{
 				Err: err,
@@ -165,8 +172,10 @@ func TestGetRoles(t *testing.T) {
 	require.NoError(t, err)
 	tenRes, err := e.NewResourceFromID(tenID)
 	require.NoError(t, err)
+	actorRes, err := e.NewResourceFromID(gidx.MustNewID("idntusr"))
+	require.NoError(t, err)
 
-	role, err := e.CreateRole(ctx, tenRes, []string{"loadbalancer_get"})
+	role, err := e.CreateRole(ctx, actorRes, tenRes, "test", []string{"loadbalancer_get"})
 	require.NoError(t, err)
 	roleRes, err := e.NewResourceFromID(role.ID)
 	require.NoError(t, err)
@@ -210,6 +219,161 @@ func TestGetRoles(t *testing.T) {
 	testingx.RunTests(ctx, t, testCases, testFn)
 }
 
+func TestRoleUpdate(t *testing.T) {
+	namespace := "testroles"
+	ctx := context.Background()
+	e := testEngine(ctx, t, namespace)
+
+	tenID, err := gidx.NewID("tnntten")
+	require.NoError(t, err)
+	tenRes, err := e.NewResourceFromID(tenID)
+	require.NoError(t, err)
+	actorRes, err := e.NewResourceFromID(gidx.MustNewID("idntusr"))
+	require.NoError(t, err)
+	actorUpdateRes, err := e.NewResourceFromID(gidx.MustNewID("idntusr"))
+	require.NoError(t, err)
+
+	role, err := e.CreateRole(ctx, actorRes, tenRes, "test", []string{"loadbalancer_get"})
+	require.NoError(t, err)
+	roles, err := e.ListRoles(ctx, tenRes)
+	require.NoError(t, err)
+	require.NotEmpty(t, roles)
+
+	testCases := []testingx.TestCase[gidx.PrefixedID, types.Role]{
+		{
+			Name:  "UpdateMissingRole",
+			Input: gidx.MustNewID(RolePrefix),
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+				require.Error(t, res.Err)
+				assert.ErrorIs(t, res.Err, storage.ErrNoRoleFound)
+			},
+		},
+		{
+			Name:  "UpdateSuccess",
+			Input: role.ID,
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+				require.NoError(t, res.Err)
+				assert.Equal(t, "test2", res.Success.Name)
+				assert.Equal(t, role.Actions, res.Success.Actions)
+				assert.Equal(t, role.CreatedBy, res.Success.CreatedBy)
+				assert.Equal(t, actorUpdateRes.ID, res.Success.UpdatedBy)
+				assert.Equal(t, role.CreatedAt, res.Success.CreatedAt)
+				assert.NotEqual(t, role.UpdatedAt, res.Success.UpdatedAt)
+			},
+		},
+	}
+
+	testFn := func(ctx context.Context, roleID gidx.PrefixedID) testingx.TestResult[types.Role] {
+		roleResource, err := e.NewResourceFromID(roleID)
+		if err != nil {
+			return testingx.TestResult[types.Role]{
+				Err: err,
+			}
+		}
+
+		_, err = e.UpdateRole(ctx, actorUpdateRes, roleResource, "test2", nil)
+		if err != nil {
+			return testingx.TestResult[types.Role]{
+				Err: err,
+			}
+		}
+
+		updatedRole, err := e.GetRole(ctx, roleResource)
+
+		return testingx.TestResult[types.Role]{
+			Success: updatedRole,
+			Err:     err,
+		}
+	}
+
+	testingx.RunTests(ctx, t, testCases, testFn)
+}
+
+func TestListRoles(t *testing.T) {
+	namespace := "testroles"
+	ctx := context.Background()
+	e := testEngine(ctx, t, namespace)
+
+	actorRes, err := e.NewResourceFromID(gidx.MustNewID("idntusr"))
+	require.NoError(t, err)
+
+	type (
+		tenCtxKey  struct{}
+		roleCtxKey struct{}
+	)
+
+	var (
+		tenCtx  tenCtxKey
+		roleCtx roleCtxKey
+	)
+
+	testCases := []testingx.TestCase[any, []types.Role]{
+		{
+			Name: "RoleFoundWithActions",
+			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+				tenID, err := gidx.NewID("tnntten")
+				require.NoError(t, err)
+
+				tenRes, err := e.NewResourceFromID(tenID)
+				require.NoError(t, err)
+
+				role, err := e.CreateRole(ctx, actorRes, tenRes, t.Name(), []string{"loadbalancer_get"})
+				require.NoError(t, err)
+				require.NotEmpty(t, role.ID)
+
+				ctx = context.WithValue(ctx, tenCtx, tenRes)
+				ctx = context.WithValue(ctx, roleCtx, role)
+
+				return ctx
+			},
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
+				assert.NoError(t, res.Err)
+				require.NotEmpty(t, res.Success)
+				assert.Equal(t, ctx.Value(roleCtx), res.Success[0])
+				assert.NotEmpty(t, res.Success[0].Actions)
+			},
+		},
+		{
+			Name: "RoleFoundWithoutActions",
+			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+				tenID, err := gidx.NewID("tnntten")
+				require.NoError(t, err)
+
+				tenRes, err := e.NewResourceFromID(tenID)
+				require.NoError(t, err)
+
+				role, err := e.CreateRole(ctx, actorRes, tenRes, t.Name(), nil)
+				require.NoError(t, err)
+				require.NotEmpty(t, role.ID)
+
+				ctx = context.WithValue(ctx, tenCtx, tenRes)
+				ctx = context.WithValue(ctx, roleCtx, role)
+
+				return ctx
+			},
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
+				assert.NoError(t, res.Err)
+				require.NotEmpty(t, res.Success)
+				assert.Equal(t, ctx.Value(roleCtx), res.Success[0])
+				assert.Empty(t, res.Success[0].Actions)
+			},
+		},
+	}
+
+	testFn := func(ctx context.Context, _ any) testingx.TestResult[[]types.Role] {
+		tenRes := ctx.Value(tenCtx).(types.Resource)
+
+		roles, err := e.ListRoles(ctx, tenRes)
+
+		return testingx.TestResult[[]types.Role]{
+			Success: roles,
+			Err:     err,
+		}
+	}
+
+	testingx.RunTests(ctx, t, testCases, testFn)
+}
+
 func TestRoleDelete(t *testing.T) {
 	namespace := "testroles"
 	ctx := context.Background()
@@ -219,8 +383,10 @@ func TestRoleDelete(t *testing.T) {
 	require.NoError(t, err)
 	tenRes, err := e.NewResourceFromID(tenID)
 	require.NoError(t, err)
+	actorRes, err := e.NewResourceFromID(gidx.MustNewID("idntusr"))
+	require.NoError(t, err)
 
-	role, err := e.CreateRole(ctx, tenRes, []string{"loadbalancer_get"})
+	role, err := e.CreateRole(ctx, actorRes, tenRes, "test", []string{"loadbalancer_get"})
 	require.NoError(t, err)
 	roles, err := e.ListRoles(ctx, tenRes)
 	require.NoError(t, err)
@@ -283,9 +449,13 @@ func TestAssignments(t *testing.T) {
 	require.NoError(t, err)
 	subjRes, err := e.NewResourceFromID(subjID)
 	require.NoError(t, err)
+	actorRes, err := e.NewResourceFromID(gidx.MustNewID("idntusr"))
+	require.NoError(t, err)
 	role, err := e.CreateRole(
 		ctx,
+		actorRes,
 		tenRes,
+		"test",
 		[]string{
 			"loadbalancer_update",
 		},
@@ -339,9 +509,13 @@ func TestUnassignments(t *testing.T) {
 	require.NoError(t, err)
 	subjRes, err := e.NewResourceFromID(subjID)
 	require.NoError(t, err)
+	actorRes, err := e.NewResourceFromID(gidx.MustNewID("idntusr"))
+	require.NoError(t, err)
 	role, err := e.CreateRole(
 		ctx,
+		actorRes,
 		tenRes,
+		"test",
 		[]string{
 			"loadbalancer_update",
 		},
@@ -588,9 +762,13 @@ func TestSubjectActions(t *testing.T) {
 	require.NoError(t, err)
 	subjRes, err := e.NewResourceFromID(subjID)
 	require.NoError(t, err)
+	actorRes, err := e.NewResourceFromID(gidx.MustNewID("idntusr"))
+	require.NoError(t, err)
 	role, err := e.CreateRole(
 		ctx,
+		actorRes,
 		tenRes,
+		"test",
 		[]string{
 			"loadbalancer_update",
 		},

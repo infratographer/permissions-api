@@ -7,12 +7,15 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"go.infratographer.com/x/crdbx"
+	"go.infratographer.com/x/goosex"
 	"go.infratographer.com/x/loggingx"
 	"go.infratographer.com/x/versionx"
 	"go.infratographer.com/x/viperx"
 	"go.uber.org/zap"
 
 	"go.infratographer.com/permissions-api/internal/config"
+	"go.infratographer.com/permissions-api/internal/storage"
 )
 
 var (
@@ -41,6 +44,16 @@ func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is /etc/infratographer/permissions-api.yaml)")
 	loggingx.MustViperFlags(viper.GetViper(), rootCmd.PersistentFlags())
+
+	// Database Flags
+	crdbx.MustViperFlags(viper.GetViper(), rootCmd.Flags())
+
+	// Add migrate command
+	goosex.RegisterCobraCommand(rootCmd, func() {
+		goosex.SetBaseFS(storage.Migrations)
+		goosex.SetLogger(logger)
+		goosex.SetDBURI(globalCfg.CRDB.GetURI())
+	})
 
 	// Add version command
 	versionx.RegisterCobraCommand(rootCmd, func() { versionx.PrintVersion(logger) })

@@ -22,6 +22,7 @@ type TestCase[T, U any] struct {
 	SetupFn   func(context.Context, *testing.T) context.Context
 	CheckFn   func(context.Context, *testing.T, TestResult[U])
 	CleanupFn func(context.Context)
+	Sync      bool
 }
 
 // RunTests runs all provided test cases using the given test function.
@@ -30,7 +31,9 @@ func RunTests[T, U any](ctx context.Context, t *testing.T, cases []TestCase[T, U
 		testCase := testCase
 
 		t.Run(testCase.Name, func(t *testing.T) {
-			t.Parallel()
+			if !testCase.Sync {
+				t.Parallel()
+			}
 
 			// Ensure we're closed over ctx
 			ctx := ctx

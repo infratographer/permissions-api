@@ -10,4 +10,4 @@ metadata:
     service: worker
 data:
   config.yaml: |
-    {{- pick .Values.config "server" "events" "oidc" "spicedb" "tracing" | toYaml | nindent 4 }}
+    {{- pick .Values.config "server" "events" "oidc" "crdb" "spicedb" "tracing" | toYaml | nindent 4 }}

@@ -2,13 +2,22 @@
 package types
 
 import (
+	"time"
+
 	"go.infratographer.com/x/gidx"
 )
 
 // Role is a collection of permissions.
 type Role struct {
 	ID      gidx.PrefixedID
+	Name    string
 	Actions []string
+
+	ResourceID gidx.PrefixedID
+	CreatedBy  gidx.PrefixedID
+	UpdatedBy  gidx.PrefixedID
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 // ResourceTypeRelationship is a relationship for a resource type.

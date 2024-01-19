@@ -13,7 +13,9 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
+	"go.uber.org/zap"
 
+	"go.infratographer.com/permissions-api/internal/storage"
 	"go.infratographer.com/permissions-api/internal/types"
 )
 
@@ -274,17 +276,198 @@ func (e *engine) CreateRelationships(ctx context.Context, rels []types.Relations
 }
 
 // CreateRole creates a role scoped to the given resource with the given actions.
-func (e *engine) CreateRole(ctx context.Context, res types.Resource, actions []string) (types.Role, error) {
-	role := newRole(actions)
+func (e *engine) CreateRole(ctx context.Context, actor, res types.Resource, roleName string, actions []string) (types.Role, error) {
+	ctx, span := e.tracer.Start(ctx, "engine.CreateRole")
+
+	defer span.End()
+
+	roleName = strings.TrimSpace(roleName)
+
+	role := newRole(roleName, actions)
 	roleRels := e.roleRelationships(role, res)
+
+	dbCtx, err := e.store.BeginContext(ctx)
+	if err != nil {
+		return types.Role{}, nil
+	}
+
+	dbRole, err := e.store.CreateRole(dbCtx, actor.ID, role.ID, roleName, res.ID)
+	if err != nil {
+		return types.Role{}, err
+	}
 
 	request := &pb.WriteRelationshipsRequest{Updates: roleRels}
 
 	if _, err := e.client.WriteRelationships(ctx, request); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
 		return types.Role{}, err
 	}
 
+	if err = e.store.CommitContext(dbCtx); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		// No rollback of spicedb relations are done here.
+		// This does result in dangling unused entries in spicedb,
+		// however there are no assignments to these newly created
+		// and now discarded roles and so they won't be used.
+
+		return types.Role{}, err
+	}
+
+	role.CreatedBy = dbRole.CreatedBy
+	role.UpdatedBy = dbRole.UpdatedBy
+	role.ResourceID = dbRole.ResourceID
+	role.CreatedAt = dbRole.CreatedAt
+	role.UpdatedAt = dbRole.UpdatedAt
+
 	return role, nil
+}
+
+// actionsDiff determines which actions needs to be added and removed.
+// If no new actions are provided it is assumed no changes are requested.
+func actionsDiff(oldActions, newActions []string) ([]string, []string) {
+	if len(newActions) == 0 {
+		return nil, nil
+	}
+
+	old := make(map[string]struct{}, len(oldActions))
+	new := make(map[string]struct{}, len(newActions))
+
+	var add, rem []string
+
+	for _, action := range oldActions {
+		old[action] = struct{}{}
+	}
+
+	for _, action := range newActions {
+		new[action] = struct{}{}
+
+		// If the new action is not in the old actions, then we need to add the action.
+		if _, ok := old[action]; !ok {
+			add = append(add, action)
+		}
+	}
+
+	for _, action := range oldActions {
+		// If the old action is not in the new actions, then we need to remove it.
+		if _, ok := new[action]; !ok {
+			rem = append(rem, action)
+		}
+	}
+
+	return add, rem
+}
+
+// UpdateRole allows for updating an existing role with a new name and new actions.
+// If new name is empty, no change is made.
+// If new actions is an empty slice, no change is made.
+func (e *engine) UpdateRole(ctx context.Context, actor, roleResource types.Resource, newName string, newActions []string) (types.Role, error) {
+	ctx, span := e.tracer.Start(ctx, "engine.UpdateRole")
+
+	defer span.End()
+
+	dbCtx, err := e.store.BeginContext(ctx)
+	if err != nil {
+		return types.Role{}, err
+	}
+
+	err = e.store.LockRoleForUpdate(dbCtx, roleResource.ID)
+	if err != nil {
+		sErr := fmt.Errorf("failed to lock role: %s: %w", roleResource.ID, err)
+
+		span.RecordError(sErr)
+		span.SetStatus(codes.Error, sErr.Error())
+
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return types.Role{}, err
+	}
+
+	role, err := e.GetRole(dbCtx, roleResource)
+	if err != nil {
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return types.Role{}, err
+	}
+
+	newName = strings.TrimSpace(newName)
+
+	if newName == "" {
+		newName = role.Name
+	}
+
+	addActions, remActions := actionsDiff(role.Actions, newActions)
+
+	// If no changes, return existing role with no changes.
+	if newName == role.Name && len(addActions) == 0 && len(remActions) == 0 {
+		return role, nil
+	}
+
+	resource, err := e.NewResourceFromID(role.ResourceID)
+	if err != nil {
+		return types.Role{}, err
+	}
+
+	dbRole, err := e.store.UpdateRole(dbCtx, actor.ID, role.ID, newName)
+	if err != nil {
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return types.Role{}, err
+	}
+
+	// If a change in actions, apply changes to spicedb.
+	if len(addActions) != 0 || len(remActions) != 0 {
+		roleRels := e.roleResourceRelationshipsTouchDelete(roleResource, resource, addActions, remActions)
+
+		request := &pb.WriteRelationshipsRequest{Updates: roleRels}
+
+		if _, err := e.client.WriteRelationships(ctx, request); err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+
+			logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+			return types.Role{}, err
+		}
+
+		role.Actions = newActions
+	}
+
+	if err := e.store.CommitContext(dbCtx); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		// At this point, spicedb changes have already been applied.
+		// Attempting to rollback could result in failures that could result in the same situation.
+		//
+		// TODO: add spicedb rollback logic along with rollback failure scenarios.
+
+		return types.Role{}, err
+	}
+
+	role.Name = dbRole.Name
+	role.CreatedBy = dbRole.CreatedBy
+	role.UpdatedBy = dbRole.UpdatedBy
+	role.ResourceID = dbRole.ResourceID
+	role.CreatedAt = dbRole.CreatedAt
+	role.UpdatedAt = dbRole.UpdatedAt
+
+	return role, nil
+}
+
+func logRollbackErr(logger *zap.SugaredLogger, err error, args ...interface{}) {
+	if err != nil {
+		logger.With(args...).Error("error while rolling back", zap.Error(err))
+	}
 }
 
 func actionToRelation(action string) string {
@@ -315,6 +498,43 @@ func (e *engine) roleRelationships(role types.Role, resource types.Resource) []*
 	for _, action := range role.Actions {
 		rels = append(rels, &pb.RelationshipUpdate{
 			Operation: pb.RelationshipUpdate_OPERATION_TOUCH,
+			Relationship: &pb.Relationship{
+				Resource: resourceRef,
+				Relation: actionToRelation(action),
+				Subject: &pb.SubjectReference{
+					Object:           roleRef,
+					OptionalRelation: roleSubjectRelation,
+				},
+			},
+		})
+	}
+
+	return rels
+}
+
+func (e *engine) roleResourceRelationshipsTouchDelete(roleResource, resource types.Resource, touchActions, deleteActions []string) []*pb.RelationshipUpdate {
+	var rels []*pb.RelationshipUpdate
+
+	resourceRef := resourceToSpiceDBRef(e.namespace, resource)
+	roleRef := resourceToSpiceDBRef(e.namespace, roleResource)
+
+	for _, action := range touchActions {
+		rels = append(rels, &pb.RelationshipUpdate{
+			Operation: pb.RelationshipUpdate_OPERATION_TOUCH,
+			Relationship: &pb.Relationship{
+				Resource: resourceRef,
+				Relation: actionToRelation(action),
+				Subject: &pb.SubjectReference{
+					Object:           roleRef,
+					OptionalRelation: roleSubjectRelation,
+				},
+			},
+		})
+	}
+
+	for _, action := range deleteActions {
+		rels = append(rels, &pb.RelationshipUpdate{
+			Operation: pb.RelationshipUpdate_OPERATION_DELETE,
 			Relationship: &pb.Relationship{
 				Resource: resourceRef,
 				Relation: actionToRelation(action),
@@ -624,6 +844,11 @@ func (e *engine) ListRelationshipsTo(ctx context.Context, resource types.Resourc
 
 // ListRoles returns all roles bound to a given resource.
 func (e *engine) ListRoles(ctx context.Context, resource types.Resource) ([]types.Role, error) {
+	dbRoles, err := e.store.ListResourceRoles(ctx, resource.ID)
+	if err != nil {
+		return nil, err
+	}
+
 	resType := e.namespace + "/" + resource.Type
 	roleType := e.namespace + "/role"
 
@@ -643,7 +868,30 @@ func (e *engine) ListRoles(ctx context.Context, resource types.Resource) ([]type
 		return nil, err
 	}
 
-	out := relationshipsToRoles(relationships)
+	spicedbRoles := relationshipsToRoles(relationships)
+
+	rolesByID := make(map[gidx.PrefixedID]types.Role, len(spicedbRoles))
+
+	for _, role := range spicedbRoles {
+		rolesByID[role.ID] = role
+	}
+
+	out := make([]types.Role, len(dbRoles))
+
+	for i, dbRole := range dbRoles {
+		spicedbRole := rolesByID[dbRole.ID]
+
+		out[i] = types.Role{
+			ID:         dbRole.ID,
+			Name:       dbRole.Name,
+			Actions:    spicedbRole.Actions,
+			ResourceID: dbRole.ResourceID,
+			CreatedBy:  dbRole.CreatedBy,
+			UpdatedBy:  dbRole.UpdatedBy,
+			CreatedAt:  dbRole.CreatedAt,
+			UpdatedAt:  dbRole.UpdatedAt,
+		}
+	}
 
 	return out, nil
 }
@@ -724,9 +972,21 @@ func (e *engine) GetRole(ctx context.Context, roleResource types.Resource) (type
 			actions[i] = relationToAction(action)
 		}
 
+		dbRole, err := e.store.GetRoleByID(ctx, roleResource.ID)
+		if err != nil && !errors.Is(err, storage.ErrNoRoleFound) {
+			e.logger.Error("error while getting role", zap.Error(err))
+		}
+
 		return types.Role{
 			ID:      roleResource.ID,
+			Name:    dbRole.Name,
 			Actions: actions,
+
+			ResourceID: dbRole.ResourceID,
+			CreatedBy:  dbRole.CreatedBy,
+			UpdatedBy:  dbRole.UpdatedBy,
+			CreatedAt:  dbRole.CreatedAt,
+			UpdatedAt:  dbRole.UpdatedAt,
 		}, nil
 	}
 
@@ -766,14 +1026,34 @@ func (e *engine) GetRoleResource(ctx context.Context, roleResource types.Resourc
 
 // DeleteRole removes all role actions from the assigned resource.
 func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource) error {
-	var (
-		resActions map[types.Resource][]string
-		err        error
-	)
+	ctx, span := e.tracer.Start(ctx, "engine.DeleteRole")
+
+	defer span.End()
+
+	dbCtx, err := e.store.BeginContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = e.store.LockRoleForUpdate(dbCtx, roleResource.ID)
+	if err != nil {
+		sErr := fmt.Errorf("failed to lock role: %s: %w", roleResource.ID, err)
+
+		span.RecordError(sErr)
+		span.SetStatus(codes.Error, sErr.Error())
+
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return err
+	}
+
+	var resActions map[types.Resource][]string
 
 	for _, resType := range e.schemaRoleables {
 		resActions, err = e.listRoleResourceActions(ctx, roleResource, resType.Name)
 		if err != nil {
+			logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
 			return err
 		}
 
@@ -781,10 +1061,6 @@ func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource) er
 		if len(resActions) != 0 {
 			break
 		}
-	}
-
-	if len(resActions) == 0 {
-		return ErrRoleNotFound
 	}
 
 	roleType := e.namespace + "/role"
@@ -810,10 +1086,43 @@ func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource) er
 		}
 	}
 
+	_, err = e.store.DeleteRole(dbCtx, roleResource.ID)
+	if err != nil {
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return err
+	}
+
 	for _, filter := range filters {
 		if err = e.deleteRelationships(ctx, filter); err != nil {
-			return fmt.Errorf("failed to delete role action %s: %w", filter.OptionalResourceId, err)
+			err = fmt.Errorf("failed to delete role action %s: %w", filter.OptionalResourceId, err)
+
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+
+			logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+			// At this point, some spicedb changes may have already been applied.
+			// Attempting to rollback could result in failures that could result in the same situation.
+			//
+			// TODO: add spicedb rollback logic along with rollback failure scenarios.
+
+			return err
 		}
+	}
+
+	if err = e.store.CommitContext(dbCtx); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		// At this point, spicedb changes have already been applied.
+		// Attempting to rollback could result in failures that could result in the same situation.
+		//
+		// TODO: add spicedb rollback logic along with rollback failure scenarios.
+
+		return err
 	}
 
 	return nil

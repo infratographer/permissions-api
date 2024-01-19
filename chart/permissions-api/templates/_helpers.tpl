@@ -18,6 +18,11 @@
   secret:
     secretName: {{ . }}
 {{- end }}
+{{- with .Values.config.crdb.caSecretName }}
+- name: crdb-ca
+  secret:
+    secretName: {{ . }}
+{{- end }}
 {{- with .Values.config.spicedb.policyConfigMapName }}
 - name: policy-file
   configMap:
@@ -36,6 +41,10 @@
 - name: nats-creds
   mountPath: /nats
 {{- end }}
+{{- if .Values.config.crdb.caSecretName }}
+- name: crdb-ca
+  mountPath: {{ .Values.config.crdb.caMountPath }}
+{{- end }}
 {{- if .Values.config.spicedb.policyConfigMapName }}
 - name: policy-file
   mountPath: /policy
@@ -48,6 +57,11 @@
     name: {{ include "common.names.name" . }}-worker-config
 {{- with .Values.config.spicedb.caSecretName }}
 - name: spicedb-ca
+  secret:
+    secretName: {{ . }}
+{{- end }}
+{{- with .Values.config.crdb.caSecretName }}
+- name: crdb-ca
   secret:
     secretName: {{ . }}
 {{- end }}
@@ -69,6 +83,10 @@
 {{- if .Values.config.spicedb.caSecretName }}
 - name: spicedb-ca
   mountPath: /etc/ssl/spicedb/
+{{- end }}
+{{- if .Values.config.crdb.caSecretName }}
+- name: crdb-ca
+  mountPath: {{ .Values.config.crdb.caMountPath }}
 {{- end }}
 {{- if .Values.config.events.nats.credsSecretName }}
 - name: nats-creds
