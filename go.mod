@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/authzed/authzed-go v0.10.1
 	github.com/authzed/grpcutil v0.0.0-20240123194739-2ea1e3d2d98b
-	github.com/cockroachdb/cockroach-go/v2 v2.3.5
+	github.com/cockroachdb/cockroach-go/v2 v2.3.6
 	github.com/labstack/echo/v4 v4.11.3
 	github.com/lib/pq v1.10.9
 	github.com/nats-io/nats.go v1.31.0
