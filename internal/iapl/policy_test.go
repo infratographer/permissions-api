@@ -10,7 +10,9 @@ import (
 )
 
 func TestPolicy(t *testing.T) {
-	cases := []testingx.TestCase[PolicyDocument, struct{}]{
+	rbac := DefaultRBAC()
+
+	cases := []testingx.TestCase[PolicyDocument, Policy]{
 		{
 			Name: "TypeExists",
 			Input: PolicyDocument{
@@ -28,7 +30,7 @@ func TestPolicy(t *testing.T) {
 					},
 				},
 			},
-			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[struct{}]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
 				require.ErrorIs(t, res.Err, ErrorTypeExists)
 			},
 		},
@@ -49,7 +51,7 @@ func TestPolicy(t *testing.T) {
 					},
 				},
 			},
-			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[struct{}]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
 				require.ErrorIs(t, res.Err, ErrorUnknownType)
 			},
 		},
@@ -70,7 +72,7 @@ func TestPolicy(t *testing.T) {
 					},
 				},
 			},
-			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[struct{}]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
 				require.ErrorIs(t, res.Err, ErrorUnknownType)
 			},
 		},
@@ -91,7 +93,7 @@ func TestPolicy(t *testing.T) {
 					},
 				},
 			},
-			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[struct{}]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
 				require.ErrorIs(t, res.Err, ErrorUnknownType)
 			},
 		},
@@ -123,7 +125,7 @@ func TestPolicy(t *testing.T) {
 					},
 				},
 			},
-			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[struct{}]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
 				require.ErrorIs(t, res.Err, ErrorUnknownAction)
 			},
 		},
@@ -163,7 +165,7 @@ func TestPolicy(t *testing.T) {
 					},
 				},
 			},
-			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[struct{}]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
 				require.ErrorIs(t, res.Err, ErrorUnknownAction)
 			},
 		},
@@ -195,7 +197,7 @@ func TestPolicy(t *testing.T) {
 					},
 				},
 			},
-			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[struct{}]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
 				require.ErrorIs(t, res.Err, ErrorUnknownRelation)
 			},
 		},
@@ -247,7 +249,7 @@ func TestPolicy(t *testing.T) {
 					},
 				},
 			},
-			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[struct{}]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
 				require.ErrorIs(t, res.Err, ErrorUnknownRelation)
 			},
 		},
@@ -307,7 +309,7 @@ func TestPolicy(t *testing.T) {
 					},
 				},
 			},
-			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[struct{}]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
 				require.ErrorIs(t, res.Err, ErrorUnknownAction)
 			},
 		},
@@ -367,18 +369,57 @@ func TestPolicy(t *testing.T) {
 					},
 				},
 			},
-			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[struct{}]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
 				require.NoError(t, res.Err)
+			},
+		},
+		{
+			Name: "NoRBACProvided",
+			Input: PolicyDocument{
+				ResourceTypes: []ResourceType{
+					{
+						Name: "foo",
+					},
+				},
+			},
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
+				require.NoError(t, res.Err)
+				require.Nil(t, res.Success.RBAC())
+			},
+		},
+		{
+			Name: "RoleOwnerMissing",
+			Input: PolicyDocument{
+				RBAC: &rbac,
+			},
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
+				// unknown resource type: role owner tenant does not exists
+				require.ErrorIs(t, res.Err, ErrorUnknownType)
+			},
+		},
+		{
+			Name: "RBAC_OK",
+			Input: PolicyDocument{
+				RBAC: &rbac,
+				ResourceTypes: []ResourceType{
+					{
+						Name: "tenant",
+					},
+				},
+			},
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
+				require.NoError(t, res.Err)
+				require.NotNil(t, res.Success.RBAC())
 			},
 		},
 	}
 
-	testFn := func(_ context.Context, p PolicyDocument) testingx.TestResult[struct{}] {
-		policy := NewPolicy(p)
-		err := policy.Validate()
+	testFn := func(_ context.Context, doc PolicyDocument) testingx.TestResult[Policy] {
+		p := NewPolicy(doc)
+		err := p.Validate()
 
-		return testingx.TestResult[struct{}]{
-			Success: struct{}{},
+		return testingx.TestResult[Policy]{
+			Success: p,
 			Err:     err,
 		}
 	}

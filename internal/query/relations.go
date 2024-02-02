@@ -48,8 +48,8 @@ func (e *engine) validateRelationship(rel types.Relationship) error {
 		// If we find a relation with a name and type that matches our relationship,
 		// return
 		if rel.Relation == typeRel.Relation {
-			for _, typeName := range typeRel.Types {
-				if subjType.Name == typeName {
+			for _, t := range typeRel.Types {
+				if subjType.Name == t.Name {
 					return nil
 				}
 			}
@@ -330,34 +330,34 @@ func (e *engine) CreateRole(ctx context.Context, actor, res types.Resource, role
 	return role, nil
 }
 
-// actionsDiff determines which actions needs to be added and removed.
-// If no new actions are provided it is assumed no changes are requested.
-func actionsDiff(oldActions, newActions []string) ([]string, []string) {
-	if len(newActions) == 0 {
+// diff determines which entities needs to be added and removed.
+// If no new entity are provided it is assumed no changes are requested.
+func diff(current, incoming []string) ([]string, []string) {
+	if len(incoming) == 0 {
 		return nil, nil
 	}
 
-	old := make(map[string]struct{}, len(oldActions))
-	new := make(map[string]struct{}, len(newActions))
+	curr := make(map[string]struct{}, len(current))
+	in := make(map[string]struct{}, len(incoming))
 
 	var add, rem []string
 
-	for _, action := range oldActions {
-		old[action] = struct{}{}
+	for _, entity := range current {
+		curr[entity] = struct{}{}
 	}
 
-	for _, action := range newActions {
-		new[action] = struct{}{}
+	for _, action := range incoming {
+		in[action] = struct{}{}
 
 		// If the new action is not in the old actions, then we need to add the action.
-		if _, ok := old[action]; !ok {
+		if _, ok := curr[action]; !ok {
 			add = append(add, action)
 		}
 	}
 
-	for _, action := range oldActions {
+	for _, action := range current {
 		// If the old action is not in the new actions, then we need to remove it.
-		if _, ok := new[action]; !ok {
+		if _, ok := in[action]; !ok {
 			rem = append(rem, action)
 		}
 	}
@@ -403,7 +403,7 @@ func (e *engine) UpdateRole(ctx context.Context, actor, roleResource types.Resou
 		newName = role.Name
 	}
 
-	addActions, remActions := actionsDiff(role.Actions, newActions)
+	addActions, remActions := diff(role.Actions, newActions)
 
 	// If no changes, return existing role with no changes.
 	if newName == role.Name && len(addActions) == 0 && len(remActions) == 0 {
@@ -760,7 +760,8 @@ func (e *engine) relationshipsToNonRoles(rels []*pb.Relationship) ([]types.Relat
 	var out []types.Relationship
 
 	for _, rel := range rels {
-		if rel.Subject.Object.ObjectType == e.namespace+"/role" {
+		// skip relationships for v1 roles, and wildcard relationships for v2 roles
+		if rel.Subject.Object.ObjectType == e.namespace+"/role" || rel.Subject.Object.ObjectId == "*" {
 			continue
 		}
 
@@ -849,6 +850,21 @@ func (e *engine) ListRoles(ctx context.Context, resource types.Resource) ([]type
 		return nil, err
 	}
 
+	dbRolesv1 := make([]storage.Role, 0, len(dbRoles))
+
+	for _, dbRole := range dbRoles {
+		res, err := e.NewResourceFromID(dbRole.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		if res.Type == e.rbac.RoleResource {
+			continue
+		}
+
+		dbRolesv1 = append(dbRolesv1, dbRole)
+	}
+
 	resType := e.namespace + "/" + resource.Type
 	roleType := e.namespace + "/role"
 
@@ -876,9 +892,9 @@ func (e *engine) ListRoles(ctx context.Context, resource types.Resource) ([]type
 		rolesByID[role.ID] = role
 	}
 
-	out := make([]types.Role, len(dbRoles))
+	out := make([]types.Role, len(dbRolesv1))
 
-	for i, dbRole := range dbRoles {
+	for i, dbRole := range dbRolesv1 {
 		spicedbRole := rolesByID[dbRole.ID]
 
 		out[i] = types.Role{

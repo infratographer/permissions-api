@@ -21,7 +21,7 @@ import (
 	"go.infratographer.com/permissions-api/internal/types"
 )
 
-func testEngine(ctx context.Context, t *testing.T, namespace string) *engine {
+func testEngine(ctx context.Context, t *testing.T, namespace string, policy iapl.Policy) *engine {
 	config := spicedbx.Config{
 		Endpoint: "spicedb:50051",
 		Key:      "infradev",
@@ -32,8 +32,6 @@ func testEngine(ctx context.Context, t *testing.T, namespace string) *engine {
 	require.NoError(t, err)
 
 	store, cleanStore := teststore.NewTestStorage(t)
-
-	policy := testPolicy()
 
 	schema, err := spicedbx.GenerateSchema(namespace, policy.Schema())
 	require.NoError(t, err)
@@ -107,7 +105,7 @@ func cleanDB(ctx context.Context, t *testing.T, client *authzed.Client, namespac
 func TestCreateRoles(t *testing.T) {
 	namespace := "testroles"
 	ctx := context.Background()
-	e := testEngine(ctx, t, namespace)
+	e := testEngine(ctx, t, namespace, testPolicy())
 
 	testCases := []testingx.TestCase[[]string, []types.Role]{
 		{
@@ -167,7 +165,7 @@ func TestCreateRoles(t *testing.T) {
 func TestGetRoles(t *testing.T) {
 	namespace := "testroles"
 	ctx := context.Background()
-	e := testEngine(ctx, t, namespace)
+	e := testEngine(ctx, t, namespace, testPolicy())
 	tenID, err := gidx.NewID("tnntten")
 	require.NoError(t, err)
 	tenRes, err := e.NewResourceFromID(tenID)
@@ -222,7 +220,7 @@ func TestGetRoles(t *testing.T) {
 func TestRoleUpdate(t *testing.T) {
 	namespace := "testroles"
 	ctx := context.Background()
-	e := testEngine(ctx, t, namespace)
+	e := testEngine(ctx, t, namespace, testPolicy())
 
 	tenID, err := gidx.NewID("tnntten")
 	require.NoError(t, err)
@@ -292,7 +290,7 @@ func TestRoleUpdate(t *testing.T) {
 func TestListRoles(t *testing.T) {
 	namespace := "testroles"
 	ctx := context.Background()
-	e := testEngine(ctx, t, namespace)
+	e := testEngine(ctx, t, namespace, testPolicy())
 
 	actorRes, err := e.NewResourceFromID(gidx.MustNewID("idntusr"))
 	require.NoError(t, err)
@@ -377,7 +375,7 @@ func TestListRoles(t *testing.T) {
 func TestRoleDelete(t *testing.T) {
 	namespace := "testroles"
 	ctx := context.Background()
-	e := testEngine(ctx, t, namespace)
+	e := testEngine(ctx, t, namespace, testPolicy())
 
 	tenID, err := gidx.NewID("tnntten")
 	require.NoError(t, err)
@@ -439,7 +437,7 @@ func TestRoleDelete(t *testing.T) {
 func TestAssignments(t *testing.T) {
 	namespace := "testassignments"
 	ctx := context.Background()
-	e := testEngine(ctx, t, namespace)
+	e := testEngine(ctx, t, namespace, testPolicy())
 
 	tenID, err := gidx.NewID("tnntten")
 	require.NoError(t, err)
@@ -499,7 +497,7 @@ func TestAssignments(t *testing.T) {
 func TestUnassignments(t *testing.T) {
 	namespace := "testassignments"
 	ctx := context.Background()
-	e := testEngine(ctx, t, namespace)
+	e := testEngine(ctx, t, namespace, testPolicy())
 
 	tenID, err := gidx.NewID("tnntten")
 	require.NoError(t, err)
@@ -581,7 +579,7 @@ func TestUnassignments(t *testing.T) {
 func TestRelationships(t *testing.T) {
 	namespace := "testrelationships"
 	ctx := context.Background()
-	e := testEngine(ctx, t, namespace)
+	e := testEngine(ctx, t, namespace, testPolicy())
 
 	parentID, err := gidx.NewID("tnntten")
 	require.NoError(t, err)
@@ -672,7 +670,7 @@ func TestRelationships(t *testing.T) {
 func TestRelationshipDelete(t *testing.T) {
 	namespace := "testrelationships"
 	ctx := context.Background()
-	e := testEngine(ctx, t, namespace)
+	e := testEngine(ctx, t, namespace, testPolicy())
 
 	parentID, err := gidx.NewID("tnntten")
 	require.NoError(t, err)
@@ -744,7 +742,7 @@ func TestRelationshipDelete(t *testing.T) {
 func TestSubjectActions(t *testing.T) {
 	namespace := "infratestactions"
 	ctx := context.Background()
-	e := testEngine(ctx, t, namespace)
+	e := testEngine(ctx, t, namespace, testPolicy())
 
 	parentID, err := gidx.NewID("tnntten")
 	require.NoError(t, err)
