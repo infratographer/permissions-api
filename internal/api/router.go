@@ -54,6 +54,7 @@ func (r *Router) Routes(rg *echo.Group) {
 	v1 := rg.Group("api/v1")
 	{
 		v1.Use(r.authMW)
+		v1.Use(r.injectAPIVersionMW("v1"))
 
 		v1.POST("/resources/:id/roles", r.roleCreate)
 		v1.GET("/resources/:id/roles", r.rolesList)
@@ -71,6 +72,46 @@ func (r *Router) Routes(rg *echo.Group) {
 		// /allow is the permissions check endpoint
 		v1.GET("/allow", r.checkAction)
 		v1.POST("/allow", r.checkAllActions)
+	}
+
+	v2 := rg.Group("api/v2")
+	{
+		v2.Use(r.authMW)
+		v2.Use(r.injectAPIVersionMW("v2"))
+
+		v2.POST("/resources/:id/roles", r.roleCreate)
+		v2.GET("/resources/:id/roles", r.rolesList)
+		v2.GET("/roles/:role_id", r.roleGet)
+		v2.PATCH("/roles/:role_id", r.roleUpdate)
+		v2.DELETE("/roles/:id", r.roleDelete)
+
+		v2.GET("/resources/:id/role-bindings", r.roleBindingsList)
+		v2.GET("/resources/:id/role-bindings/:rb_id", r.roleBindingGet)
+		v2.POST("/resources/:id/role-bindings", r.roleBindingCreate)
+		v2.DELETE("/resources/:id/role-bindings/:rb_id", r.roleBindingsDelete)
+		v2.PATCH("/resources/:id/role-bindings/:rb_id", r.roleBindingUpdate)
+
+		v2.GET("/actions", r.listActions)
+	}
+}
+
+// middleware and utils functions to set and get the API version
+const apiVersionContextKey = "apiVersion"
+
+func (r *Router) setAPIVersion(c echo.Context, version string) {
+	c.Set(apiVersionContextKey, version)
+}
+
+func (r *Router) getAPIVersion(c echo.Context) string {
+	return c.Get(apiVersionContextKey).(string)
+}
+
+func (r *Router) injectAPIVersionMW(ver string) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			r.setAPIVersion(c, ver)
+			return next(c)
+		}
 	}
 }
 

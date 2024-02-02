@@ -1,0 +1,456 @@
+openapi: 3.0.3
+info:
+  version: 0.0.1
+  title: Permissions API V2
+  contact:
+    name: Infratographer Authors
+    url: http://github.com/infratographer
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+servers:
+  - url: http://localhost:7603/api/v2
+paths:
+  /resources/{id}/roles:
+    get:
+      tags:
+        - roles
+      summary: list-roles
+      description: |
+        list all available roles for a resource, including roles that are
+        inherited from parent resources
+      operationId: listRoles
+      responses:
+        "200":
+          description: ""
+    post:
+      tags:
+        - roles
+      summary: create-role
+      description: |
+        create a role for a resource. The role will be available for use in
+        role-bindings for the resource
+      operationId: createRole
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                actions:
+                  type: array
+                  items:
+                    type: string
+                    example: loadbalancer_list
+                  example:
+                    - loadbalancer_list
+                    - loadbalancer_get
+                    - loadbalancer_update
+                    - loadbalancer_create
+                name:
+                  type: string
+                  example: lb_editor
+            examples:
+              create-role:
+                value:
+                  actions:
+                    - loadbalancer_list
+                    - loadbalancer_get
+                    - loadbalancer_update
+                    - loadbalancer_create
+                  name: lb_editor
+      responses:
+        "201":
+          description: "role object"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  actions:
+                    type: array
+                    items:
+                      type: string
+                      example: role_list
+                    example:
+                      - role_list
+                      - rolebinding_create
+                      - loadbalancer_list
+                      - loadbalancer_update
+                      - loadbalancer_delete
+                      - role_create
+                      - role_delete
+                      - loadbalancer_create
+                      - loadbalancer_get
+                      - rolebinding_list
+                      - rolebinding_delete
+                      - role_get
+                      - role_update
+                  created_at:
+                    type: string
+                    example: "2024-02-28T17:22:04Z"
+                  created_by:
+                    type: string
+                    example: idntusr-bailin
+                  id:
+                    type: string
+                    example: permrv2-ecBlNMsPrvVFgUUAUfmeY
+                  name:
+                    type: string
+                    example: super_admin
+                  resource_id:
+                    type: string
+                    example: tnntten-root
+                  updated_at:
+                    type: string
+                    example: "2024-02-28T17:22:04Z"
+                  updated_by:
+                    type: string
+                    example: idntusr-bailin
+              examples:
+                create-role:
+                  value:
+                    actions:
+                      - loadbalancer_list
+                      - loadbalancer_get
+                      - loadbalancer_update
+                      - loadbalancer_create
+                    created_at: "2024-02-29T18:18:18Z"
+                    created_by: idntusr-bailin
+                    id: permrv2-IG7RfsYhyga0EwEbY4BKs
+                    name: lb_editor
+                    resource_id: tnntten-a
+                    updated_at: "2024-02-29T18:18:18Z"
+                    updated_by: idntusr-bailin
+                lb-viwer:
+                  value:
+                    actions:
+                      - role_list
+                      - rolebinding_create
+                      - loadbalancer_list
+                      - loadbalancer_update
+                      - loadbalancer_delete
+                      - role_create
+                      - role_delete
+                      - loadbalancer_create
+                      - loadbalancer_get
+                      - rolebinding_list
+                      - rolebinding_delete
+                      - role_get
+                      - role_update
+                    created_at: "2024-02-28T17:22:04Z"
+                    created_by: idntusr-bailin
+                    id: permrv2-ecBlNMsPrvVFgUUAUfmeY
+                    name: super_admin
+                    resource_id: tnntten-root
+                    updated_at: "2024-02-28T17:22:04Z"
+                    updated_by: idntusr-bailin
+                super-admin:
+                  value:
+                    actions:
+                      - role_list
+                      - rolebinding_create
+                      - loadbalancer_list
+                      - loadbalancer_update
+                      - loadbalancer_delete
+                      - role_create
+                      - role_delete
+                      - loadbalancer_create
+                      - loadbalancer_get
+                      - rolebinding_list
+                      - rolebinding_delete
+                      - role_get
+                      - role_update
+                    created_at: "2024-02-28T17:22:04Z"
+                    created_by: idntusr-bailin
+                    id: permrv2-ecBlNMsPrvVFgUUAUfmeY
+                    name: super_admin
+                    resource_id: tnntten-root
+                    updated_at: "2024-02-28T17:22:04Z"
+                    updated_by: idntusr-bailin
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          example: tnntten-root
+  /roles/{role_id}:
+    get:
+      tags:
+        - roles
+      summary: get-role
+      description: get role by ID 
+      operationId: getRole
+      responses:
+        "200":
+          description: ""
+    delete:
+      tags:
+        - roles
+      summary: delete-role
+      description: |
+        delete role by ID, this will also remove any role-bindings that use
+        this role
+      operationId: deleteRole
+      responses:
+        "200":
+          description: ""
+    patch:
+      tags:
+        - roles
+      summary: update-role
+      description: |
+        update role by ID, both name and actions can be modified
+      operationId: updateRole
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                actions:
+                  type: array
+                  items:
+                    type: string
+                    example: rolebinding_get
+                  example:
+                    - rolebinding_get
+                    - loadbalancer_create
+                    - loadbalancer_get
+                    - loadbalancer_delete
+                    - rolebinding_list
+                    - role_get
+                    - rolebinding_update
+                    - rolebinding_delete
+                    - avail_role
+                    - role_delete
+                    - role_list
+                    - role_update
+                    - loadbalancer_list
+                    - loadbalancer_update
+                    - rolebinding_create
+                    - role_create
+                name:
+                  type: string
+                  example: super_user
+            examples:
+              update-role:
+                value:
+                  actions:
+                    - rolebinding_get
+                    - loadbalancer_create
+                    - loadbalancer_get
+                    - loadbalancer_delete
+                    - rolebinding_list
+                    - role_get
+                    - rolebinding_update
+                    - rolebinding_delete
+                    - avail_role
+                    - role_delete
+                    - role_list
+                    - role_update
+                    - loadbalancer_list
+                    - loadbalancer_update
+                    - rolebinding_create
+                    - role_create
+                  name: super_user
+      responses:
+        "200":
+          description: ""
+    parameters:
+      - name: role_id
+        in: path
+        required: true
+        schema:
+          type: string
+          example: permrv2-zNYOpdL1RGyiSp0hgaIYB
+  /resources/{id}/role-bindings:
+    get:
+      tags:
+        - role-bindings
+      summary: list-role-bindings
+      description: |
+        list role-bindings for a resource.
+        an optional query parameter `role_id` can be used to filter the results.
+      operationId: listRoleBindings
+      parameters:
+        - name: role_id
+          in: query
+          schema:
+            type: string
+            example: permrv2-FQbFZMF74D0-WLNO-8MMb
+      responses:
+        "200":
+          description: ""
+    post:
+      tags:
+        - role-bindings
+      summary: create-role-binding
+      description: |
+        create a role-binding for a resource. The role-binding will grant the
+        specified role to the specified subjects.
+      operationId: createRoleBinding
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role_id:
+                  type: string
+                  example: permrv2-FQbFZMF74D0-WLNO-8MMb
+                subjects:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      conditions:
+                        type: object
+                        properties: {}
+                      id:
+                        type: string
+                        example: idntusr-bailin
+                  example:
+                    - conditions: {}
+                      id: idntusr-bailin
+                    - conditions: {}
+                      id: idntusr-bailin-1
+                    - conditions: {}
+                      id: idntusr-bailin-2
+                    - conditions: {}
+                      id: idntusr-bailin-3
+                    - conditions: {}
+                      id: idntusr-bailin-4
+                    - conditions: {}
+                      id: idntusr-bailin-5
+            examples:
+              create-role-binding:
+                value:
+                  role_id: permrv2-FQbFZMF74D0-WLNO-8MMb
+                  subjects:
+                    - conditions: {}
+                      id: idntusr-bailin
+                    - conditions: {}
+                      id: idntusr-bailin-1
+                    - conditions: {}
+                      id: idntusr-bailin-2
+                    - conditions: {}
+                      id: idntusr-bailin-3
+                    - conditions: {}
+                      id: idntusr-bailin-4
+                    - conditions: {}
+                      id: idntusr-bailin-5
+      responses:
+        "200":
+          description: ""
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          example: tnntten-root
+  /resources/{id}/role-bindings/{rb-id}:
+    get:
+      tags:
+        - role-bindings
+      summary: get-role-binding
+      description: get-role-binding
+      operationId: getRoleBinding
+      responses:
+        "200":
+          description: ""
+    delete:
+      tags:
+        - role-bindings
+      summary: delete-role-binding
+      description: delete-role-binding
+      operationId: deleteRoleBinding
+      responses:
+        "200":
+          description: ""
+    patch:
+      tags:
+        - role-bindings
+      summary: update-role-binding
+      description: |
+        update a role-binding, this will replace the subjects with the new
+        subjects. note that role_id is immutable
+      operationId: updateRoleBinding
+      parameters:
+        - name: id
+          in: query
+          schema:
+            type: string
+            example: loadbal-test-1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                subjects:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      conditions:
+                        type: object
+                        properties: {}
+                      id:
+                        type: string
+                        example: idntusr-bailin
+                  example:
+                    - conditions: {}
+                      id: idntusr-bailin
+                    - conditions: {}
+                      id: idntusr-bailin-1
+            examples:
+              update-role-binding:
+                value:
+                  subjects:
+                    - conditions: {}
+                      id: idntusr-bailin
+                    - conditions: {}
+                      id: idntusr-bailin-1
+      responses:
+        "200":
+          description: ""
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          example: loadbal-lb1
+      - name: rb-id
+        in: path
+        required: true
+        schema:
+          type: string
+          example: permrbn-uRNlQEo6yh9DinKhSxL2z
+  /actions:
+    get:
+      summary: list-actions
+      description: list all available actions in the permission system
+      operationId: listActions
+      responses:
+        "200":
+          description: ""
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: http://localhost:8081/default/token
+          scopes:
+            openid: openid
+            permissions-api: permissions-api
+security:
+  - oauth2:
+      - 'openid permissions-api'
+tags:
+  - name: roles
+  - name: role-bindings
