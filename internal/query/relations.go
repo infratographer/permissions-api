@@ -48,8 +48,8 @@ func (e *engine) validateRelationship(rel types.Relationship) error {
 		// If we find a relation with a name and type that matches our relationship,
 		// return
 		if rel.Relation == typeRel.Relation {
-			for _, typeName := range typeRel.Types {
-				if subjType.Name == typeName {
+			for _, t := range typeRel.Types {
+				if subjType.Name == t.Name {
 					return nil
 				}
 			}

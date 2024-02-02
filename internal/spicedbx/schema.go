@@ -8,13 +8,12 @@ import (
 	"go.infratographer.com/permissions-api/internal/types"
 )
 
-var (
-	schemaTemplate = template.Must(template.New("schema").Parse(`
+var schemaTemplate = template.Must(template.New("schema").Parse(`
 {{- $namespace := .Namespace -}}
 {{- range .ResourceTypes -}}
 definition {{$namespace}}/{{.Name}} {
 {{- range .Relationships }}
-    relation {{.Relation}}: {{ range $index, $typeName := .Types -}}{{ if $index }} | {{end}}{{$namespace}}/{{$typeName}}{{- end }}
+    relation {{.Relation}}: {{ range $index, $type := .Types -}}{{ if $index }} | {{end}}{{$namespace}}/{{$type.Name}}{{if $type.Identifier}}:{{$type.Identifier}}{{end}}{{- end }}
 {{- end }}
 
 {{- range .Actions }}
@@ -27,7 +26,6 @@ definition {{$namespace}}/{{.Name}} {
 {{- end }}
 }
 {{end}}`))
-)
 
 // GenerateSchema generates the spicedb schema from the template
 func GenerateSchema(namespace string, resourceTypes []types.ResourceType) (string, error) {

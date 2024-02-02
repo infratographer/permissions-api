@@ -67,11 +67,11 @@ func (e *engine) cacheSchemaResources() {
 
 		for _, relationship := range res.Relationships {
 			for _, t := range relationship.Types {
-				if _, ok := e.schemaSubjectRelationMap[t]; !ok {
-					e.schemaSubjectRelationMap[t] = make(map[string][]string)
+				if _, ok := e.schemaSubjectRelationMap[t.Name]; !ok {
+					e.schemaSubjectRelationMap[t.Name] = make(map[string][]string)
 				}
 
-				e.schemaSubjectRelationMap[t][relationship.Relation] = append(e.schemaSubjectRelationMap[t][relationship.Relation], res.Name)
+				e.schemaSubjectRelationMap[t.Name][relationship.Relation] = append(e.schemaSubjectRelationMap[t.Name][relationship.Relation], res.Name)
 			}
 		}
 

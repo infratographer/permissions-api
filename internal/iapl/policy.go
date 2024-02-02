@@ -28,12 +28,14 @@ type ResourceType struct {
 type Relationship struct {
 	Relation        string
 	TargetTypeNames []string
+	TargetTypes     []types.TargetType
 }
 
 // Union represents a named union of multiple concrete resource types.
 type Union struct {
 	Name              string
 	ResourceTypeNames []string
+	ResourceTypes     []types.TargetType
 }
 
 // Action represents an action that can be taken in an authorization policy.
@@ -138,6 +140,12 @@ func (v *policy) validateUnions() error {
 				return fmt.Errorf("%s: resourceTypeNames: %s: %w", union.Name, rtName, ErrorUnknownType)
 			}
 		}
+
+		for _, rt := range union.ResourceTypes {
+			if _, ok := v.rt[rt.Name]; !ok {
+				return fmt.Errorf("%s: resourceTypes: %s: %w", union.Name, rt.Name, ErrorUnknownType)
+			}
+		}
 	}
 
 	return nil
@@ -149,6 +157,12 @@ func (v *policy) validateResourceTypes() error {
 			for _, name := range rel.TargetTypeNames {
 				if _, ok := v.rt[name]; !ok {
 					return fmt.Errorf("%s: relationships: %s: %w", resourceType.Name, name, ErrorUnknownType)
+				}
+			}
+
+			for _, tt := range rel.TargetTypes {
+				if _, ok := v.rt[tt.Name]; !ok {
+					return fmt.Errorf("%s: relationships: %s: %w", resourceType.Name, tt.Name, ErrorUnknownType)
 				}
 			}
 		}
@@ -260,17 +274,29 @@ func (v *policy) expandActionBindings() {
 func (v *policy) expandResourceTypes() {
 	for name, resourceType := range v.rt {
 		for i, rel := range resourceType.Relationships {
-			var typeNames []string
+			var (
+				typeNames   []string
+				targettypes = rel.TargetTypes
+			)
 
 			for _, typeName := range rel.TargetTypeNames {
 				if u, ok := v.un[typeName]; ok {
-					typeNames = append(typeNames, u.ResourceTypeNames...)
+					if len(u.ResourceTypes) > 0 {
+						targettypes = append(targettypes, u.ResourceTypes...)
+					} else {
+						typeNames = append(typeNames, u.ResourceTypeNames...)
+					}
 				} else {
 					typeNames = append(typeNames, typeName)
 				}
 			}
 
+			for _, tn := range typeNames {
+				targettypes = append(targettypes, types.TargetType{Name: tn})
+			}
+
 			resourceType.Relationships[i].TargetTypeNames = typeNames
+			resourceType.Relationships[i].TargetTypes = targettypes
 		}
 
 		v.rt[name] = resourceType
@@ -305,7 +331,7 @@ func (v *policy) Schema() []types.ResourceType {
 		for _, rel := range rt.Relationships {
 			outRel := types.ResourceTypeRelationship{
 				Relation: rel.Relation,
-				Types:    rel.TargetTypeNames,
+				Types:    rel.TargetTypes,
 			}
 
 			out.Relationships = append(out.Relationships, outRel)
@@ -335,6 +361,12 @@ func (v *policy) Schema() []types.ResourceType {
 	for i, rt := range v.p.ResourceTypes {
 		out[i] = *typeMap[rt.Name]
 	}
+
+	fmt.Println("=============================")
+	if err := yaml.NewEncoder(os.Stdout).Encode(out); err != nil {
+		panic(err)
+	}
+	fmt.Println("=============================")
 
 	return out
 }

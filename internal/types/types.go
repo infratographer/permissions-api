@@ -20,10 +20,16 @@ type Role struct {
 	UpdatedAt  time.Time
 }
 
+// TargetType represents a target with a name and an identifier.
+type TargetType struct {
+	Name       string
+	Identifier string
+}
+
 // ResourceTypeRelationship is a relationship for a resource type.
 type ResourceTypeRelationship struct {
 	Relation string
-	Types    []string
+	Types    []TargetType
 }
 
 // ConditionRoleBinding represents a condition where a role binding is necessary to perform an action.
