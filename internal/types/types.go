@@ -20,10 +20,12 @@ type Role struct {
 	UpdatedAt  time.Time
 }
 
-// TargetType represents a target with a name and an identifier.
+// TargetType represents a relationship target, as defined in spiceDB's schema
+// reference: https://authzed.com/docs/reference/schema-lang#relations
 type TargetType struct {
-	Name       string
-	Identifier string
+	Name              string
+	SubjectIdentifier string
+	SubjectRelation   string
 }
 
 // ResourceTypeRelationship is a relationship for a resource type.
@@ -48,10 +50,16 @@ type Condition struct {
 	RelationshipAction *ConditionRelationshipAction
 }
 
+// ConditionSet is a set of conditions that must be met for the action to be performed.
+type ConditionSet struct {
+	Conditions []Condition
+}
+
 // Action represents a named thing a subject can do.
 type Action struct {
-	Name       string
-	Conditions []Condition
+	Name          string
+	Conditions    []Condition
+	ConditionSets []ConditionSet
 }
 
 // ResourceType defines a type of resource managed by the api

@@ -1,134 +1,277 @@
+rbac:
+  roleresource: role
+  rolerelationshipsubjects:
+    - user
+  roleowners:
+    - tenant
+  rolebindingresource: role_binding
+  rolebindingprinciples:
+    - name: user
+    - name: group
+      subjectrelation: member
+
+unions:
+  - name: group_member
+    resourcetypes:
+      - name: user
+      - name: client
+      - name: group
+        subjectrelation: member
+  - name: tenant_member
+    resourcetypes:
+      - name: user
+      - name: client
+      - name: group
+        subjectrelation: member
+      - name: tenant
+        subjectrelation: member
+  - name: resourceowner
+    resourcetypes:
+      - name: tenant
+      - name: group
+
 resourcetypes:
   - name: role
-    idprefix: permrol
-    relationships:
-      - relation: subject
-        targettypenames:
-          - subject
+    idprefix: idntrol
+  - name: role_binding
+    idprefix: idntrolbnd
   - name: user
     idprefix: idntusr
   - name: client
-    idprefix: idntcli
+    idprefix: idntclt
+
+  - name: group
+    idprefix: idntgrp
+    relationships:
+      - relation: parent
+        targettypenames:
+          - group
+          - tenant
+      - relation: member
+        targettypenames:
+          - group_member
+      - relation: grant
+        targettypes:
+          - name: role_binding
+
   - name: tenant
     idprefix: tnntten
     relationships:
       - relation: parent
+        targettypes:
+          - name: tenant
+      - relation: member
         targettypenames:
-          - tenant
+          - tenant_member
+      - relation: grant
+        targettypes:
+          - name: role_binding
+
   - name: loadbalancer
     idprefix: loadbal
     relationships:
       - relation: owner
-        targettypenames:
-          - resourceowner
-unions:
-  - name: subject
-    resourcetypenames:
-      - user
-      - client
-  - name: resourceowner
-    resourcetypenames:
-      - tenant
+        targettypes:
+          - name: tenant
+      - relation: grant
+        targettypes:
+          - name: role_binding
+
 actions:
   - name: role_create
+    additionalpermissions:
+      - create_all
+      - all
   - name: role_get
+    additionalpermissions:
+      - read_all
+      - all
   - name: role_list
+    additionalpermissions:
+      - read_all
+      - all
   - name: role_update
+    additionalpermissions:
+      - update_all
+      - all
   - name: role_delete
+    additionalpermissions:
+      - delete_all
+      - all
   - name: loadbalancer_create
+    additionalpermissions:
+      - create_all
+      - all
   - name: loadbalancer_get
+    additionalpermissions:
+      - read_all
+      - all
   - name: loadbalancer_list
+    additionalpermissions:
+      - read_all
+      - all
   - name: loadbalancer_update
+    additionalpermissions:
+      - update_all
+      - all
   - name: loadbalancer_delete
+    additionalpermissions:
+      - delete_all
+      - all
+
 actionbindings:
+  # role management - permissions on role
+  - actionname: role_create
+    typename: role
+    conditions:
+      - relationshipaction:
+          relation: owner
+          actionname: role_create
+  - actionname: role_get
+    typename: role
+    conditions:
+      - relationshipaction:
+          relation: owner
+          actionname: role_get
+  - actionname: role_list
+    typename: role
+    conditions:
+      - relationshipaction:
+          relation: owner
+          actionname: role_list
+  - actionname: role_update
+    typename: role
+    conditions:
+      - relationshipaction:
+          relation: owner
+          actionname: role_update
+  - actionname: role_delete
+    typename: role
+    conditions:
+      - relationshipaction:
+          relation: owner
+          actionname: role_delete
+  # role management - permissions on owner
   - actionname: role_create
     typename: resourceowner
     conditions:
-      - rolebinding: {}
+      - relationshipaction:
+          relation: grant
+          actionname: role_create
       - relationshipaction:
           relation: parent
           actionname: role_create
   - actionname: role_get
     typename: resourceowner
     conditions:
-      - rolebinding: {}
+      - relationshipaction:
+          relation: grant
+          actionname: role_get
       - relationshipaction:
           relation: parent
           actionname: role_get
   - actionname: role_list
     typename: resourceowner
     conditions:
-      - rolebinding: {}
+      - relationshipaction:
+          relation: grant
+          actionname: role_list
       - relationshipaction:
           relation: parent
           actionname: role_list
   - actionname: role_update
     typename: resourceowner
     conditions:
-      - rolebinding: {}
+      - relationshipaction:
+          relation: grant
+          actionname: role_update
       - relationshipaction:
           relation: parent
           actionname: role_update
   - actionname: role_delete
     typename: resourceowner
     conditions:
-      - rolebinding: {}
+      - relationshipaction:
+          relation: grant
+          actionname: role_delete
       - relationshipaction:
           relation: parent
           actionname: role_delete
+  # loadbalancer management - permissions on loadbalancer
+  - actionname: loadbalancer_create
+    typename: loadbalancer
+    conditions:
+      - relationshipaction:
+          relation: owner
+          actionname: loadbalancer_create
+  - actionname: loadbalancer_get
+    typename: loadbalancer
+    conditions:
+      - relationshipaction:
+          relation: owner
+          actionname: loadbalancer_get
+  - actionname: loadbalancer_list
+    typename: loadbalancer
+    conditions:
+      - relationshipaction:
+          relation: owner
+          actionname: loadbalancer_list
+  - actionname: loadbalancer_update
+    typename: loadbalancer
+    conditions:
+      - relationshipaction:
+          relation: owner
+          actionname: loadbalancer_update
+  - actionname: loadbalancer_delete
+    typename: loadbalancer
+    conditions:
+      - relationshipaction:
+          relation: owner
+          actionname: loadbalancer_delete
+  # loadbalancer management - permissions on owner
   - actionname: loadbalancer_create
     typename: resourceowner
     conditions:
-      - rolebinding: {}
+      - relationshipaction:
+          relation: grant
+          actionname: loadbalancer_create
       - relationshipaction:
           relation: parent
           actionname: loadbalancer_create
   - actionname: loadbalancer_get
     typename: resourceowner
     conditions:
-      - rolebinding: {}
+      - relationshipaction:
+          relation: grant
+          actionname: loadbalancer_get
       - relationshipaction:
           relation: parent
           actionname: loadbalancer_get
-  - actionname: loadbalancer_update
-    typename: resourceowner
-    conditions:
-      - rolebinding: {}
-      - relationshipaction:
-          relation: parent
-          actionname: loadbalancer_update
   - actionname: loadbalancer_list
     typename: resourceowner
     conditions:
-      - rolebinding: {}
+      - relationshipaction:
+          relation: grant
+          actionname: loadbalancer_list
       - relationshipaction:
           relation: parent
           actionname: loadbalancer_list
+  - actionname: loadbalancer_update
+    typename: resourceowner
+    conditions:
+      - relationshipaction:
+          relation: grant
+          actionname: loadbalancer_update
+      - relationshipaction:
+          relation: parent
+          actionname: loadbalancer_update
   - actionname: loadbalancer_delete
     typename: resourceowner
     conditions:
-      - rolebinding: {}
+      - relationshipaction:
+          relation: grant
+          actionname: loadbalancer_delete
       - relationshipaction:
           relation: parent
           actionname: loadbalancer_delete
-  - actionname: loadbalancer_get
-    typename: loadbalancer
-    conditions:
-      - rolebinding: {}
-      - relationshipaction:
-          relation: owner
-          actionname: loadbalancer_get
-  - actionname: loadbalancer_update
-    typename: loadbalancer
-    conditions:
-      - rolebinding: {}
-      - relationshipaction:
-          relation: owner
-          actionname: loadbalancer_update
-  - actionname: loadbalancer_delete
-    typename: loadbalancer
-    conditions:
-      - rolebinding: {}
-      - relationshipaction:
-          relation: owner
-          actionname: loadbalancer_delete
+
