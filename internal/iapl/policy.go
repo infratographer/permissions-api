@@ -59,7 +59,7 @@ type RBAC struct {
 	RoleRelationshipSubjects []string
 	RoleOwners               []string
 
-	RoleBindingResource   string
+	RoleBindingResource string
 	RoleBindingSubjects []types.TargetType
 }
 
@@ -88,8 +88,7 @@ type Union struct {
 // AdditionalPermissions can be defined to allow additional permissions to be
 // created in addition to the permission with the same name as the action.
 type Action struct {
-	Name                  string
-	AdditionalPermissions []string
+	Name string
 }
 
 // ActionBinding represents a binding of an action to a resource type or union.
@@ -125,6 +124,7 @@ type ConditionRelationshipAction struct {
 type Policy interface {
 	Validate() error
 	Schema() []types.ResourceType
+	RBAC() RBAC
 }
 
 var _ Policy = &policy{}
@@ -364,9 +364,6 @@ func (v *policy) expandRole() {
 
 	for _, action := range v.ac {
 		perms[action.Name] = struct{}{}
-		for _, additionalPermissions := range action.AdditionalPermissions {
-			perms[additionalPermissions] = struct{}{}
-		}
 	}
 
 	for perm := range perms {
@@ -394,7 +391,7 @@ func (v *policy) expandRole() {
 		}
 
 		permsRel[i] = Relationship{
-			Relation:    perm,
+			Relation:    perm + "_rel",
 			TargetTypes: targettypes,
 		}
 	}
@@ -437,34 +434,21 @@ func (v *policy) expandRoleBinding() {
 	actionbindings := make([]ActionBinding, len(v.ac))
 	i := 0
 
-	for actionName, action := range v.ac {
-		// 3.1 define the permissions for the action
-		permissions := make([]types.Condition, 0, len(action.AdditionalPermissions)+1)
-		permissions = append(permissions,
-			types.Condition{
-				RelationshipAction: &types.ConditionRelationshipAction{
-					Relation:   v.p.RBAC.RoleResource,
-					ActionName: actionName,
-				},
-			},
-		)
-
-		for _, perm := range action.AdditionalPermissions {
-			permissions = append(permissions,
-				types.Condition{
-					RelationshipAction: &types.ConditionRelationshipAction{
-						Relation:   v.p.RBAC.RoleResource,
-						ActionName: perm,
-					},
-				},
-			)
-		}
-
+	for actionName := range v.ac {
 		ab := ActionBinding{
 			ActionName: actionName,
 			TypeName:   v.p.RBAC.RoleBindingResource,
 			ConditionSets: []types.ConditionSet{
-				{Conditions: permissions},
+				{
+					Conditions: []types.Condition{
+						{
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation:   v.p.RBAC.RoleResource,
+								ActionName: actionName + "_rel",
+							},
+						},
+					},
+				},
 				{
 					Conditions: []types.Condition{
 						{RelationshipAction: &types.ConditionRelationshipAction{Relation: "subject"}},
@@ -594,4 +578,9 @@ func (v *policy) Schema() []types.ResourceType {
 	}
 
 	return out
+}
+
+// RBAC returns the RBAC configurations
+func (v *policy) RBAC() RBAC {
+	return v.p.RBAC
 }

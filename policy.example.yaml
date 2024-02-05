@@ -34,9 +34,9 @@ unions:
 
 resourcetypes:
   - name: role
-    idprefix: idntrol
+    idprefix: permrol
   - name: role_binding
-    idprefix: idntrolbnd
+    idprefix: permrolbnd
   - name: user
     idprefix: idntusr
   - name: client
@@ -81,64 +81,31 @@ resourcetypes:
 
 actions:
   - name: role_create
-    additionalpermissions:
-      - create_all
-      - all
   - name: role_get
-    additionalpermissions:
-      - read_all
-      - all
   - name: role_list
-    additionalpermissions:
-      - read_all
-      - all
   - name: role_update
-    additionalpermissions:
-      - update_all
-      - all
   - name: role_delete
-    additionalpermissions:
-      - delete_all
-      - all
   - name: loadbalancer_create
-    additionalpermissions:
-      - create_all
-      - all
   - name: loadbalancer_get
-    additionalpermissions:
-      - read_all
-      - all
   - name: loadbalancer_list
-    additionalpermissions:
-      - read_all
-      - all
   - name: loadbalancer_update
-    additionalpermissions:
-      - update_all
-      - all
   - name: loadbalancer_delete
-    additionalpermissions:
-      - delete_all
-      - all
 
 actionbindings:
   # role management - permissions on role
   - actionname: role_get
     typename: role
-    renamepermission: get
     conditions:
       - relationshipaction:
           relation: owner
           actionname: role_get
   - actionname: role_update
-    renamepermission: update
     typename: role
     conditions:
       - relationshipaction:
           relation: owner
           actionname: role_update
   - actionname: role_delete
-    renamepermission: delete
     typename: role
     conditions:
       - relationshipaction:
