@@ -201,6 +201,10 @@ func New(config Config, options ...Option) (*Permissions, error) {
 		p.url = uri
 	}
 
+	if config.URL == "" && config.DefaultAllow {
+		p.defaultChecker = DefaultAllowChecker
+	}
+
 	for _, opt := range options {
 		if err := opt(p); err != nil {
 			return nil, err
