@@ -38,21 +38,48 @@ func TestSchema(t *testing.T) {
 			Name: "role",
 			Relationships: []types.ResourceTypeRelationship{
 				{
-					Relation: "subject",
-					Types: []string{
-						"user",
-						"client",
+					Relation: "loadbalancer_create",
+					Types: []types.TargetType{
+						{Name: "user", SubjectIdentifier: "*"},
+						{Name: "client", SubjectIdentifier: "*"},
+					},
+				},
+				{
+					Relation: "loadbalancer_get",
+					Types: []types.TargetType{
+						{Name: "user", SubjectIdentifier: "*"},
+						{Name: "client", SubjectIdentifier: "*"},
+					},
+				},
+				{
+					Relation: "port_create",
+					Types: []types.TargetType{
+						{Name: "user", SubjectIdentifier: "*"},
+						{Name: "client", SubjectIdentifier: "*"},
+					},
+				},
+				{
+					Relation: "port_get",
+					Types: []types.TargetType{
+						{Name: "user", SubjectIdentifier: "*"},
+						{Name: "client", SubjectIdentifier: "*"},
 					},
 				},
 			},
 		},
 		{
-			Name: "tenant",
+			Name: "role_binding",
 			Relationships: []types.ResourceTypeRelationship{
 				{
-					Relation: "parent",
-					Types: []string{
-						"tenant",
+					Relation: "role",
+					Types:    []types.TargetType{{Name: "role"}},
+				},
+				{
+					Relation: "subject",
+					Types: []types.TargetType{
+						{Name: "user"},
+						{Name: "client"},
+						{Name: "group", SubjectRelation: "member"},
 					},
 				},
 			},
@@ -61,11 +88,8 @@ func TestSchema(t *testing.T) {
 					Name: "loadbalancer_create",
 					Conditions: []types.Condition{
 						{
-							RoleBinding: &types.ConditionRoleBinding{},
-						},
-						{
 							RelationshipAction: &types.ConditionRelationshipAction{
-								Relation:   "parent",
+								Relation:   "role",
 								ActionName: "loadbalancer_create",
 							},
 						},
@@ -75,7 +99,83 @@ func TestSchema(t *testing.T) {
 					Name: "loadbalancer_get",
 					Conditions: []types.Condition{
 						{
-							RoleBinding: &types.ConditionRoleBinding{},
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation:   "role",
+								ActionName: "loadbalancer_get",
+							},
+						},
+					},
+				},
+				{
+					Name: "port_create",
+					Conditions: []types.Condition{
+						{
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation:   "role",
+								ActionName: "port_create",
+							},
+						},
+					},
+				},
+				{
+					Name: "port_get",
+					Conditions: []types.Condition{
+						{
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation:   "role",
+								ActionName: "port_get",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "group",
+			Relationships: []types.ResourceTypeRelationship{
+				{
+					Relation: "member",
+					Types: []types.TargetType{
+						{Name: "user"},
+						{Name: "client"},
+						{Name: "group", SubjectRelation: "member"},
+					},
+				},
+				{
+					Relation: "parent",
+					Types:    []types.TargetType{{Name: "group"}, {Name: "tenant"}},
+				},
+				{
+					Relation: "grant",
+					Types:    []types.TargetType{{Name: "role_binding"}},
+				},
+			},
+			Actions: []types.Action{
+				{
+					Name: "loadbalancer_create",
+					Conditions: []types.Condition{
+						{
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation:   "parent",
+								ActionName: "loadbalancer_create",
+							},
+						},
+						{
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation:   "grant",
+								ActionName: "loadbalancer_create",
+							},
+						},
+					},
+				},
+				{
+					Name: "loadbalancer_get",
+					Conditions: []types.Condition{
+						{
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation:   "grant",
+								ActionName: "loadbalancer_get",
+							},
 						},
 						{
 							RelationshipAction: &types.ConditionRelationshipAction{
@@ -89,7 +189,10 @@ func TestSchema(t *testing.T) {
 					Name: "port_create",
 					Conditions: []types.Condition{
 						{
-							RoleBinding: &types.ConditionRoleBinding{},
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation:   "grant",
+								ActionName: "port_create",
+							},
 						},
 						{
 							RelationshipAction: &types.ConditionRelationshipAction{
@@ -103,7 +206,102 @@ func TestSchema(t *testing.T) {
 					Name: "port_get",
 					Conditions: []types.Condition{
 						{
-							RoleBinding: &types.ConditionRoleBinding{},
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation:   "grant",
+								ActionName: "port_get",
+							},
+						},
+						{
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation:   "parent",
+								ActionName: "port_get",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "tenant",
+			Relationships: []types.ResourceTypeRelationship{
+				{
+					Relation: "parent",
+					Types:    []types.TargetType{{Name: "tenant"}},
+				},
+				{
+					Relation: "member",
+					Types: []types.TargetType{
+						{Name: "user"},
+						{Name: "client"},
+						{Name: "group", SubjectRelation: "member"},
+						{Name: "tenant", SubjectRelation: "member"},
+					},
+				},
+				{
+					Relation: "grant",
+					Types:    []types.TargetType{{Name: "role_binding"}},
+				},
+			},
+			Actions: []types.Action{
+				{
+					Name: "loadbalancer_create",
+					Conditions: []types.Condition{
+						{
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation:   "parent",
+								ActionName: "loadbalancer_create",
+							},
+						},
+						{
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation:   "grant",
+								ActionName: "loadbalancer_create",
+							},
+						},
+					},
+				},
+				{
+					Name: "loadbalancer_get",
+					Conditions: []types.Condition{
+						{
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation:   "grant",
+								ActionName: "loadbalancer_get",
+							},
+						},
+						{
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation:   "parent",
+								ActionName: "loadbalancer_get",
+							},
+						},
+					},
+				},
+				{
+					Name: "port_create",
+					Conditions: []types.Condition{
+						{
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation:   "grant",
+								ActionName: "port_create",
+							},
+						},
+						{
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation:   "parent",
+								ActionName: "port_create",
+							},
+						},
+					},
+				},
+				{
+					Name: "port_get",
+					Conditions: []types.Condition{
+						{
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation:   "grant",
+								ActionName: "port_get",
+							},
 						},
 						{
 							RelationshipAction: &types.ConditionRelationshipAction{
@@ -120,9 +318,11 @@ func TestSchema(t *testing.T) {
 			Relationships: []types.ResourceTypeRelationship{
 				{
 					Relation: "owner",
-					Types: []string{
-						"tenant",
-					},
+					Types:    []types.TargetType{{Name: "tenant"}},
+				},
+				{
+					Relation: "grant",
+					Types:    []types.TargetType{{Name: "role_binding"}},
 				},
 			},
 			Actions: []types.Action{
@@ -130,12 +330,15 @@ func TestSchema(t *testing.T) {
 					Name: "loadbalancer_get",
 					Conditions: []types.Condition{
 						{
-							RoleBinding: &types.ConditionRoleBinding{},
-						},
-						{
 							RelationshipAction: &types.ConditionRelationshipAction{
 								Relation:   "owner",
 								ActionName: "loadbalancer_get",
+							},
+						},
+						{
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation:   "grant",
+								ActionName: "loadbalancer_create",
 							},
 						},
 					},
@@ -147,9 +350,11 @@ func TestSchema(t *testing.T) {
 			Relationships: []types.ResourceTypeRelationship{
 				{
 					Relation: "owner",
-					Types: []string{
-						"tenant",
-					},
+					Types:    []types.TargetType{{Name: "tenant"}},
+				},
+				{
+					Relation: "grant",
+					Types:    []types.TargetType{{Name: "role_binding"}},
 				},
 			},
 			Actions: []types.Action{
@@ -157,7 +362,10 @@ func TestSchema(t *testing.T) {
 					Name: "port_get",
 					Conditions: []types.Condition{
 						{
-							RoleBinding: &types.ConditionRoleBinding{},
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation:   "grant",
+								ActionName: "port_get",
+							},
 						},
 						{
 							RelationshipAction: &types.ConditionRelationshipAction{
@@ -176,28 +384,46 @@ func TestSchema(t *testing.T) {
 definition foo/client {
 }
 definition foo/role {
-    relation subject: foo/user | foo/client
+    relation loadbalancer_create: foo/user:* | foo/client:*
+    relation loadbalancer_get: foo/user:* | foo/client:*
+    relation port_create: foo/user:* | foo/client:*
+    relation port_get: foo/user:* | foo/client:*
+}
+definition foo/role_binding {
+    relation role: foo/role
+    relation subject: foo/user | foo/client | foo/group#member
+    permission loadbalancer_create = role->loadbalancer_create
+    permission loadbalancer_get = role->loadbalancer_get
+    permission port_create = role->port_create
+    permission port_get = role->port_get
+}
+definition foo/group {
+    relation member: foo/user | foo/client | foo/group#member
+    relation parent: foo/group | foo/tenant
+    relation grant: foo/role_binding
+    permission loadbalancer_create = parent->loadbalancer_create + grant->loadbalancer_create
+    permission loadbalancer_get = grant->loadbalancer_get + parent->loadbalancer_get
+    permission port_create = grant->port_create + parent->port_create
+    permission port_get = grant->port_get + parent->port_get
 }
 definition foo/tenant {
     relation parent: foo/tenant
-    relation loadbalancer_create_rel: foo/role#subject
-    relation loadbalancer_get_rel: foo/role#subject
-    relation port_create_rel: foo/role#subject
-    relation port_get_rel: foo/role#subject
-    permission loadbalancer_create = loadbalancer_create_rel + parent->loadbalancer_create
-    permission loadbalancer_get = loadbalancer_get_rel + parent->loadbalancer_get
-    permission port_create = port_create_rel + parent->port_create
-    permission port_get = port_get_rel + parent->port_get
+    relation member: foo/user | foo/client | foo/group#member | foo/tenant#member
+    relation grant: foo/role_binding
+    permission loadbalancer_create = parent->loadbalancer_create + grant->loadbalancer_create
+    permission loadbalancer_get = grant->loadbalancer_get + parent->loadbalancer_get
+    permission port_create = grant->port_create + parent->port_create
+    permission port_get = grant->port_get + parent->port_get
 }
 definition foo/loadbalancer {
     relation owner: foo/tenant
-    relation loadbalancer_get_rel: foo/role#subject
-    permission loadbalancer_get = loadbalancer_get_rel + owner->loadbalancer_get
+    relation grant: foo/role_binding
+    permission loadbalancer_get = owner->loadbalancer_get + grant->loadbalancer_create
 }
 definition foo/port {
     relation owner: foo/tenant
-    relation port_get_rel: foo/role#subject
-    permission port_get = port_get_rel + owner->port_get
+    relation grant: foo/role_binding
+    permission port_get = grant->port_get + owner->port_get
 }
 `
 

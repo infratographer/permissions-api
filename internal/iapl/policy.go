@@ -24,7 +24,7 @@ RBAC represents a role-based access control policy.
 - RoleRelationshipSubject is the name of the relationship that connects a role to a subject.
 - RoleOwners is the names of the resource types that can own a role.
 - RoleBindingResource is the name of the resource type that represents a role binding.
-- RoleBindingPrinciples is the names of the resource types that can be principles in a role binding.
+- RoleBindingSubjects is the names of the resource types that can be subjects in a role binding.
 
 For example, consider the following RBAC policy:
 ```zed
@@ -43,8 +43,8 @@ For example, consider the following RBAC policy:
 
 	definition role_binding {
 		relation role: role
-		relation principle: user | group#member
-		permission view_organization = principle & role->view_organization
+		relation subject: user | group#member
+		permission view_organization = subject & role->view_organization
 	}
 
 ```
@@ -52,7 +52,7 @@ For example, consider the following RBAC policy:
 - the RoleResource would be "role"
 - the RoleBindingResource would be "role_binding",
 - the RoleRelationshipSubject would be `[user, client]`.
-- the RoleBindingPrinciples would be `[{name: user}, {name: group, subjectrelation: member}]`.
+- the RoleBindingSubjects would be `[{name: user}, {name: group, subjectrelation: member}]`.
 */
 type RBAC struct {
 	RoleResource             string
@@ -60,7 +60,7 @@ type RBAC struct {
 	RoleOwners               []string
 
 	RoleBindingResource   string
-	RoleBindingPrinciples []types.TargetType
+	RoleBindingSubjects []types.TargetType
 }
 
 // ResourceType represents a resource type in the authorization policy.
@@ -93,11 +93,16 @@ type Action struct {
 }
 
 // ActionBinding represents a binding of an action to a resource type or union.
+// RenamePermission is the name of the permission that should be used instead of
+// the action name when checking for permission to perform the action, this
+// allows the permission to be renamed to avoid conflicts with relationships
+// with the same name.
 type ActionBinding struct {
-	ActionName    string
-	TypeName      string
-	Conditions    []Condition
-	ConditionSets []types.ConditionSet
+	ActionName       string
+	TypeName         string
+	RenamePermission string
+	Conditions       []Condition
+	ConditionSets    []types.ConditionSet
 }
 
 // Condition represents a necessary condition for performing an action.
@@ -421,10 +426,10 @@ func (v *policy) expandRoleBinding() {
 		},
 	}
 
-	// 2. create relationship to principles
-	principles := Relationship{
-		Relation:    "principle",
-		TargetTypes: v.p.RBAC.RoleBindingPrinciples,
+	// 2. create relationship to subjects
+	subjects := Relationship{
+		Relation:    "subject",
+		TargetTypes: v.p.RBAC.RoleBindingSubjects,
 	}
 
 	// 3. create a list of action-bindings representing permissions for all the
@@ -462,7 +467,7 @@ func (v *policy) expandRoleBinding() {
 				{Conditions: permissions},
 				{
 					Conditions: []types.Condition{
-						{RelationshipAction: &types.ConditionRelationshipAction{Relation: "principle"}},
+						{RelationshipAction: &types.ConditionRelationshipAction{Relation: "subject"}},
 					},
 				},
 			},
@@ -479,11 +484,11 @@ func (v *policy) expandRoleBinding() {
 
 	if _, ok := v.rt[v.p.RBAC.RoleBindingResource]; ok {
 		rolebinding = v.rt[v.p.RBAC.RoleBindingResource]
-		rolebinding.Relationships = []Relationship{role, principles}
+		rolebinding.Relationships = []Relationship{role, subjects}
 	} else {
 		rolebinding = ResourceType{
 			Name:          v.p.RBAC.RoleBindingResource,
-			Relationships: []Relationship{role, principles},
+			Relationships: []Relationship{role, subjects},
 		}
 	}
 
@@ -559,8 +564,14 @@ func (v *policy) Schema() []types.ResourceType {
 	}
 
 	for _, b := range v.bn {
+		actionName := b.ActionName
+
+		if b.RenamePermission != "" {
+			actionName = b.RenamePermission
+		}
+
 		action := types.Action{
-			Name: b.ActionName,
+			Name: actionName,
 		}
 
 		for _, c := range b.Conditions {

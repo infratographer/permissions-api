@@ -2,11 +2,13 @@ rbac:
   roleresource: role
   rolerelationshipsubjects:
     - user
+    - client
   roleowners:
     - tenant
   rolebindingresource: role_binding
-  rolebindingprinciples:
+  rolebindingsubjects:
     - name: user
+    - name: client
     - name: group
       subjectrelation: member
 
@@ -121,31 +123,22 @@ actions:
 
 actionbindings:
   # role management - permissions on role
-  - actionname: role_create
-    typename: role
-    conditions:
-      - relationshipaction:
-          relation: owner
-          actionname: role_create
   - actionname: role_get
     typename: role
+    renamepermission: get
     conditions:
       - relationshipaction:
           relation: owner
           actionname: role_get
-  - actionname: role_list
-    typename: role
-    conditions:
-      - relationshipaction:
-          relation: owner
-          actionname: role_list
   - actionname: role_update
+    renamepermission: update
     typename: role
     conditions:
       - relationshipaction:
           relation: owner
           actionname: role_update
   - actionname: role_delete
+    renamepermission: delete
     typename: role
     conditions:
       - relationshipaction:
@@ -198,35 +191,32 @@ actionbindings:
           relation: parent
           actionname: role_delete
   # loadbalancer management - permissions on loadbalancer
-  - actionname: loadbalancer_create
-    typename: loadbalancer
-    conditions:
-      - relationshipaction:
-          relation: owner
-          actionname: loadbalancer_create
   - actionname: loadbalancer_get
     typename: loadbalancer
     conditions:
       - relationshipaction:
           relation: owner
           actionname: loadbalancer_get
-  - actionname: loadbalancer_list
-    typename: loadbalancer
-    conditions:
       - relationshipaction:
-          relation: owner
-          actionname: loadbalancer_list
+          relation: grant
+          actionname: loadbalancer_get
   - actionname: loadbalancer_update
     typename: loadbalancer
     conditions:
       - relationshipaction:
           relation: owner
           actionname: loadbalancer_update
+      - relationshipaction:
+          relation: grant
+          actionname: loadbalancer_update
   - actionname: loadbalancer_delete
     typename: loadbalancer
     conditions:
       - relationshipaction:
           relation: owner
+          actionname: loadbalancer_delete
+      - relationshipaction:
+          relation: grant
           actionname: loadbalancer_delete
   # loadbalancer management - permissions on owner
   - actionname: loadbalancer_create

@@ -13,7 +13,6 @@ var schemaTemplate = template.Must(template.New("schema").Parse(`
 {{ $actionName := .Name }}
 {{- range $index, $cond := .Conditions -}}
 	{{- if $index }} + {{end}}
-	{{- if $cond.RoleBinding }}{{ $actionName }}_rel{{ end }}
 	{{- if $cond.RelationshipAction }}
 		{{- $cond.RelationshipAction.Relation}}
 		{{- if ne $cond.RelationshipAction.ActionName ""}}->{{ $cond.RelationshipAction.ActionName }}{{- end }}
@@ -28,7 +27,6 @@ var schemaTemplate = template.Must(template.New("schema").Parse(`
 	{{- if gt (len $conditionSet.Conditions) 1 -}} ( {{- end}}
 	{{- range $index, $cond := .Conditions -}}
 		{{- if $index }} + {{end}}
-		{{- if $cond.RoleBinding }}{{ $actionName }}_rel{{ end }}
 		{{- if $cond.RelationshipAction }}
 			{{- $cond.RelationshipAction.Relation}}
 			{{- if ne $cond.RelationshipAction.ActionName ""}}->{{ $cond.RelationshipAction.ActionName }}{{- end }}
