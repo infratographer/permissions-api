@@ -22,3 +22,7 @@
 
 # NATS dirs
 .devcontainer/nsc/
+resolver.conf
+
+# binary files
+permissions-api

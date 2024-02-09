@@ -13,9 +13,7 @@ import (
 	"go.infratographer.com/x/gidx"
 )
 
-var (
-	errorInvalidNamespace = errors.New("invalid namespace")
-)
+var errorInvalidNamespace = errors.New("invalid namespace")
 
 var _ query.Engine = &Engine{}
 
@@ -61,6 +59,17 @@ func (e *Engine) CreateRole(ctx context.Context, actor, res types.Resource, name
 	}
 
 	return role, nil
+}
+
+// CreateRoleV2 creates a v2 role object
+// TODO: Implement this
+func (e *Engine) CreateRoleV2(ctx context.Context, actor, owner types.Resource, roleName string, actions []string) (types.Role, error) {
+	return types.Role{}, nil
+}
+
+// ListRoleV2 list roles
+func (e *Engine) ListRolesV2(ctx context.Context, owner types.Resource) ([]types.Role, error) {
+	return nil, nil
 }
 
 // UpdateRole returns the provided mock results.

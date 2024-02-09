@@ -844,11 +844,6 @@ func (e *engine) ListRelationshipsTo(ctx context.Context, resource types.Resourc
 
 // ListRoles returns all roles bound to a given resource.
 func (e *engine) ListRoles(ctx context.Context, resource types.Resource) ([]types.Role, error) {
-	dbRoles, err := e.store.ListResourceRoles(ctx, resource.ID)
-	if err != nil {
-		return nil, err
-	}
-
 	resType := e.namespace + "/" + resource.Type
 	roleType := e.namespace + "/role"
 
@@ -870,16 +865,21 @@ func (e *engine) ListRoles(ctx context.Context, resource types.Resource) ([]type
 
 	spicedbRoles := relationshipsToRoles(relationships)
 
-	rolesByID := make(map[gidx.PrefixedID]types.Role, len(spicedbRoles))
+	dbRoles, err := e.store.ListResourceRoles(ctx, resource.ID)
+	if err != nil {
+		return nil, err
+	}
 
-	for _, role := range spicedbRoles {
+	rolesByID := make(map[gidx.PrefixedID]storage.Role, len(dbRoles))
+
+	for _, role := range dbRoles {
 		rolesByID[role.ID] = role
 	}
 
-	out := make([]types.Role, len(dbRoles))
+	out := make([]types.Role, len(spicedbRoles))
 
-	for i, dbRole := range dbRoles {
-		spicedbRole := rolesByID[dbRole.ID]
+	for i, spicedbRole := range spicedbRoles {
+		dbRole := rolesByID[spicedbRole.ID]
 
 		out[i] = types.Role{
 			ID:         dbRole.ID,

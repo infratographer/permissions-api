@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -11,6 +12,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"go.infratographer.com/permissions-api/internal/query"
+	"go.infratographer.com/permissions-api/internal/storage"
+	"go.infratographer.com/permissions-api/internal/types"
 )
 
 const (
@@ -53,9 +56,24 @@ func (r *Router) roleCreate(c echo.Context) error {
 		return err
 	}
 
-	role, err := r.engine.CreateRole(ctx, subjectResource, resource, reqBody.Name, reqBody.Actions)
+	apiversion := r.getAPIVersion(c)
+
+	var role types.Role
+
+	switch apiversion {
+	case "v2":
+		role, err = r.engine.CreateRoleV2(ctx, subjectResource, resource, reqBody.Name, reqBody.Actions)
+	default:
+		role, err = r.engine.CreateRole(ctx, subjectResource, resource, reqBody.Name, reqBody.Actions)
+	}
+
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "error creating resource").SetInternal(err)
+		switch {
+		case errors.Is(err, storage.ErrRoleNameTaken), strings.Contains(err.Error(), " InvalidArgument"):
+			return echo.NewHTTPError(http.StatusBadRequest, "error creating resource: "+err.Error()).SetInternal(err)
+		default:
+			return echo.NewHTTPError(http.StatusInternalServerError, "error creating resource").SetInternal(err)
+		}
 	}
 
 	resp := roleResponse{
@@ -212,7 +230,17 @@ func (r *Router) rolesList(c echo.Context) error {
 		return err
 	}
 
-	roles, err := r.engine.ListRoles(ctx, resource)
+	apiversion := r.getAPIVersion(c)
+
+	var roles []types.Role
+
+	switch apiversion {
+	case "v2":
+		roles, err = r.engine.ListRolesV2(ctx, resource)
+	default:
+		roles, err = r.engine.ListRoles(ctx, resource)
+	}
+
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "error getting role").SetInternal(err)
 	}

@@ -18,6 +18,11 @@ import (
 const (
 	outcomeAllowed = "allowed"
 	outcomeDenied  = "denied"
+
+	// DefaultRoleResourceName is the default name for a role resource
+	DefaultRoleResourceName = "role"
+	// DefaultRoleBindingResourceName is the default name for a role binding resource
+	DefaultRoleBindingResourceName = "role_binding"
 )
 
 // Engine represents a client for making permissions queries.
@@ -39,6 +44,10 @@ type Engine interface {
 	NewResourceFromID(id gidx.PrefixedID) (types.Resource, error)
 	GetResourceType(name string) *types.ResourceType
 	SubjectHasPermission(ctx context.Context, subject types.Resource, action string, resource types.Resource) error
+
+	// v2 functions, add role bindings support
+	CreateRoleV2(ctx context.Context, actor, owner types.Resource, roleName string, actions []string) (types.Role, error)
+	ListRolesV2(ctx context.Context, owner types.Resource) ([]types.Role, error)
 }
 
 type engine struct {
@@ -53,6 +62,8 @@ type engine struct {
 	schemaTypeMap            map[string]types.ResourceType
 	schemaSubjectRelationMap map[string]map[string][]string
 	schemaRoleables          []types.ResourceType
+
+	rbac iapl.RBAC
 }
 
 func (e *engine) cacheSchemaResources() {
@@ -111,7 +122,9 @@ func NewEngine(namespace string, client *authzed.Client, kv nats.KeyValue, store
 	}
 
 	if e.schema == nil {
-		e.schema = iapl.DefaultPolicy().Schema()
+		p := iapl.DefaultPolicy()
+		e.schema = p.Schema()
+		e.rbac = p.RBAC()
 
 		e.cacheSchemaResources()
 	}
@@ -133,6 +146,7 @@ func WithLogger(logger *zap.SugaredLogger) Option {
 func WithPolicy(policy iapl.Policy) Option {
 	return func(e *engine) {
 		e.schema = policy.Schema()
+		e.rbac = policy.RBAC()
 
 		e.cacheSchemaResources()
 	}

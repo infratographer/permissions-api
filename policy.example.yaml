@@ -46,7 +46,7 @@ resourcetypes:
         targettypenames:
           - subject
   - name: rolev2
-    idprefix: permrolv2
+    idprefix: permrv2
   - name: role_binding
     idprefix: permrolbnd
 

@@ -54,6 +54,7 @@ func (r *Router) Routes(rg *echo.Group) {
 	v1 := rg.Group("api/v1")
 	{
 		v1.Use(r.authMW)
+		v1.Use(r.injectAPIVersionMW("v1"))
 
 		v1.POST("/resources/:id/roles", r.roleCreate)
 		v1.GET("/resources/:id/roles", r.rolesList)
@@ -71,6 +72,35 @@ func (r *Router) Routes(rg *echo.Group) {
 		// /allow is the permissions check endpoint
 		v1.GET("/allow", r.checkAction)
 		v1.POST("/allow", r.checkAllActions)
+	}
+
+	v2 := rg.Group("api/v2")
+	{
+		v2.Use(r.authMW)
+		v2.Use(r.injectAPIVersionMW("v2"))
+
+		v2.POST("/resources/:id/roles", r.roleCreate)
+		v2.GET("/resources/:id/roles", r.rolesList)
+	}
+}
+
+// middleware and utils functions to set and get the API version
+const apiVersionContextKey = "apiVersion"
+
+func (r *Router) setAPIVersion(c echo.Context, version string) {
+	c.Set(apiVersionContextKey, version)
+}
+
+func (r *Router) getAPIVersion(c echo.Context) string {
+	return c.Get(apiVersionContextKey).(string)
+}
+
+func (r *Router) injectAPIVersionMW(ver string) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			r.setAPIVersion(c, ver)
+			return next(c)
+		}
 	}
 }
 

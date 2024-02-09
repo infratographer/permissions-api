@@ -24,4 +24,7 @@ var (
 
 	// ErrRoleHasTooManyResources represents an error which a role has too many resources
 	ErrRoleHasTooManyResources = errors.New("role has too many resources")
+
+	// ErrRoleAlreadyExists represents an error when a role already exists
+	ErrRoleAlreadyExists = errors.New("role already exists")
 )
