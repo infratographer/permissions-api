@@ -107,11 +107,18 @@ type ActionBinding struct {
 // Condition represents a necessary condition for performing an action.
 type Condition struct {
 	RoleBinding        *ConditionRoleBinding
+	RoleBindingV2      *ConditionRoleBindingV2
 	RelationshipAction *ConditionRelationshipAction
 }
 
 // ConditionRoleBinding represents a condition where a role binding is necessary to perform an action.
 type ConditionRoleBinding struct{}
+
+// ConditionRoleBindingV2 represents a condition where a role binding is necessary to perform an action.
+// This is the new version of the condition, and it is used to support the new role binding resource type.
+type ConditionRoleBindingV2 struct {
+	GrantRelationship string
+}
 
 // ConditionRelationshipAction represents a condition where another action must be allowed on a resource
 // along a relation to perform an action.
@@ -280,6 +287,10 @@ func (v *policy) validateConditions(rt ResourceType, conds []Condition) error {
 			numClauses++
 		}
 
+		if cond.RoleBindingV2 != nil {
+			numClauses++
+		}
+
 		if cond.RelationshipAction != nil {
 			numClauses++
 		}
@@ -443,7 +454,7 @@ func (v *policy) expandRoleBinding() {
 					Conditions: []types.Condition{
 						{
 							RelationshipAction: &types.ConditionRelationshipAction{
-								Relation:   v.p.RBAC.RoleResource,
+								Relation:   "role",
 								ActionName: actionName + "_rel",
 							},
 						},
@@ -559,9 +570,33 @@ func (v *policy) Schema() []types.ResourceType {
 		}
 
 		for _, c := range b.Conditions {
-			condition := types.Condition{
-				RoleBinding:        (*types.ConditionRoleBinding)(c.RoleBinding),
-				RelationshipAction: (*types.ConditionRelationshipAction)(c.RelationshipAction),
+			var condition types.Condition
+
+			switch {
+			case c.RoleBinding != nil:
+				condition = types.Condition{
+					RelationshipAction: &types.ConditionRelationshipAction{
+						Relation: actionName + "_rel",
+					},
+				}
+
+				actionRel := types.ResourceTypeRelationship{
+					Relation: actionName + "_rel",
+					Types:    []types.TargetType{{Name: "role", SubjectRelation: "subject"}},
+				}
+
+				typeMap[b.TypeName].Relationships = append(typeMap[b.TypeName].Relationships, actionRel)
+			case c.RoleBindingV2 != nil:
+				condition = types.Condition{
+					RelationshipAction: &types.ConditionRelationshipAction{
+						Relation:   c.RoleBindingV2.GrantRelationship,
+						ActionName: actionName,
+					},
+				}
+			default:
+				condition = types.Condition{
+					RelationshipAction: (*types.ConditionRelationshipAction)(c.RelationshipAction),
+				}
 			}
 
 			action.Conditions = append(action.Conditions, condition)
