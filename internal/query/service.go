@@ -49,6 +49,8 @@ type Engine interface {
 	CreateRoleV2(ctx context.Context, actor, owner types.Resource, roleName string, actions []string) (types.Role, error)
 	ListRolesV2(ctx context.Context, owner types.Resource) ([]types.Role, error)
 	GetRoleV2(ctx context.Context, role types.Resource) (types.Role, error)
+	UpdateRoleV2(ctx context.Context, actor, roleResource types.Resource, newName string, newActions []string) (types.Role, error)
+	DeleteRoleV2(ctx context.Context, roleResource types.Resource) error
 }
 
 type engine struct {

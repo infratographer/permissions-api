@@ -81,6 +81,11 @@ func (e *Engine) UpdateRole(ctx context.Context, actor, roleResource types.Resou
 	return retRole, args.Error(1)
 }
 
+// UpdateRoleV2 returns nothing but satisfies the Engine interface.
+func (e *Engine) UpdateRoleV2(ctx context.Context, actor, roleResource types.Resource, newName string, newActions []string) (types.Role, error) {
+	return types.Role{}, nil
+}
+
 // GetRole returns nothing but satisfies the Engine interface.
 func (e *Engine) GetRole(ctx context.Context, roleResource types.Resource) (types.Role, error) {
 	return types.Role{}, nil
@@ -128,6 +133,11 @@ func (e *Engine) DeleteRole(ctx context.Context, roleResource types.Resource) er
 	args := e.Called()
 
 	return args.Error(0)
+}
+
+// DeleteRoleV2 does nothing but satisfies the Engine interface.
+func (e *Engine) DeleteRoleV2(ctx context.Context, roleResource types.Resource) error {
+	return nil
 }
 
 // DeleteResourceRelationships does nothing but satisfies the Engine interface.

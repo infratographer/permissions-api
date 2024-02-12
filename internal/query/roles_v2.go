@@ -147,6 +147,8 @@ func (e *engine) ListRolesV2(ctx context.Context, owner types.Resource) ([]types
 	for err := range errs {
 		if err != nil {
 			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+
 			return nil, err
 		}
 	}
@@ -193,6 +195,7 @@ func (e *engine) GetRoleV2(ctx context.Context, role types.Resource) (types.Role
 	if role.Type != e.rbac.RoleResource {
 		err := fmt.Errorf("%w: %s is not a valid v2 Role", ErrInvalidType, role.Type)
 		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 
 		return types.Role{}, err
 	}
@@ -235,6 +238,8 @@ func (e *engine) GetRoleV2(ctx context.Context, role types.Resource) (types.Role
 	for err := range errs {
 		if err != nil {
 			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+
 			return types.Role{}, err
 		}
 	}
@@ -252,6 +257,135 @@ func (e *engine) GetRoleV2(ctx context.Context, role types.Resource) (types.Role
 	}
 
 	return resp, nil
+}
+
+// UpdateRoleV2 updates a V2 role with the given name and actions.
+func (e *engine) UpdateRoleV2(ctx context.Context, actor, roleResource types.Resource, newName string, newActions []string) (types.Role, error) {
+	ctx, span := e.tracer.Start(ctx, "engine.UpdateRoleV2")
+	defer span.End()
+
+	dbCtx, err := e.store.BeginContext(ctx)
+	if err != nil {
+		return types.Role{}, err
+	}
+
+	err = e.store.LockRoleForUpdate(dbCtx, roleResource.ID)
+	if err != nil {
+		sErr := fmt.Errorf("failed to lock role: %s: %w", roleResource.ID, err)
+
+		span.RecordError(sErr)
+		span.SetStatus(codes.Error, sErr.Error())
+
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return types.Role{}, err
+	}
+
+	role, err := e.GetRoleV2(dbCtx, roleResource)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return types.Role{}, err
+	}
+
+	newName = strings.TrimSpace(newName)
+
+	if newName == "" {
+		newName = role.Name
+	}
+
+	addActions, rmActions := actionsDiff(role.Actions, newActions)
+
+	// If no changes, return existing role with no changes.
+	if newName == role.Name && len(addActions) == 0 && len(rmActions) == 0 {
+		if err = e.store.CommitContext(dbCtx); err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+
+		return role, nil
+	}
+
+	// 1. update role in permission-api DB
+	dbRole, err := e.store.UpdateRole(dbCtx, actor.ID, role.ID, newName)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return types.Role{}, err
+	}
+
+	// 2. update permissions relationships in spice db
+	updates := []*pb.RelationshipUpdate{}
+	roleRef := resourceToSpiceDBRef(e.namespace, roleResource)
+
+	// 2.a remove old actions
+	for _, action := range rmActions {
+		updates = append(
+			updates,
+			e.createRoleV2RelationshipUpdatesForAction(
+				action, roleRef,
+				pb.RelationshipUpdate_OPERATION_DELETE,
+			)...,
+		)
+	}
+
+	// 2.b add new actions
+	for _, action := range addActions {
+		updates = append(
+			updates,
+			e.createRoleV2RelationshipUpdatesForAction(
+				action, roleRef,
+				pb.RelationshipUpdate_OPERATION_TOUCH,
+			)...,
+		)
+	}
+
+	// 2.c write updates to spicedb
+	request := &pb.WriteRelationshipsRequest{Updates: updates}
+
+	if _, err := e.client.WriteRelationships(ctx, request); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return types.Role{}, err
+	}
+
+	if err = e.store.CommitContext(dbCtx); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		// At this point, spicedb changes have already been applied.
+		// Attempting to rollback could result in failures that could result in the same situation.
+		//
+		// TODO: add spicedb rollback logic along with rollback failure scenarios.
+
+		return types.Role{}, err
+	}
+
+	role.Name = dbRole.Name
+	role.CreatedBy = dbRole.CreatedBy
+	role.UpdatedBy = dbRole.UpdatedBy
+	role.ResourceID = dbRole.ResourceID
+	role.CreatedAt = dbRole.CreatedAt
+	role.UpdatedAt = dbRole.UpdatedAt
+	role.Actions = newActions
+
+	return role, nil
+}
+
+// DeleteRoleV2 deletes a V2 role.
+func (e *engine) DeleteRoleV2(ctx context.Context, roleResource types.Resource) error {
+	return nil
 }
 
 // roleV2OwnerRelationship creates a relationship between a V2 role and its owner.
@@ -281,6 +415,35 @@ func (e *engine) roleV2OwnerRelationship(role types.Role, owner types.Resource) 
 	}
 }
 
+// createRoleV2RelationshipUpdatesForAction creates permission relationship lines in role
+// i.e., role:<role_name>#<action>_rel@<namespace>/<subjType>:*
+func (e *engine) createRoleV2RelationshipUpdatesForAction(
+	action string,
+	roleRef *pb.ObjectReference,
+	op pb.RelationshipUpdate_Operation,
+) []*pb.RelationshipUpdate {
+	rels := make([]*pb.RelationshipUpdate, len(e.rbac.RoleRelationshipSubjects))
+
+	for i, subjType := range e.rbac.RoleRelationshipSubjects {
+		e.logger.Debugf("creating permission rel for action: %s, subjType: %s\n", action, subjType)
+		rels[i] = &pb.RelationshipUpdate{
+			Operation: op,
+			Relationship: &pb.Relationship{
+				Resource: roleRef,
+				Relation: actionToRelation(action),
+				Subject: &pb.SubjectReference{
+					Object: &pb.ObjectReference{
+						ObjectType: e.namespaced(subjType),
+						ObjectId:   "*",
+					},
+				},
+			},
+		}
+	}
+
+	return rels
+}
+
 // roleV2Relationships creates relationships between a V2 role and its permissions.
 func (e *engine) roleV2Relationships(role types.Role) []*pb.RelationshipUpdate {
 	var rels []*pb.RelationshipUpdate
@@ -297,29 +460,14 @@ func (e *engine) roleV2Relationships(role types.Role) []*pb.RelationshipUpdate {
 
 	roleRef := resourceToSpiceDBRef(e.namespace, roleResource)
 
-	// creates permission relationship line in role
-	// e.g., role:<role_name>#<action>_rel@<namespace>/<subjType>:*
-	createRelationshipsForAction := func(action string) {
-		for _, subjType := range e.rbac.RoleRelationshipSubjects {
-			e.logger.Debugf("creating permission rel for action: %s, subjType: %s\n", action, subjType)
-			rels = append(rels, &pb.RelationshipUpdate{
-				Operation: pb.RelationshipUpdate_OPERATION_TOUCH,
-				Relationship: &pb.Relationship{
-					Resource: roleRef,
-					Relation: actionToRelation(action),
-					Subject: &pb.SubjectReference{
-						Object: &pb.ObjectReference{
-							ObjectType: e.namespaced(subjType),
-							ObjectId:   "*",
-						},
-					},
-				},
-			})
-		}
-	}
-
 	for _, action := range role.Actions {
-		createRelationshipsForAction(action)
+		rels = append(
+			rels,
+			e.createRoleV2RelationshipUpdatesForAction(
+				action, roleRef,
+				pb.RelationshipUpdate_OPERATION_TOUCH,
+			)...,
+		)
 	}
 
 	return rels
@@ -381,6 +529,8 @@ func (e *engine) listSpicedbRolesV2(ctx context.Context, owner types.Resource) (
 	for err := range errs {
 		if err != nil {
 			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+
 			return nil, err
 		}
 	}

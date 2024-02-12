@@ -114,29 +114,62 @@ func (r *Router) roleUpdate(c echo.Context) error {
 		return err
 	}
 
-	roleResource, err := r.engine.NewResourceFromID(roleID)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "error updating role").SetInternal(err)
-	}
+	apiversion := r.getAPIVersion(c)
 
-	// Roles belong to resources by way of the actions they can perform; do the permissions
-	// check on the role resource.
-	resource, err := r.engine.GetRoleResource(ctx, roleResource)
-	if err != nil {
-		if errors.Is(err, query.ErrRoleNotFound) {
-			return echo.NewHTTPError(http.StatusNotFound, "resource not found").SetInternal(err)
+	var (
+		role         types.Role
+		resource     types.Resource
+		roleResource types.Resource
+
+		updateRoleFn func(ctx context.Context, actor types.Resource, roleResource types.Resource, newName string, newActions []string) (types.Role, error)
+	)
+
+	switch apiversion {
+	case "v2":
+		// for v2 roles
+		// Roles themselves are the resource, permissions check should be performed
+		// on the roles themselves.
+		roleResource, err = r.engine.NewResourceFromID(roleID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
 		}
 
-		return echo.NewHTTPError(http.StatusInternalServerError, "error getting resource").SetInternal(err)
+		resource = roleResource
+		updateRoleFn = r.engine.UpdateRoleV2
+
+	default:
+		// for v1 roles
+		// Roles belong to resources by way of the actions they can perform; do the permissions
+		// check on the role resource.
+		roleResource, err = r.engine.NewResourceFromID(roleID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "error getting role resource").SetInternal(err)
+		}
+
+		resource, err = r.engine.GetRoleResource(ctx, roleResource)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+		}
+
+		updateRoleFn = r.engine.UpdateRole
 	}
 
-	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleUpdate, resource); err != nil {
+	// TODO: This shows an error for the role's resource, not the role. Determine if that
+	// matters.
+	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleGet, resource); err != nil {
 		return err
 	}
 
-	role, err := r.engine.UpdateRole(ctx, subjectResource, roleResource, reqBody.Name, reqBody.Actions)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "error updating resource").SetInternal(err)
+	role, err = updateRoleFn(ctx, subjectResource, roleResource, reqBody.Name, reqBody.Actions)
+
+	switch {
+	case err == nil:
+	case errors.Is(err, storage.ErrRoleNameTaken), strings.Contains(err.Error(), " InvalidArgument"):
+		return echo.NewHTTPError(http.StatusBadRequest, "error updating role: "+err.Error()).SetInternal(err)
+	case errors.Is(err, storage.ErrNoRoleFound):
+		return echo.NewHTTPError(http.StatusNotFound, "error updating role: "+err.Error()).SetInternal(err)
+	default:
+		return echo.NewHTTPError(http.StatusInternalServerError, "error updating role").SetInternal(err)
 	}
 
 	resp := roleResponse{
