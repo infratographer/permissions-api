@@ -86,6 +86,11 @@ func (e *Engine) GetRole(ctx context.Context, roleResource types.Resource) (type
 	return types.Role{}, nil
 }
 
+// GetRoleV2 returns nothing but satisfies the Engine interface.
+func (e *Engine) GetRoleV2(ctx context.Context, owner types.Resource) (types.Role, error) {
+	return types.Role{}, nil
+}
+
 // GetRoleResource returns nothing but satisfies the Engine interface.
 func (e *Engine) GetRoleResource(ctx context.Context, roleResource types.Resource) (types.Resource, error) {
 	return types.Resource{}, nil

@@ -48,6 +48,7 @@ type Engine interface {
 	// v2 functions, add role bindings support
 	CreateRoleV2(ctx context.Context, actor, owner types.Resource, roleName string, actions []string) (types.Role, error)
 	ListRolesV2(ctx context.Context, owner types.Resource) ([]types.Role, error)
+	GetRoleV2(ctx context.Context, role types.Resource) (types.Role, error)
 }
 
 type engine struct {

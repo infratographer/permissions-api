@@ -578,6 +578,7 @@ func (v *policy) Schema() []types.ResourceType {
 					RelationshipAction: &types.ConditionRelationshipAction{
 						Relation: actionName + "_rel",
 					},
+					RoleBinding: &types.ConditionRoleBinding{},
 				}
 
 				actionRel := types.ResourceTypeRelationship{

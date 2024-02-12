@@ -81,6 +81,7 @@ func (r *Router) Routes(rg *echo.Group) {
 
 		v2.POST("/resources/:id/roles", r.roleCreate)
 		v2.GET("/resources/:id/roles", r.rolesList)
+		v2.GET("/roles/:role_id", r.roleGet)
 	}
 }
 

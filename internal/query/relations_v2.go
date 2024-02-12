@@ -2,6 +2,7 @@ package query
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -92,7 +93,7 @@ func (e *engine) ListRolesV2(ctx context.Context, owner types.Resource) ([]types
 
 	ctx, span := e.tracer.Start(
 		ctx,
-		"ListRolesV2",
+		"engine.ListRolesV2",
 		trace.WithAttributes(
 			attribute.Stringer(
 				"owner",
@@ -169,6 +170,90 @@ func (e *engine) ListRolesV2(ctx context.Context, owner types.Resource) ([]types
 	return spicedbRoles, nil
 }
 
+// GetRoleV2 returns a V2 role
+func (e *engine) GetRoleV2(ctx context.Context, role types.Resource) (types.Role, error) {
+	const ReadRolesErrBufLen = 2
+
+	var (
+		actions []string
+		dbrole  storage.Role
+		err     error
+		errs    = make(chan error, ReadRolesErrBufLen)
+		wg      = &sync.WaitGroup{}
+	)
+
+	ctx, span := e.tracer.Start(
+		ctx,
+		"engine.GetRoleV2",
+		trace.WithAttributes(attribute.Stringer("role", role.ID)),
+	)
+	defer span.End()
+
+	// check if the role is a valid v2 role
+	if role.Type != e.rbac.RoleResource {
+		err := fmt.Errorf("%w: %s is not a valid v2 Role", ErrInvalidType, role.Type)
+		span.RecordError(err)
+
+		return types.Role{}, err
+	}
+
+	// 1. Get role actions from spice DB
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+
+		spicedbctx, span := e.tracer.Start(ctx, "listRoleV2Actions")
+		defer span.End()
+
+		actions, err = e.listRoleV2Actions(spicedbctx, types.Role{ID: role.ID})
+		if err != nil {
+			errs <- err
+			return
+		}
+	}()
+
+	// 2. Get role from permissions API DB
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+
+		apidbctx, span := e.tracer.Start(ctx, "getRoleFromPermissionAPI")
+		defer span.End()
+
+		dbrole, err = e.store.GetRoleByID(apidbctx, role.ID)
+		if err != nil {
+			errs <- err
+			return
+		}
+	}()
+
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		if err != nil {
+			span.RecordError(err)
+			return types.Role{}, err
+		}
+	}
+
+	resp := types.Role{
+		ID:      dbrole.ID,
+		Name:    dbrole.Name,
+		Actions: actions,
+
+		ResourceID: dbrole.ResourceID,
+		CreatedBy:  dbrole.CreatedBy,
+		UpdatedBy:  dbrole.UpdatedBy,
+		CreatedAt:  dbrole.CreatedAt,
+		UpdatedAt:  dbrole.UpdatedAt,
+	}
+
+	return resp, nil
+}
+
 // roleV2OwnerRelationship creates a relationship between a V2 role and its owner.
 func (e *engine) roleV2OwnerRelationship(role types.Role, owner types.Resource) *pb.RelationshipUpdate {
 	roleResource, err := e.NewResourceFromID(role.ID)
@@ -241,7 +326,7 @@ func (e *engine) roleV2Relationships(role types.Role) []*pb.RelationshipUpdate {
 }
 
 func (e *engine) listSpicedbRolesV2(ctx context.Context, owner types.Resource) ([]types.Role, error) {
-	ctx, span := e.tracer.Start(ctx, "listSpicedbRolesV2")
+	ctx, span := e.tracer.Start(ctx, "engine.listSpicedbRolesV2")
 	defer span.End()
 
 	ownerType := e.namespaced(owner.Type)
@@ -271,13 +356,13 @@ func (e *engine) listSpicedbRolesV2(ctx context.Context, owner types.Resource) (
 		go func(index int, role *pb.ObjectReference) {
 			defer wg.Done()
 
-			actions, err := e.listRoleV2Actions(ctx, role)
+			roleID, err := gidx.Parse(role.ObjectId)
 			if err != nil {
 				errs <- err
 				return
 			}
 
-			roleID, err := gidx.Parse(role.ObjectId)
+			actions, err := e.listRoleV2Actions(ctx, types.Role{ID: roleID})
 			if err != nil {
 				errs <- err
 				return
@@ -303,8 +388,8 @@ func (e *engine) listSpicedbRolesV2(ctx context.Context, owner types.Resource) (
 	return spicedbRoles, nil
 }
 
-func (e *engine) listRoleV2Actions(ctx context.Context, role *pb.ObjectReference) ([]string, error) {
-	if len(role.ObjectType) == 0 {
+func (e *engine) listRoleV2Actions(ctx context.Context, role types.Role) ([]string, error) {
+	if len(e.rbac.RoleRelationshipSubjects) == 0 {
 		return nil, nil
 	}
 
@@ -315,9 +400,10 @@ func (e *engine) listRoleV2Actions(ctx context.Context, role *pb.ObjectReference
 	// here we only need one of them
 	permRelationshipSubjType := e.namespaced(e.rbac.RoleRelationshipSubjects[0])
 
+	rid := role.ID.String()
 	filter := &pb.RelationshipFilter{
 		ResourceType:       e.namespaced(e.rbac.RoleResource),
-		OptionalResourceId: role.ObjectId,
+		OptionalResourceId: rid,
 		OptionalSubjectFilter: &pb.SubjectFilter{
 			SubjectType:       permRelationshipSubjType,
 			OptionalSubjectId: "*",
@@ -329,7 +415,7 @@ func (e *engine) listRoleV2Actions(ctx context.Context, role *pb.ObjectReference
 		return nil, err
 	}
 
-	e.logger.Debugf("listing %d actions for %s: %s", len(relationships), e.namespaced(e.rbac.RoleResource), role.ObjectId)
+	e.logger.Debugf("listing %d actions for %s: %s", len(relationships), e.namespaced(e.rbac.RoleResource), rid)
 
 	actions := make([]string, len(relationships))
 

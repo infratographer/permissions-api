@@ -760,7 +760,8 @@ func (e *engine) relationshipsToNonRoles(rels []*pb.Relationship) ([]types.Relat
 	var out []types.Relationship
 
 	for _, rel := range rels {
-		if rel.Subject.Object.ObjectType == e.namespace+"/role" {
+		// skip relationships for v1 roles, and wildcard relationships for v2 roles
+		if rel.Subject.Object.ObjectType == e.namespace+"/role" || rel.Subject.Object.ObjectId == "*" {
 			continue
 		}
 
