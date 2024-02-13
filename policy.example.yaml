@@ -48,7 +48,7 @@ resourcetypes:
   - name: rolev2
     idprefix: permrv2
   - name: role_binding
-    idprefix: permrolbnd
+    idprefix: permrbn
 
   - name: user
     idprefix: idntusr

@@ -18,7 +18,10 @@ import (
 
 // V2 Role and Role Bindings
 
-const roleOwnerRelation = "owner"
+const (
+	roleOwnerRelation       = "owner"
+	rolebindingRoleRelation = "role"
+)
 
 func (e *engine) namespaced(name string) string {
 	return e.namespace + "/" + name
@@ -385,6 +388,110 @@ func (e *engine) UpdateRoleV2(ctx context.Context, actor, roleResource types.Res
 
 // DeleteRoleV2 deletes a V2 role.
 func (e *engine) DeleteRoleV2(ctx context.Context, roleResource types.Resource) error {
+	ctx, span := e.tracer.Start(ctx, "engine.DeleteRoleV2")
+	defer span.End()
+
+	dbCtx, err := e.store.BeginContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = e.store.LockRoleForUpdate(dbCtx, roleResource.ID)
+	if err != nil {
+		sErr := fmt.Errorf("failed to lock role: %s: %w", roleResource.ID, err)
+
+		span.RecordError(sErr)
+		span.SetStatus(codes.Error, sErr.Error())
+
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return err
+	}
+
+	// 1. delete role from permission-api DB
+	if _, err = e.store.DeleteRole(dbCtx, roleResource.ID); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return err
+	}
+
+	// 2. delete role relationships from spice db
+	const deleteErrsBufferSize = 2
+
+	wg := &sync.WaitGroup{}
+	errs := make(chan error, deleteErrsBufferSize)
+
+	// 2.a remove all role permission and owner relationships
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+
+		delRoleRelationshipReq := &pb.DeleteRelationshipsRequest{
+			RelationshipFilter: &pb.RelationshipFilter{
+				ResourceType:       e.namespaced(e.rbac.RoleResource),
+				OptionalResourceId: roleResource.ID.String(),
+			},
+		}
+
+		if _, err := e.client.DeleteRelationships(ctx, delRoleRelationshipReq); err != nil {
+			errs <- err
+		}
+	}()
+
+	// 2.b remove all role relationships in role bindings associated with this role
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+
+		delRoleBindingRelationshipReq := &pb.DeleteRelationshipsRequest{
+			RelationshipFilter: &pb.RelationshipFilter{
+				ResourceType:     e.namespaced(e.rbac.RoleBindingResource),
+				OptionalRelation: rolebindingRoleRelation,
+				OptionalSubjectFilter: &pb.SubjectFilter{
+					SubjectType:       e.namespaced(e.rbac.RoleResource),
+					OptionalSubjectId: roleResource.ID.String(),
+				},
+			},
+		}
+
+		if _, err := e.client.DeleteRelationships(ctx, delRoleBindingRelationshipReq); err != nil {
+			errs <- err
+		}
+	}()
+
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+
+			logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+			return err
+		}
+	}
+
+	if err = e.store.CommitContext(dbCtx); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		// At this point, spicedb changes have already been applied.
+		// Attempting to rollback could result in failures that could result in the same situation.
+		//
+		// TODO: add spicedb rollback logic along with rollback failure scenarios.
+
+		return err
+	}
+
 	return nil
 }
 
@@ -425,7 +532,6 @@ func (e *engine) createRoleV2RelationshipUpdatesForAction(
 	rels := make([]*pb.RelationshipUpdate, len(e.rbac.RoleRelationshipSubjects))
 
 	for i, subjType := range e.rbac.RoleRelationshipSubjects {
-		e.logger.Debugf("creating permission rel for action: %s, subjType: %s\n", action, subjType)
 		rels[i] = &pb.RelationshipUpdate{
 			Operation: op,
 			Relationship: &pb.Relationship{

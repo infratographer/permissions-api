@@ -2,9 +2,7 @@ package api
 
 import (
 	"context"
-	"errors"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -12,8 +10,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
-	"go.infratographer.com/permissions-api/internal/query"
-	"go.infratographer.com/permissions-api/internal/storage"
 	"go.infratographer.com/permissions-api/internal/types"
 )
 
@@ -69,12 +65,7 @@ func (r *Router) roleCreate(c echo.Context) error {
 	}
 
 	if err != nil {
-		switch {
-		case errors.Is(err, storage.ErrRoleNameTaken), strings.Contains(err.Error(), " InvalidArgument"):
-			return echo.NewHTTPError(http.StatusBadRequest, "error creating resource: "+err.Error()).SetInternal(err)
-		default:
-			return echo.NewHTTPError(http.StatusInternalServerError, "error creating resource").SetInternal(err)
-		}
+		return r.errorResponse("error creating role", err)
 	}
 
 	resp := roleResponse{
@@ -161,15 +152,8 @@ func (r *Router) roleUpdate(c echo.Context) error {
 	}
 
 	role, err = updateRoleFn(ctx, subjectResource, roleResource, reqBody.Name, reqBody.Actions)
-
-	switch {
-	case err == nil:
-	case errors.Is(err, storage.ErrRoleNameTaken), strings.Contains(err.Error(), " InvalidArgument"):
-		return echo.NewHTTPError(http.StatusBadRequest, "error updating role: "+err.Error()).SetInternal(err)
-	case errors.Is(err, storage.ErrNoRoleFound):
-		return echo.NewHTTPError(http.StatusNotFound, "error updating role: "+err.Error()).SetInternal(err)
-	default:
-		return echo.NewHTTPError(http.StatusInternalServerError, "error updating role").SetInternal(err)
+	if err != nil {
+		return r.errorResponse("error updating role", err)
 	}
 
 	resp := roleResponse{
@@ -249,15 +233,8 @@ func (r *Router) roleGet(c echo.Context) error {
 	}
 
 	role, err = getRoleFn(ctx, roleResource)
-
-	switch {
-	case err == nil:
-	case errors.Is(err, query.ErrInvalidType):
-		return echo.NewHTTPError(http.StatusBadRequest, "error getting role: "+err.Error()).SetInternal(err)
-	case errors.Is(err, storage.ErrNoRoleFound):
-		return echo.NewHTTPError(http.StatusNotFound, "error getting role: "+err.Error()).SetInternal(err)
-	default:
-		return echo.NewHTTPError(http.StatusInternalServerError, "error getting role").SetInternal(err)
+	if err != nil {
+		return r.errorResponse("error getting role", err)
 	}
 
 	resp := roleResponse{
@@ -311,7 +288,7 @@ func (r *Router) rolesList(c echo.Context) error {
 	}
 
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "error getting role").SetInternal(err)
+		return r.errorResponse("error getting roles", err)
 	}
 
 	resp := listRolesResponse{
@@ -351,24 +328,52 @@ func (r *Router) roleDelete(c echo.Context) error {
 		return err
 	}
 
-	roleResource, err := r.engine.NewResourceFromID(roleResourceID)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "error deleting resource").SetInternal(err)
-	}
+	apiversion := r.getAPIVersion(c)
 
-	// Roles belong to resources by way of the actions they can perform; do the permissions
-	// check on the role resource.
-	resource, err := r.engine.GetRoleResource(ctx, roleResource)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+	var (
+		resource     types.Resource
+		roleResource types.Resource
+
+		DeleteRoleFn func(ctx context.Context, roleResource types.Resource) error
+	)
+
+	switch apiversion {
+	case "v2":
+		// for v2 roles
+		// Roles themselves are the resource, permissions check should be performed
+		// on the roles themselves.
+		roleResource, err = r.engine.NewResourceFromID(roleResourceID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+		}
+
+		resource = roleResource
+		DeleteRoleFn = r.engine.DeleteRoleV2
+
+	default:
+		// for v1 roles
+		// Roles belong to resources by way of the actions they can perform; do the permissions
+		// check on the role resource.
+		roleResource, err = r.engine.NewResourceFromID(roleResourceID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "error getting role resource").SetInternal(err)
+		}
+
+		resource, err = r.engine.GetRoleResource(ctx, roleResource)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+		}
+
+		DeleteRoleFn = r.engine.DeleteRole
 	}
 
 	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleDelete, resource); err != nil {
 		return err
 	}
 
-	if err = r.engine.DeleteRole(ctx, roleResource); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "error deleting resource").SetInternal(err)
+	err = DeleteRoleFn(ctx, roleResource)
+	if err != nil {
+		return r.errorResponse("error deleting role", err)
 	}
 
 	resp := deleteRoleResponse{
