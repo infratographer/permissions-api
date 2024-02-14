@@ -51,6 +51,12 @@ type Engine interface {
 	GetRoleV2(ctx context.Context, role types.Resource) (types.Role, error)
 	UpdateRoleV2(ctx context.Context, actor, roleResource types.Resource, newName string, newActions []string) (types.Role, error)
 	DeleteRoleV2(ctx context.Context, roleResource types.Resource) error
+
+	CreateRoleBinding(ctx context.Context, role types.Resource, resource types.Resource, subjects []string) (types.RoleBinding, error)
+	ListRoleBindings(ctx context.Context, role types.Resource) ([]types.RoleBinding, error)
+	GetRoleBinding(ctx context.Context, roleBinding types.Resource) (types.RoleBinding, error)
+	UpdateRoleBinding(ctx context.Context, roleBinding, role types.Resource, subjects []string) (types.RoleBinding, error)
+	DeleteRoleBinding(ctx context.Context, roleBinding types.Resource) error
 }
 
 type engine struct {
@@ -66,7 +72,9 @@ type engine struct {
 	schemaSubjectRelationMap map[string]map[string][]string
 	schemaRoleables          []types.ResourceType
 
-	rbac iapl.RBAC
+	rbac                     iapl.RBAC
+	rolebindingV2SubjectsMap map[string]types.TargetType
+	schemaRoleBindingsV2Map  map[string]*types.ConditionRoleBindingV2
 }
 
 func (e *engine) cacheSchemaResources() {
@@ -74,6 +82,8 @@ func (e *engine) cacheSchemaResources() {
 	e.schemaTypeMap = make(map[string]types.ResourceType, len(e.schema))
 	e.schemaSubjectRelationMap = make(map[string]map[string][]string)
 	e.schemaRoleables = []types.ResourceType{}
+	e.rolebindingV2SubjectsMap = make(map[string]types.TargetType, len(e.rbac.RoleBindingSubjects))
+	e.schemaRoleBindingsV2Map = make(map[string]*types.ConditionRoleBindingV2)
 
 	for _, res := range e.schema {
 		e.schemaPrefixMap[res.IDPrefix] = res
@@ -92,6 +102,14 @@ func (e *engine) cacheSchemaResources() {
 		if resourceHasRoleBindings(res) {
 			e.schemaRoleables = append(e.schemaRoleables, res)
 		}
+
+		if rb := resourceHasRoleBindingV2(res); rb != nil {
+			e.schemaRoleBindingsV2Map[res.Name] = rb
+		}
+	}
+
+	for _, subj := range e.rbac.RoleBindingSubjects {
+		e.rolebindingV2SubjectsMap[subj.Name] = subj
 	}
 }
 
@@ -105,6 +123,18 @@ func resourceHasRoleBindings(resType types.ResourceType) bool {
 	}
 
 	return false
+}
+
+func resourceHasRoleBindingV2(resType types.ResourceType) *types.ConditionRoleBindingV2 {
+	for _, action := range resType.Actions {
+		for _, cond := range action.Conditions {
+			if cond.RoleBindingV2 != nil {
+				return cond.RoleBindingV2
+			}
+		}
+	}
+
+	return nil
 }
 
 // NewEngine returns a new client for making permissions queries.

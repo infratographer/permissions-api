@@ -593,6 +593,9 @@ func (v *policy) Schema() []types.ResourceType {
 						Relation:   c.RoleBindingV2.GrantRelationship,
 						ActionName: actionName,
 					},
+					RoleBindingV2: &types.ConditionRoleBindingV2{
+						GrantRelationship: c.RoleBindingV2.GrantRelationship,
+					},
 				}
 			default:
 				condition = types.Condition{

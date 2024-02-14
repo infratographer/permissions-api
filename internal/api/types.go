@@ -71,3 +71,34 @@ type assignmentItem struct {
 type listAssignmentsResponse struct {
 	Data []assignmentItem `json:"data"`
 }
+
+// RoleBindings
+
+type roleBindingResponseRole struct {
+	ID   gidx.PrefixedID `json:"id"`
+	Name string          `json:"name"`
+}
+
+type roleBindingResponse struct {
+	ID       gidx.PrefixedID         `json:"id"`
+	Role     roleBindingResponseRole `json:"role"`
+	Subjects []string                `json:"subjects"`
+}
+
+type createRoleBindingRequest struct {
+	RoleID   string   `json:"role_id" binding:"required"`
+	Subjects []string `json:"subjects" binding:"required"`
+}
+
+type updateRoleBindingRequest struct {
+	RoleID   string   `json:"role_id"`
+	Subjects []string `json:"subjects"`
+}
+
+type listRoleBindingsResponse struct {
+	Data []roleBindingResponse `json:"data"`
+}
+
+type deleteRoleBindingResponse struct {
+	Success bool `json:"success"`
+}

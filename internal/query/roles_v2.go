@@ -19,8 +19,9 @@ import (
 // V2 Role and Role Bindings
 
 const (
-	roleOwnerRelation       = "owner"
-	rolebindingRoleRelation = "role"
+	roleOwnerRelation          = "owner"
+	rolebindingRoleRelation    = "role"
+	rolebindingSubjectRelation = "subject"
 )
 
 func (e *engine) namespaced(name string) string {

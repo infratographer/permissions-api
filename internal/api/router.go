@@ -2,8 +2,6 @@ package api
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -11,11 +9,8 @@ import (
 	"go.infratographer.com/x/gidx"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"go.infratographer.com/permissions-api/internal/query"
-	"go.infratographer.com/permissions-api/internal/storage"
 	"go.infratographer.com/permissions-api/internal/types"
 )
 
@@ -89,6 +84,8 @@ func (r *Router) Routes(rg *echo.Group) {
 		v2.GET("/roles/:role_id", r.roleGet)
 		v2.PATCH("/roles/:role_id", r.roleUpdate)
 		v2.DELETE("/roles/:id", r.roleDelete)
+
+		v2.POST("/resources/:id/role-bindings", r.roleBindingCreate)
 	}
 }
 
@@ -151,21 +148,4 @@ func (r *Router) currentSubject(c echo.Context) (types.Resource, error) {
 	}
 
 	return subjectResource, nil
-}
-
-func (r *Router) errorResponse(basemsg string, err error) *echo.HTTPError {
-	msg := fmt.Sprintf("%s: %s", basemsg, err.Error())
-	httpstatus := http.StatusInternalServerError
-
-	switch {
-	case errors.Is(err, storage.ErrRoleNameTaken), errors.Is(err, query.ErrInvalidType),
-		status.Code(err) == codes.InvalidArgument:
-		httpstatus = http.StatusBadRequest
-	case errors.Is(err, storage.ErrNoRoleFound):
-		httpstatus = http.StatusNotFound
-	default:
-		msg = basemsg
-	}
-
-	return echo.NewHTTPError(httpstatus, msg).SetInternal(err)
 }
