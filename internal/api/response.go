@@ -6,10 +6,11 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	"go.infratographer.com/permissions-api/internal/query"
-	"go.infratographer.com/permissions-api/internal/storage"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"go.infratographer.com/permissions-api/internal/query"
+	"go.infratographer.com/permissions-api/internal/storage"
 )
 
 // ErrorResponse represents the data that the server will return on any given call
@@ -39,9 +40,10 @@ func (r *Router) errorResponse(basemsg string, err error) *echo.HTTPError {
 		errors.Is(err, query.ErrInvalidType),
 		errors.Is(err, query.ErrInvalidArgument),
 		status.Code(err) == codes.InvalidArgument:
-
 		httpstatus = http.StatusBadRequest
-	case errors.Is(err, storage.ErrNoRoleFound):
+	case
+		errors.Is(err, storage.ErrNoRoleFound),
+		errors.Is(err, query.ErrRoleBindingNotFound):
 		httpstatus = http.StatusNotFound
 	default:
 		msg = basemsg

@@ -86,6 +86,8 @@ func (r *Router) Routes(rg *echo.Group) {
 		v2.DELETE("/roles/:id", r.roleDelete)
 
 		v2.POST("/resources/:id/role-bindings", r.roleBindingCreate)
+		v2.GET("/resources/:id/role-bindings/:rb_id", r.roleBindingGet)
+		v2.GET("/resources/:id/role-bindings", r.roleBindingsList)
 	}
 }
 

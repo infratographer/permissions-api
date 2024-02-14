@@ -25,14 +25,17 @@ var (
 	// ErrRoleNotFound represents an error when no matching role was found on resource
 	ErrRoleNotFound = errors.New("role not found")
 
+	// ErrRoleBindingNotFound represents an error when no matching role-binding was found
+	ErrRoleBindingNotFound = errors.New("role-binding not found")
+
 	// ErrRoleHasTooManyResources represents an error which a role has too many resources
 	ErrRoleHasTooManyResources = errors.New("role has too many resources")
 
-	// ErrRoleAlreadyExists represents an error when a role already exists
-	ErrRoleAlreadyExists = errors.New("role already exists")
-
 	// ErrInvalidArgument represents an error when there is an invalid argument passed to a function
 	ErrInvalidArgument = errors.New("invalid argument")
+
+	// ErrRoleAlreadyExists represents an error when a role already exists
+	ErrRoleAlreadyExists = fmt.Errorf("%w: role already exists", ErrInvalidArgument)
 
 	// ErrInvalidRoleBindingSubjectType represents an error when a role binding subject type is invalid
 	ErrInvalidRoleBindingSubjectType = fmt.Errorf("%w: invalid role binding subject type", ErrInvalidArgument)

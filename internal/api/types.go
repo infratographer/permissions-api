@@ -79,10 +79,15 @@ type roleBindingResponseRole struct {
 	Name string          `json:"name"`
 }
 
+type roleBindingSubject struct {
+	ID   gidx.PrefixedID `json:"id"`
+	Type string          `json:"type"`
+}
+
 type roleBindingResponse struct {
 	ID       gidx.PrefixedID         `json:"id"`
 	Role     roleBindingResponseRole `json:"role"`
-	Subjects []string                `json:"subjects"`
+	Subjects []roleBindingSubject    `json:"subjects"`
 }
 
 type createRoleBindingRequest struct {

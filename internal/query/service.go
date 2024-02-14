@@ -53,10 +53,10 @@ type Engine interface {
 	DeleteRoleV2(ctx context.Context, roleResource types.Resource) error
 
 	CreateRoleBinding(ctx context.Context, role types.Resource, resource types.Resource, subjects []string) (types.RoleBinding, error)
-	ListRoleBindings(ctx context.Context, role types.Resource) ([]types.RoleBinding, error)
-	GetRoleBinding(ctx context.Context, roleBinding types.Resource) (types.RoleBinding, error)
-	UpdateRoleBinding(ctx context.Context, roleBinding, role types.Resource, subjects []string) (types.RoleBinding, error)
-	DeleteRoleBinding(ctx context.Context, roleBinding types.Resource) error
+	ListRoleBindings(ctx context.Context, resource types.Resource) ([]types.RoleBinding, error)
+	GetRoleBinding(ctx context.Context, resource, roleBinding types.Resource) (types.RoleBinding, error)
+	UpdateRoleBinding(ctx context.Context, resource, roleBinding types.Resource, subjects []string) (types.RoleBinding, error)
+	DeleteRoleBinding(ctx context.Context, resource, roleBinding types.Resource) error
 }
 
 type engine struct {

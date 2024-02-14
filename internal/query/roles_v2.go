@@ -86,15 +86,6 @@ func (e *engine) CreateRoleV2(ctx context.Context, actor, owner types.Resource, 
 
 // ListRolesV2 returns all V2 roles owned by the given resource.
 func (e *engine) ListRolesV2(ctx context.Context, owner types.Resource) ([]types.Role, error) {
-	const ListRolesErrBufLen = 2
-
-	var (
-		spicedbRoles []types.Role
-		rolesByID    map[gidx.PrefixedID]storage.Role
-		wg           = &sync.WaitGroup{}
-		errs         = make(chan error, ListRolesErrBufLen)
-	)
-
 	ctx, span := e.tracer.Start(
 		ctx,
 		"engine.ListRolesV2",
@@ -108,44 +99,51 @@ func (e *engine) ListRolesV2(ctx context.Context, owner types.Resource) ([]types
 	defer span.End()
 
 	// 1. list roles from spice DB
-	wg.Add(1)
+	roleRelFilter := &pb.RelationshipFilter{
+		ResourceType:     e.namespaced(e.rbac.RoleResource),
+		OptionalRelation: roleOwnerRelation,
+		OptionalSubjectFilter: &pb.SubjectFilter{
+			SubjectType:       e.namespaced(owner.Type),
+			OptionalSubjectId: owner.ID.String(),
+		},
+	}
 
-	go func() {
+	roleRel, err := e.readRelationships(ctx, roleRelFilter)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. get all roles
+	roles := make(chan types.Role, len(roleRel))
+	errs := make(chan error, len(roleRel))
+	wg := &sync.WaitGroup{}
+
+	getRoleFn := func(rel *pb.Relationship) {
 		defer wg.Done()
 
-		roles, err := e.listSpicedbRolesV2(ctx, owner)
+		roleID, err := gidx.Parse(rel.Resource.ObjectId)
 		if err != nil {
 			errs <- err
 			return
 		}
 
-		spicedbRoles = roles
-	}()
-
-	// 2. build roles map from permission-api DB
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-
-		apidbctx, span := e.tracer.Start(ctx, "listRolesFromPermissionAPI")
-		defer span.End()
-
-		roles, err := e.store.ListResourceRoles(apidbctx, owner.ID)
+		role, err := e.GetRoleV2(ctx, types.Resource{ID: roleID, Type: e.rbac.RoleResource})
 		if err != nil {
 			errs <- err
 			return
 		}
 
-		dbRoles := roles
-		rolesByID = make(map[gidx.PrefixedID]storage.Role, len(dbRoles))
+		roles <- role
+	}
 
-		for _, role := range dbRoles {
-			rolesByID[role.ID] = role
-		}
-	}()
+	for _, rel := range roleRel {
+		wg.Add(1)
+
+		go getRoleFn(rel)
+	}
 
 	wg.Wait()
+	close(roles)
 	close(errs)
 
 	for err := range errs {
@@ -157,23 +155,13 @@ func (e *engine) ListRolesV2(ctx context.Context, owner types.Resource) ([]types
 		}
 	}
 
-	// 3. build a list of roles with data from both DBs
-	for i, spicedbRole := range spicedbRoles {
-		dbRole := rolesByID[spicedbRole.ID]
+	roleList := make([]types.Role, 0, len(roleRel))
 
-		spicedbRoles[i] = types.Role{
-			ID:         dbRole.ID,
-			Name:       dbRole.Name,
-			Actions:    spicedbRole.Actions,
-			ResourceID: dbRole.ResourceID,
-			CreatedBy:  dbRole.CreatedBy,
-			UpdatedBy:  dbRole.UpdatedBy,
-			CreatedAt:  dbRole.CreatedAt,
-			UpdatedAt:  dbRole.UpdatedAt,
-		}
+	for role := range roles {
+		roleList = append(roleList, role)
 	}
 
-	return spicedbRoles, nil
+	return roleList, nil
 }
 
 // GetRoleV2 returns a V2 role
@@ -578,71 +566,6 @@ func (e *engine) roleV2Relationships(role types.Role) []*pb.RelationshipUpdate {
 	}
 
 	return rels
-}
-
-func (e *engine) listSpicedbRolesV2(ctx context.Context, owner types.Resource) ([]types.Role, error) {
-	ctx, span := e.tracer.Start(ctx, "engine.listSpicedbRolesV2")
-	defer span.End()
-
-	ownerType := e.namespaced(owner.Type)
-	roleType := e.namespaced(e.rbac.RoleResource)
-
-	filter := &pb.RelationshipFilter{
-		ResourceType:     roleType,
-		OptionalRelation: roleOwnerRelation,
-		OptionalSubjectFilter: &pb.SubjectFilter{
-			SubjectType:       ownerType,
-			OptionalSubjectId: owner.ID.String(),
-		},
-	}
-
-	relationships, err := e.readRelationships(ctx, filter)
-	if err != nil {
-		return nil, err
-	}
-
-	spicedbRoles := make([]types.Role, len(relationships))
-	errs := make(chan error, len(relationships))
-	wg := &sync.WaitGroup{}
-
-	for i, rel := range relationships {
-		wg.Add(1)
-
-		go func(index int, role *pb.ObjectReference) {
-			defer wg.Done()
-
-			roleID, err := gidx.Parse(role.ObjectId)
-			if err != nil {
-				errs <- err
-				return
-			}
-
-			actions, err := e.listRoleV2Actions(ctx, types.Role{ID: roleID})
-			if err != nil {
-				errs <- err
-				return
-			}
-
-			spicedbRoles[index] = types.Role{
-				ID:      roleID,
-				Actions: actions,
-			}
-		}(i, rel.Resource)
-	}
-
-	wg.Wait()
-	close(errs)
-
-	for err := range errs {
-		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
-
-			return nil, err
-		}
-	}
-
-	return spicedbRoles, nil
 }
 
 func (e *engine) listRoleV2Actions(ctx context.Context, role types.Role) ([]string, error) {
