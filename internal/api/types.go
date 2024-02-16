@@ -79,25 +79,22 @@ type roleBindingResponseRole struct {
 	Name string          `json:"name"`
 }
 
+type roleBindingSubjectCondition struct{}
+
 type roleBindingSubject struct {
-	ID   gidx.PrefixedID `json:"id"`
-	Type string          `json:"type"`
+	ID        gidx.PrefixedID              `json:"id" binding:"required"`
+	Type      string                       `json:"type,omitempty"`
+	Condition *roleBindingSubjectCondition `json:"condition,omitempty"`
+}
+
+type roleBindingRequest struct {
+	RoleID   string               `json:"role_id" binding:"required"`
+	Subjects []roleBindingSubject `json:"subjects" binding:"required"`
 }
 
 type roleBindingResponse struct {
-	ID       gidx.PrefixedID         `json:"id"`
 	Role     roleBindingResponseRole `json:"role"`
 	Subjects []roleBindingSubject    `json:"subjects"`
-}
-
-type createRoleBindingRequest struct {
-	RoleID   string   `json:"role_id" binding:"required"`
-	Subjects []string `json:"subjects" binding:"required"`
-}
-
-type updateRoleBindingRequest struct {
-	RoleID   string   `json:"role_id"`
-	Subjects []string `json:"subjects"`
 }
 
 type listRoleBindingsResponse struct {

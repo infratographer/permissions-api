@@ -52,11 +52,9 @@ type Engine interface {
 	UpdateRoleV2(ctx context.Context, actor, roleResource types.Resource, newName string, newActions []string) (types.Role, error)
 	DeleteRoleV2(ctx context.Context, roleResource types.Resource) error
 
-	CreateRoleBinding(ctx context.Context, role types.Resource, resource types.Resource, subjects []string) (types.RoleBinding, error)
-	ListRoleBindings(ctx context.Context, resource types.Resource) ([]types.RoleBinding, error)
-	GetRoleBinding(ctx context.Context, resource, roleBinding types.Resource) (types.RoleBinding, error)
-	UpdateRoleBinding(ctx context.Context, resource, roleBinding types.Resource, subjects []string) (types.RoleBinding, error)
-	DeleteRoleBinding(ctx context.Context, resource, roleBinding types.Resource) error
+	BindRole(ctx context.Context, resource, role types.Resource, subjects []types.RoleBindingSubject) (types.RoleBinding, error)
+	UnbindRole(ctx context.Context, resource, role types.Resource, subjects []types.RoleBindingSubject) error
+	ListRoleBindings(ctx context.Context, resource types.Resource, optionalRole *types.Resource) ([]types.RoleBinding, error)
 }
 
 type engine struct {

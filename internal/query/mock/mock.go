@@ -199,27 +199,17 @@ func (e *Engine) SubjectHasPermission(ctx context.Context, subject types.Resourc
 	return nil
 }
 
-// CreateRoleBinding returns nothing but satisfies the Engine interface.
-func (e *Engine) CreateRoleBinding(ctx context.Context, role types.Resource, resource types.Resource, subjects []string) (types.RoleBinding, error) {
+// BindRole returns nothing but satisfies the Engine interface.
+func (e *Engine) BindRole(ctx context.Context, role types.Resource, resource types.Resource, subjects []types.RoleBindingSubject) (types.RoleBinding, error) {
 	return types.RoleBinding{}, nil
 }
 
 // ListRoleBindings returns nothing but satisfies the Engine interface.
-func (e *Engine) ListRoleBindings(ctx context.Context, resource types.Resource) ([]types.RoleBinding, error) {
+func (e *Engine) ListRoleBindings(ctx context.Context, resource types.Resource, role *types.Resource) ([]types.RoleBinding, error) {
 	return nil, nil
 }
 
-// GetRoleBinding returns nothing but satisfies the Engine interface.
-func (e *Engine) GetRoleBinding(ctx context.Context, resource, roleBinding types.Resource) (types.RoleBinding, error) {
-	return types.RoleBinding{}, nil
-}
-
-// UpdateRoleBinding returns nothing but satisfies the Engine interface.
-func (e *Engine) UpdateRoleBinding(ctx context.Context, resource, roleBinding types.Resource, subjects []string) (types.RoleBinding, error) {
-	return types.RoleBinding{}, nil
-}
-
-// DeleteRoleBinding returns nothing but satisfies the Engine interface.
-func (e *Engine) DeleteRoleBinding(ctx context.Context, resource, roleBinding types.Resource) error {
+// UnbindRole returns nothing but satisfies the Engine interface.
+func (e *Engine) UnbindRole(ctx context.Context, resource, role types.Resource, subjects []types.RoleBindingSubject) error {
 	return nil
 }
