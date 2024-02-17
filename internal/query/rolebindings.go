@@ -246,6 +246,95 @@ func (e *engine) ListRoleBindings(ctx context.Context, resource types.Resource, 
 	return resp, nil
 }
 
+// deleteRoleBinding deletes all role-binding relationships with a given role.
+func (e *engine) deleteRoleBinding(ctx context.Context, roleResource types.Resource) error {
+	ctx, span := e.tracer.Start(
+		ctx, "engine.deleteRoleBinding",
+		trace.WithAttributes(
+			attribute.Stringer("role_id", roleResource.ID),
+		),
+	)
+	defer span.End()
+
+	requests := []*pb.DeleteRelationshipsRequest{}
+
+	// 1. find all the bindings for the role
+	findBindingsFilter := &pb.RelationshipFilter{
+		ResourceType:     e.namespaced(e.rbac.RoleBindingResource),
+		OptionalRelation: rolebindingRoleRelation,
+		OptionalSubjectFilter: &pb.SubjectFilter{
+			SubjectType:       e.namespaced(e.rbac.RoleResource),
+			OptionalSubjectId: roleResource.ID.String(),
+		},
+	}
+
+	bindings, err := e.readRelationships(ctx, findBindingsFilter)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		return err
+	}
+
+	// 2. build a list of delete request for the subject and role relationship
+	//    at the same time build a list of delete requests for all the grant
+	//    relationships for all bindable resources
+	for _, rb := range bindings {
+		delSubjReq := &pb.DeleteRelationshipsRequest{
+			RelationshipFilter: &pb.RelationshipFilter{
+				ResourceType:       rb.Resource.ObjectType,
+				OptionalResourceId: rb.Resource.ObjectId,
+			},
+		}
+
+		requests = append(requests, delSubjReq)
+
+		for resName, grantconf := range e.schemaRoleBindingsV2Map {
+			delGrantReq := &pb.DeleteRelationshipsRequest{
+				RelationshipFilter: &pb.RelationshipFilter{
+					ResourceType:     e.namespaced(resName),
+					OptionalRelation: grantconf.GrantRelationship,
+					OptionalSubjectFilter: &pb.SubjectFilter{
+						SubjectType:       rb.Resource.ObjectType,
+						OptionalSubjectId: rb.Resource.ObjectId,
+					},
+				},
+			}
+
+			requests = append(requests, delGrantReq)
+		}
+	}
+
+	e.logger.Debugf("%d delete requests created", len(requests))
+
+	// 3. delete all the relationships
+	wg := &sync.WaitGroup{}
+	errs := make(chan error, len(requests))
+
+	for _, req := range requests {
+		wg.Add(1)
+
+		go func(req *pb.DeleteRelationshipsRequest) {
+			defer wg.Done()
+
+			if _, err := e.client.DeleteRelationships(ctx, req); err != nil {
+				errs <- err
+			}
+		}(req)
+	}
+
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (e *engine) fetchRoleBinding(ctx context.Context, roleBinding types.Resource) (types.RoleBinding, error) {
 	ctx, span := e.tracer.Start(
 		ctx, "engine.fetchRoleBinding",
@@ -344,8 +433,6 @@ func (e *engine) findOrCreateRoleBinding(
 	if err != nil {
 		return types.RoleBinding{}, err
 	}
-
-	e.logger.Debugf("found %d bindings", len(bindings))
 
 	var roleBinding types.RoleBinding
 

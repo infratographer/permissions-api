@@ -437,18 +437,7 @@ func (e *engine) DeleteRoleV2(ctx context.Context, roleResource types.Resource) 
 	go func() {
 		defer wg.Done()
 
-		delRoleBindingRelationshipReq := &pb.DeleteRelationshipsRequest{
-			RelationshipFilter: &pb.RelationshipFilter{
-				ResourceType:     e.namespaced(e.rbac.RoleBindingResource),
-				OptionalRelation: rolebindingRoleRelation,
-				OptionalSubjectFilter: &pb.SubjectFilter{
-					SubjectType:       e.namespaced(e.rbac.RoleResource),
-					OptionalSubjectId: roleResource.ID.String(),
-				},
-			},
-		}
-
-		if _, err := e.client.DeleteRelationships(ctx, delRoleBindingRelationshipReq); err != nil {
+		if err := e.deleteRoleBinding(ctx, roleResource); err != nil {
 			errs <- err
 		}
 	}()
