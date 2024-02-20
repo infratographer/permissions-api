@@ -39,7 +39,8 @@ func (r *Router) errorResponse(basemsg string, err error) *echo.HTTPError {
 		errors.Is(err, storage.ErrRoleNameTaken),
 		errors.Is(err, query.ErrInvalidType),
 		errors.Is(err, query.ErrInvalidArgument),
-		status.Code(err) == codes.InvalidArgument:
+		status.Code(err) == codes.InvalidArgument,
+		status.Code(err) == codes.FailedPrecondition:
 		httpstatus = http.StatusBadRequest
 	case
 		errors.Is(err, storage.ErrNoRoleFound),

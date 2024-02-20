@@ -20,11 +20,13 @@ type PolicyDocument struct {
 
 /*
 RBAC represents a role-based access control policy.
-- RoleResource is the name of the resource type that represents a role.
-- RoleRelationshipSubject is the name of the relationship that connects a role to a subject.
-- RoleOwners is the names of the resource types that can own a role.
-- RoleBindingResource is the name of the resource type that represents a role binding.
-- RoleBindingSubjects is the names of the resource types that can be subjects in a role binding.
+  - RoleResource is the name of the resource type that represents a role.
+  - RoleRelationshipSubject is the name of the relationship that connects a role to a subject.
+  - RoleOwners is the names of the resource types that can own a role.
+  - RoleBindingResource is the name of the resource type that represents a role binding.
+  - RoleBindingSubjects is the names of the resource types that can be subjects in a role binding.
+  - RolebindingPermissionsPrefix generates the permissions sets to manage role bindings,
+    e.g. rolebinding_create, rolebinding_get, rolebinding_delete
 
 For example, consider the following RBAC policy:
 ```zed
@@ -59,8 +61,9 @@ type RBAC struct {
 	RoleRelationshipSubjects []string
 	RoleOwners               []string
 
-	RoleBindingResource string
-	RoleBindingSubjects []types.TargetType
+	RoleBindingResource          string
+	RoleBindingSubjects          []types.TargetType
+	RoleBindingPermissionsPrefix string
 }
 
 // ResourceType represents a resource type in the authorization policy.
@@ -118,6 +121,7 @@ type ConditionRoleBinding struct{}
 // This is the new version of the condition, and it is used to support the new role binding resource type.
 type ConditionRoleBindingV2 struct {
 	GrantRelationship string
+	InheritGrant      []string
 }
 
 // ConditionRelationshipAction represents a condition where another action must be allowed on a resource
@@ -144,7 +148,8 @@ type policy struct {
 	bn []ActionBinding
 	p  PolicyDocument
 
-	permissions []string
+	permissions        []string
+	rolebindingActions []string
 }
 
 // NewPolicy creates a policy from the given policy document.
@@ -159,17 +164,29 @@ func NewPolicy(p PolicyDocument) Policy {
 		un[t.Name] = t
 	}
 
-	ac := make(map[string]Action, len(p.Actions))
+	// permissions for performing role-bindings (i.e., create role-binding, get
+	// role-binding, delete role-binding)
+	rbActions := []string{"create", "list", "delete"}
+	rolebindingActions := make([]string, len(rbActions))
+	ac := make(map[string]Action, len(p.Actions)+len(rbActions))
+
 	for _, a := range p.Actions {
 		ac[a.Name] = a
 	}
 
+	for i, rba := range rbActions {
+		actionName := fmt.Sprintf("%s_%s", p.RBAC.RoleBindingPermissionsPrefix, rba)
+		rolebindingActions[i] = actionName
+		ac[actionName] = Action{Name: actionName}
+	}
+
 	out := policy{
-		rt:          rt,
-		un:          un,
-		ac:          ac,
-		p:           p,
-		permissions: []string{},
+		rt:                 rt,
+		un:                 un,
+		ac:                 ac,
+		p:                  p,
+		permissions:        []string{},
+		rolebindingActions: rolebindingActions,
 	}
 
 	out.expandRole()
@@ -341,9 +358,9 @@ func (v *policy) expandActionBindings() {
 				v.bn = append(v.bn, binding)
 			}
 
-			for _, tt := range u.ResourceTypes {
+			for _, resourceType := range u.ResourceTypes {
 				binding := ActionBinding{
-					TypeName:      tt.Name,
+					TypeName:      resourceType.Name,
 					ActionName:    bn.ActionName,
 					Conditions:    bn.Conditions,
 					ConditionSets: bn.ConditionSets,
@@ -539,6 +556,7 @@ func (v *policy) Validate() error {
 
 func (v *policy) Schema() []types.ResourceType {
 	typeMap := map[string]*types.ResourceType{}
+	rbv2Actions := map[string][]types.Action{}
 
 	for n, rt := range v.rt {
 		out := types.ResourceType{
@@ -570,15 +588,17 @@ func (v *policy) Schema() []types.ResourceType {
 		}
 
 		for _, c := range b.Conditions {
-			var condition types.Condition
+			var conditions []types.Condition
 
 			switch {
 			case c.RoleBinding != nil:
-				condition = types.Condition{
-					RelationshipAction: &types.ConditionRelationshipAction{
-						Relation: actionName + "_rel",
+				conditions = []types.Condition{
+					{
+						RelationshipAction: &types.ConditionRelationshipAction{
+							Relation: actionName + "_rel",
+						},
+						RoleBinding: &types.ConditionRoleBinding{},
 					},
-					RoleBinding: &types.ConditionRoleBinding{},
 				}
 
 				actionRel := types.ResourceTypeRelationship{
@@ -588,27 +608,66 @@ func (v *policy) Schema() []types.ResourceType {
 
 				typeMap[b.TypeName].Relationships = append(typeMap[b.TypeName].Relationships, actionRel)
 			case c.RoleBindingV2 != nil:
-				condition = types.Condition{
-					RelationshipAction: &types.ConditionRelationshipAction{
-						Relation:   c.RoleBindingV2.GrantRelationship,
-						ActionName: actionName,
-					},
-					RoleBindingV2: &types.ConditionRoleBindingV2{
-						GrantRelationship: c.RoleBindingV2.GrantRelationship,
-					},
+				mkConditions := func(actionName string) []types.Condition {
+					conds := []types.Condition{
+						{
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation:   c.RoleBindingV2.GrantRelationship,
+								ActionName: actionName,
+							},
+							RoleBindingV2: &types.ConditionRoleBindingV2{
+								GrantRelationship: c.RoleBindingV2.GrantRelationship,
+							},
+						},
+					}
+
+					for _, inheritGrant := range c.RoleBindingV2.InheritGrant {
+						conds = append(conds, types.Condition{
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation:   inheritGrant,
+								ActionName: actionName,
+							},
+						})
+					}
+
+					return conds
+				}
+
+				conditions = mkConditions(actionName)
+
+				// add role-binding v2 conditions to the resource, if not exists
+				if _, ok := rbv2Actions[b.TypeName]; !ok {
+					rolebindingActions := []types.Action{}
+
+					for _, rba := range v.rolebindingActions {
+						// e.g. rolebinding_create
+						rbAction := types.Action{Name: rba}
+						// e.g. grant->rolebinding_create + parent->rolebinding_create
+						rbAction.Conditions = mkConditions(rba)
+
+						rolebindingActions = append(rolebindingActions, rbAction)
+					}
+
+					rbv2Actions[b.TypeName] = rolebindingActions
 				}
 			default:
-				condition = types.Condition{
-					RelationshipAction: (*types.ConditionRelationshipAction)(c.RelationshipAction),
+				conditions = []types.Condition{
+					{
+						RelationshipAction: (*types.ConditionRelationshipAction)(c.RelationshipAction),
+					},
 				}
 			}
 
-			action.Conditions = append(action.Conditions, condition)
+			action.Conditions = append(action.Conditions, conditions...)
 		}
 
 		action.ConditionSets = b.ConditionSets
 
 		typeMap[b.TypeName].Actions = append(typeMap[b.TypeName].Actions, action)
+	}
+
+	for resType, actions := range rbv2Actions {
+		typeMap[resType].Actions = append(typeMap[resType].Actions, actions...)
 	}
 
 	out := make([]types.ResourceType, len(v.p.ResourceTypes))
