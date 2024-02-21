@@ -22,6 +22,7 @@ const (
 	roleOwnerRelation          = "owner"
 	rolebindingRoleRelation    = "role"
 	rolebindingSubjectRelation = "subject"
+	ownerParentRelation        = "parent"
 )
 
 func (e *engine) namespaced(name string) string {
@@ -85,7 +86,7 @@ func (e *engine) CreateRoleV2(ctx context.Context, actor, owner types.Resource, 
 }
 
 // ListRolesV2 returns all V2 roles owned by the given resource.
-func (e *engine) ListRolesV2(ctx context.Context, owner types.Resource) ([]types.Role, error) {
+func (e *engine) ListRolesV2(ctx context.Context, owner types.Resource, includeInherited bool) ([]types.Role, error) {
 	ctx, span := e.tracer.Start(
 		ctx,
 		"engine.ListRolesV2",
@@ -94,52 +95,113 @@ func (e *engine) ListRolesV2(ctx context.Context, owner types.Resource) ([]types
 				"owner",
 				owner.ID,
 			),
+			attribute.Bool(
+				"includeInherited",
+				includeInherited,
+			),
 		),
 	)
 	defer span.End()
 
-	// 1. list roles from spice DB
-	roleRelFilter := &pb.RelationshipFilter{
-		ResourceType:     e.namespaced(e.rbac.RoleResource),
-		OptionalRelation: roleOwnerRelation,
-		OptionalSubjectFilter: &pb.SubjectFilter{
-			SubjectType:       e.namespaced(owner.Type),
-			OptionalSubjectId: owner.ID.String(),
+	if !includeInherited {
+		return e.listRolesForOwner(ctx, owner)
+	}
+
+	// BFS find all parents of the owner
+	parents := []*types.Resource{&owner}
+	visited := map[string]struct{}{}
+	consistency := &pb.Consistency{
+		Requirement: &pb.Consistency_FullyConsistent{
+			FullyConsistent: true,
 		},
 	}
 
-	roleRel, err := e.readRelationships(ctx, roleRelFilter)
-	if err != nil {
-		return nil, err
+	for i := 0; i < len(parents); i++ {
+		node := parents[i]
+		id := node.ID.String()
+
+		if _, ok := visited[id]; ok {
+			continue
+		}
+
+		tree, err := e.client.ExpandPermissionTree(ctx, &pb.ExpandPermissionTreeRequest{
+			Consistency: consistency,
+			Resource:    resourceToSpiceDBRef(e.namespace, *node),
+			Permission:  ownerParentRelation,
+		})
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+
+			return nil, err
+		}
+
+		root := tree.GetTreeRoot()
+		if root == nil {
+			err := fmt.Errorf("%w: %s not found", ErrResourceNotFound, id)
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+
+			return nil, err
+		}
+
+		leaves := root.GetLeaf()
+		if leaves == nil {
+			visited[id] = struct{}{}
+			continue
+		}
+
+		for _, subj := range leaves.GetSubjects() {
+			obj := subj.GetObject()
+			if obj == nil {
+				continue
+			}
+
+			res, err := e.NewResourceFromIDString(obj.ObjectId)
+			if err != nil {
+				span.RecordError(err)
+				span.SetStatus(codes.Error, err.Error())
+
+				return nil, err
+			}
+
+			if _, ok := visited[res.ID.String()]; ok {
+				continue
+			}
+
+			parents = append(parents, &res)
+		}
+
+		visited[id] = struct{}{}
 	}
 
-	// 2. get all roles
-	roles := make(chan types.Role, len(roleRel))
-	errs := make(chan error, len(roleRel))
+	uniqueParents := make(map[string]*types.Resource, len(parents))
+	for _, parent := range parents {
+		uniqueParents[parent.ID.String()] = parent
+	}
+
+	e.logger.Debugf("found %d parents for %s", len(uniqueParents), owner.ID)
+
+	roles := make(chan []types.Role, len(uniqueParents))
+	errs := make(chan error, len(uniqueParents))
 	wg := &sync.WaitGroup{}
 
-	getRoleFn := func(rel *pb.Relationship) {
-		defer wg.Done()
-
-		roleID, err := gidx.Parse(rel.Resource.ObjectId)
-		if err != nil {
-			errs <- err
-			return
-		}
-
-		role, err := e.GetRoleV2(ctx, types.Resource{ID: roleID, Type: e.rbac.RoleResource})
-		if err != nil {
-			errs <- err
-			return
-		}
-
-		roles <- role
-	}
-
-	for _, rel := range roleRel {
+	for _, parent := range uniqueParents {
 		wg.Add(1)
 
-		go getRoleFn(rel)
+		go func(res *types.Resource) {
+			defer wg.Done()
+
+			r, err := e.listRolesForOwner(ctx, *res)
+			if err != nil {
+				errs <- err
+				return
+			}
+
+			e.logger.Debugf("found %d roles for %s", len(r), res.ID)
+
+			roles <- r
+		}(parent)
 	}
 
 	wg.Wait()
@@ -155,10 +217,10 @@ func (e *engine) ListRolesV2(ctx context.Context, owner types.Resource) ([]types
 		}
 	}
 
-	roleList := make([]types.Role, 0, len(roleRel))
+	roleList := []types.Role{}
 
-	for role := range roles {
-		roleList = append(roleList, role)
+	for r := range roles {
+		roleList = append(roleList, r...)
 	}
 
 	return roleList, nil
@@ -473,6 +535,85 @@ func (e *engine) DeleteRoleV2(ctx context.Context, roleResource types.Resource) 
 	return nil
 }
 
+func (e *engine) listRolesForOwner(ctx context.Context, owner types.Resource) ([]types.Role, error) {
+	ctx, span := e.tracer.Start(
+		ctx,
+		"engine.listRolesForOwner",
+		trace.WithAttributes(
+			attribute.Stringer(
+				"owner",
+				owner.ID,
+			),
+		),
+	)
+	defer span.End()
+
+	// 1. list roles from spice DB
+	roleRelFilter := &pb.RelationshipFilter{
+		ResourceType:     e.namespaced(e.rbac.RoleResource),
+		OptionalRelation: roleOwnerRelation,
+		OptionalSubjectFilter: &pb.SubjectFilter{
+			SubjectType:       e.namespaced(owner.Type),
+			OptionalSubjectId: owner.ID.String(),
+		},
+	}
+
+	roleRel, err := e.readRelationships(ctx, roleRelFilter)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. get all roles
+	roles := make(chan types.Role, len(roleRel))
+	errs := make(chan error, len(roleRel))
+	wg := &sync.WaitGroup{}
+
+	getRoleFn := func(rel *pb.Relationship) {
+		defer wg.Done()
+
+		roleID, err := gidx.Parse(rel.Resource.ObjectId)
+		if err != nil {
+			errs <- err
+			return
+		}
+
+		role, err := e.GetRoleV2(ctx, types.Resource{ID: roleID, Type: e.rbac.RoleResource})
+		if err != nil {
+			errs <- err
+			return
+		}
+
+		roles <- role
+	}
+
+	for _, rel := range roleRel {
+		wg.Add(1)
+
+		go getRoleFn(rel)
+	}
+
+	wg.Wait()
+	close(roles)
+	close(errs)
+
+	for err := range errs {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+
+			return nil, err
+		}
+	}
+
+	roleList := make([]types.Role, 0, len(roleRel))
+
+	for role := range roles {
+		roleList = append(roleList, role)
+	}
+
+	return roleList, nil
+}
+
 // roleV2OwnerRelationship creates a relationship between a V2 role and its owner.
 func (e *engine) roleV2OwnerRelationship(role types.Role, owner types.Resource) *pb.RelationshipUpdate {
 	roleResource, err := e.NewResourceFromID(role.ID)
@@ -583,8 +724,6 @@ func (e *engine) listRoleV2Actions(ctx context.Context, role types.Role) ([]stri
 	if err != nil {
 		return nil, err
 	}
-
-	e.logger.Debugf("listing %d actions for %s: %s", len(relationships), e.namespaced(e.rbac.RoleResource), rid)
 
 	actions := make([]string, len(relationships))
 

@@ -282,7 +282,9 @@ func (r *Router) rolesList(c echo.Context) error {
 
 	switch apiversion {
 	case "v2":
-		roles, err = r.engine.ListRolesV2(ctx, resource)
+		includeParent, ok := getParam(c, "include_parent_roles")
+		inherit := ok && includeParent != "false"
+		roles, err = r.engine.ListRolesV2(ctx, resource, inherit)
 	default:
 		roles, err = r.engine.ListRoles(ctx, resource)
 	}

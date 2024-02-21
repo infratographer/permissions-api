@@ -25,6 +25,9 @@ var (
 	// ErrRoleNotFound represents an error when no matching role was found on resource
 	ErrRoleNotFound = errors.New("role not found")
 
+	// ErrResourceNotFound represents an error when no matching resource was found
+	ErrResourceNotFound = errors.New("resource not found")
+
 	// ErrRoleBindingNotFound represents an error when no matching role-binding was found
 	ErrRoleBindingNotFound = errors.New("role-binding not found")
 

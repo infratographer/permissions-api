@@ -68,7 +68,7 @@ func (e *Engine) CreateRoleV2(ctx context.Context, actor, owner types.Resource, 
 }
 
 // ListRoleV2 list roles
-func (e *Engine) ListRolesV2(ctx context.Context, owner types.Resource) ([]types.Role, error) {
+func (e *Engine) ListRolesV2(ctx context.Context, owner types.Resource, includeInherirted bool) ([]types.Role, error) {
 	return nil, nil
 }
 
