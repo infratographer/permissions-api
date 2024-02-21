@@ -88,6 +88,8 @@ func (r *Router) Routes(rg *echo.Group) {
 		v2.PUT("/resources/:id/role-bindings", r.roleBindingCreate)
 		v2.GET("/resources/:id/role-bindings", r.roleBindingsList)
 		v2.DELETE("/resources/:id/role-bindings", r.roleBindingsDelete)
+
+		v2.GET("/actions", r.listActions)
 	}
 }
 

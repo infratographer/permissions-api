@@ -423,3 +423,7 @@ func (r *Router) roleGetResource(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, resp)
 }
+
+func (r *Router) listActions(c echo.Context) error {
+	return c.JSON(http.StatusOK, r.engine.AllActions())
+}

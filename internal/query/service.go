@@ -55,6 +55,8 @@ type Engine interface {
 	BindRole(ctx context.Context, resource, role types.Resource, subjects []types.RoleBindingSubject) (types.RoleBinding, error)
 	UnbindRole(ctx context.Context, resource, role types.Resource, subjects []types.RoleBindingSubject) error
 	ListRoleBindings(ctx context.Context, resource types.Resource, optionalRole *types.Resource) ([]types.RoleBinding, error)
+
+	AllActions() []string
 }
 
 type engine struct {

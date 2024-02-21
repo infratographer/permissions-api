@@ -733,3 +733,19 @@ func (e *engine) listRoleV2Actions(ctx context.Context, role types.Role) ([]stri
 
 	return actions, nil
 }
+
+// AllActions list all available actions for a role
+func (e *engine) AllActions() []string {
+	rbv2, ok := e.schemaTypeMap[e.rbac.RoleBindingResource]
+	if !ok {
+		return nil
+	}
+
+	actions := make([]string, len(rbv2.Actions))
+
+	for i, action := range rbv2.Actions {
+		actions[i] = action.Name
+	}
+
+	return actions
+}

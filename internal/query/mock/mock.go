@@ -213,3 +213,8 @@ func (e *Engine) ListRoleBindings(ctx context.Context, resource types.Resource, 
 func (e *Engine) UnbindRole(ctx context.Context, resource, role types.Resource, subjects []types.RoleBindingSubject) error {
 	return nil
 }
+
+// AllActions returns nothing but satisfies the Engine interface.
+func (e *Engine) AllActions() []string {
+	return nil
+}
