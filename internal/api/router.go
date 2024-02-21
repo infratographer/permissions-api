@@ -85,7 +85,7 @@ func (r *Router) Routes(rg *echo.Group) {
 		v2.PATCH("/roles/:role_id", r.roleUpdate)
 		v2.DELETE("/roles/:id", r.roleDelete)
 
-		v2.PUT("/resources/:id/role-bindings", r.roleBindingCreate)
+		v2.POST("/resources/:id/role-bindings", r.roleBindingCreate)
 		v2.GET("/resources/:id/role-bindings", r.roleBindingsList)
 		v2.DELETE("/resources/:id/role-bindings", r.roleBindingsDelete)
 

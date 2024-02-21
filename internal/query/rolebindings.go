@@ -223,6 +223,10 @@ func (e *engine) ListRoleBindings(ctx context.Context, resource types.Resource, 
 				return
 			}
 
+			if len(rb.Subjects) == 0 {
+				return
+			}
+
 			bindings <- rb
 		}(rel)
 	}
