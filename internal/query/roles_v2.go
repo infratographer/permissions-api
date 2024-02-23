@@ -110,29 +110,17 @@ func (e *engine) ListRolesV2(ctx context.Context, owner types.Resource, includeI
 	// BFS find all parents of the owner
 	parents := []*types.Resource{&owner}
 	visited := map[string]struct{}{}
-	consistency := &pb.Consistency{
-		Requirement: &pb.Consistency_FullyConsistent{
-			FullyConsistent: true,
-		},
-	}
-
-	for i := 0; i < len(parents); i++ {
-		node := parents[i]
-		id := node.ID.String()
-
-		if _, ok := visited[id]; ok {
-			continue
-		}
-
+	expandRelations := func(ctx context.Context, node *types.Resource, id, relation string) ([]*pb.SubjectReference, error) {
 		tree, err := e.client.ExpandPermissionTree(ctx, &pb.ExpandPermissionTreeRequest{
-			Consistency: consistency,
-			Resource:    resourceToSpiceDBRef(e.namespace, *node),
-			Permission:  ownerParentRelation,
+			Consistency: &pb.Consistency{
+				Requirement: &pb.Consistency_FullyConsistent{
+					FullyConsistent: true,
+				},
+			},
+			Resource:   resourceToSpiceDBRef(e.namespace, *node),
+			Permission: relation,
 		})
 		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
-
 			return nil, err
 		}
 
@@ -145,13 +133,32 @@ func (e *engine) ListRolesV2(ctx context.Context, owner types.Resource, includeI
 			return nil, err
 		}
 
-		leaves := root.GetLeaf()
-		if leaves == nil {
+		leaf := root.GetLeaf()
+		if leaf == nil {
 			visited[id] = struct{}{}
+			return []*pb.SubjectReference{}, nil
+		}
+
+		return leaf.GetSubjects(), nil
+	}
+
+	for i := 0; i < len(parents); i++ {
+		node := parents[i]
+		id := node.ID.String()
+
+		if _, ok := visited[id]; ok {
 			continue
 		}
 
-		for _, subj := range leaves.GetSubjects() {
+		parentRels, err := expandRelations(ctx, node, id, ownerParentRelation)
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+
+			return nil, err
+		}
+
+		for _, subj := range parentRels {
 			obj := subj.GetObject()
 			if obj == nil {
 				continue
