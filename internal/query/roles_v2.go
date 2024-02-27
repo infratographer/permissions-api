@@ -12,18 +12,12 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
+	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/storage"
 	"go.infratographer.com/permissions-api/internal/types"
 )
 
 // V2 Role and Role Bindings
-
-const (
-	roleOwnerRelation          = "owner"
-	rolebindingRoleRelation    = "role"
-	rolebindingSubjectRelation = "subject"
-	ownerParentRelation        = "parent"
-)
 
 func (e *engine) namespaced(name string) string {
 	return e.namespace + "/" + name
@@ -150,7 +144,7 @@ func (e *engine) ListRolesV2(ctx context.Context, owner types.Resource, includeI
 			continue
 		}
 
-		parentRels, err := expandRelations(ctx, node, id, ownerParentRelation)
+		parentRels, err := expandRelations(ctx, node, id, iapl.RoleOwnerParentRelation)
 		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
@@ -558,7 +552,7 @@ func (e *engine) listRolesForOwner(ctx context.Context, owner types.Resource) ([
 	// 1. list roles from spice DB
 	roleRelFilter := &pb.RelationshipFilter{
 		ResourceType:     e.namespaced(e.rbac.RoleResource),
-		OptionalRelation: roleOwnerRelation,
+		OptionalRelation: iapl.RoleOwnerRelation,
 		OptionalSubjectFilter: &pb.SubjectFilter{
 			SubjectType:       e.namespaced(owner.Type),
 			OptionalSubjectId: owner.ID.String(),
@@ -640,7 +634,7 @@ func (e *engine) roleV2OwnerRelationship(role types.Role, owner types.Resource) 
 		Operation: pb.RelationshipUpdate_OPERATION_TOUCH,
 		Relationship: &pb.Relationship{
 			Resource: roleRef,
-			Relation: roleOwnerRelation,
+			Relation: iapl.RoleOwnerRelation,
 			Subject: &pb.SubjectReference{
 				Object: ownerRef,
 			},

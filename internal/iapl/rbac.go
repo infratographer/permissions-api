@@ -4,6 +4,20 @@ import (
 	"go.infratographer.com/permissions-api/internal/types"
 )
 
+const (
+	// RoleOwnerRelation is the name of the relationship that connects a role to its owner.
+	RoleOwnerRelation = "owner"
+	// RoleMemberRoleRelation is the name of the relationship that connects a resource
+	// to a role that it owns
+	RoleMemberRoleRelation = "member_role"
+	// RolebindingRoleRelation is the name of the relationship that connects a role binding to a role.
+	RolebindingRoleRelation = "role"
+	// RolebindingSubjectRelation is the name of the relationship that connects a role binding to a subject.
+	RolebindingSubjectRelation = "subject"
+	// RoleOwnerParentRelation is the name of the relationship that connects a role's owner to its parent.
+	RoleOwnerParentRelation = "parent"
+)
+
 /*
 RBAC represents a role-based access control policy.
   - RoleResource is the name of the resource type that represents a role.

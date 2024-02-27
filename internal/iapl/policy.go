@@ -356,7 +356,7 @@ func (v *policy) expandRole() {
 
 	// 2. create a relationship for role owners
 	roleOwners := Relationship{
-		Relation:    "owner",
+		Relation:    RoleOwnerRelation,
 		TargetTypes: make([]types.TargetType, len(v.p.RBAC.RoleOwners)),
 	}
 
@@ -401,7 +401,7 @@ func (v *policy) expandRole() {
 func (v *policy) expandRoleBinding() {
 	// 1. create relationship to role
 	role := Relationship{
-		Relation: "role",
+		Relation: RolebindingRoleRelation,
 		TargetTypes: []types.TargetType{
 			{Name: v.p.RBAC.RoleResource},
 		},
@@ -409,7 +409,7 @@ func (v *policy) expandRoleBinding() {
 
 	// 2. create relationship to subjects
 	subjects := Relationship{
-		Relation:    "subject",
+		Relation:    RolebindingSubjectRelation,
 		TargetTypes: v.p.RBAC.RoleBindingSubjects,
 	}
 
@@ -427,7 +427,7 @@ func (v *policy) expandRoleBinding() {
 					Conditions: []types.Condition{
 						{
 							RelationshipAction: &types.ConditionRelationshipAction{
-								Relation:   "role",
+								Relation:   RolebindingRoleRelation,
 								ActionName: actionName + "_rel",
 							},
 						},
@@ -435,7 +435,7 @@ func (v *policy) expandRoleBinding() {
 				},
 				{
 					Conditions: []types.Condition{
-						{RelationshipAction: &types.ConditionRelationshipAction{Relation: "subject"}},
+						{RelationshipAction: &types.ConditionRelationshipAction{Relation: RolebindingSubjectRelation}},
 					},
 				},
 			},
@@ -559,7 +559,7 @@ func (v *policy) Schema() []types.ResourceType {
 
 				actionRel := types.ResourceTypeRelationship{
 					Relation: actionName + "_rel",
-					Types:    []types.TargetType{{Name: "role", SubjectRelation: "subject"}},
+					Types:    []types.TargetType{{Name: RolebindingRoleRelation, SubjectRelation: RolebindingSubjectRelation}},
 				}
 
 				typeMap[b.TypeName].Relationships = append(typeMap[b.TypeName].Relationships, actionRel)

@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
+	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/types"
 )
 
@@ -257,7 +258,7 @@ func (e *engine) deleteRoleBinding(ctx context.Context, roleResource types.Resou
 	// 1. find all the bindings for the role
 	findBindingsFilter := &pb.RelationshipFilter{
 		ResourceType:     e.namespaced(e.rbac.RoleBindingResource),
-		OptionalRelation: rolebindingRoleRelation,
+		OptionalRelation: iapl.RolebindingRoleRelation,
 		OptionalSubjectFilter: &pb.SubjectFilter{
 			SubjectType:       e.namespaced(e.rbac.RoleResource),
 			OptionalSubjectId: roleResource.ID.String(),
@@ -368,7 +369,7 @@ func (e *engine) fetchRoleBinding(ctx context.Context, roleBinding types.Resourc
 
 	for _, rel := range rbRel {
 		// process subject relationships
-		if rel.Relation == rolebindingSubjectRelation {
+		if rel.Relation == iapl.RolebindingSubjectRelation {
 			subjectRes, err := e.NewResourceFromIDString(rel.Subject.Object.ObjectId)
 			if err != nil {
 				span.RecordError(err)
@@ -507,7 +508,7 @@ func (e *engine) rolebindingSubjectRelationship(subj types.Resource, rbID string
 			ObjectType: e.namespaced(e.rbac.RoleBindingResource),
 			ObjectId:   rbID,
 		},
-		Relation: rolebindingSubjectRelation,
+		Relation: iapl.RolebindingSubjectRelation,
 		Subject:  relationshipSubject,
 	}
 
@@ -520,7 +521,7 @@ func (e *engine) rolebindingRoleRelationship(roleID, rbID string) *pb.Relationsh
 			ObjectType: e.namespaced(e.rbac.RoleBindingResource),
 			ObjectId:   rbID,
 		},
-		Relation: rolebindingRoleRelation,
+		Relation: iapl.RolebindingRoleRelation,
 		Subject: &pb.SubjectReference{
 			Object: &pb.ObjectReference{
 				ObjectType: e.namespaced(e.rbac.RoleResource),
