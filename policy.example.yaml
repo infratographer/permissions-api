@@ -85,6 +85,11 @@ resourcetypes:
       - relation: grant
         targettypes:
           - name: role_binding
+      - relation: member_role
+        targettypes:
+          - name: rolev2
+          - name: tenant
+            subjectrelation: member_role
 
   - name: loadbalancer
     idprefix: loadbal
