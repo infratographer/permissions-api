@@ -165,18 +165,10 @@ func (e *engine) ListRoleBindings(ctx context.Context, resource types.Resource, 
 	e.logger.Debugf("listing role-bindings for resource: %s, optionalRole: %v", resource.ID, optionalRole)
 
 	// 1. list all grants on the resource
-	grantconf, ok := e.schemaRoleBindingsV2Map[resource.Type]
-	if !ok {
-		return nil, fmt.Errorf("%w: resource type: %s, resource ID: %s",
-			ErrResourceDoesNotSupportRoleBindingV2,
-			resource.Type, resource.ID.String(),
-		)
-	}
-
 	listRbFilter := &pb.RelationshipFilter{
 		ResourceType:       e.namespaced(resource.Type),
 		OptionalResourceId: resource.ID.String(),
-		OptionalRelation:   grantconf.GrantRelationship,
+		OptionalRelation:   e.rbac.GrantRelationship,
 		OptionalSubjectFilter: &pb.SubjectFilter{
 			SubjectType: e.namespaced(e.rbac.RoleBindingResource),
 		},
@@ -293,11 +285,11 @@ func (e *engine) deleteRoleBinding(ctx context.Context, roleResource types.Resou
 
 		requests = append(requests, delSubjReq)
 
-		for resName, grantconf := range e.schemaRoleBindingsV2Map {
+		for _, res := range e.rolebindingV2Resources {
 			delGrantReq := &pb.DeleteRelationshipsRequest{
 				RelationshipFilter: &pb.RelationshipFilter{
-					ResourceType:     e.namespaced(resName),
-					OptionalRelation: grantconf.GrantRelationship,
+					ResourceType:     e.namespaced(res.Name),
+					OptionalRelation: e.rbac.GrantRelationship,
 					OptionalSubjectFilter: &pb.SubjectFilter{
 						SubjectType:       rb.Resource.ObjectType,
 						OptionalSubjectId: rb.Resource.ObjectId,
@@ -539,20 +531,12 @@ func (e *engine) rolebindingRoleRelationship(roleID, rbID string) *pb.Relationsh
 }
 
 func (e *engine) rolebindingGrantResourceRelationship(resource types.Resource, rbID string) (*pb.Relationship, error) {
-	grantconf, ok := e.schemaRoleBindingsV2Map[resource.Type]
-	if !ok {
-		return nil, fmt.Errorf("%w: resource type: %s, resource ID: %s",
-			ErrResourceDoesNotSupportRoleBindingV2,
-			resource.Type, resource.ID.String(),
-		)
-	}
-
 	rel := &pb.Relationship{
 		Resource: &pb.ObjectReference{
 			ObjectType: e.namespaced(resource.Type),
 			ObjectId:   resource.ID.String(),
 		},
-		Relation: grantconf.GrantRelationship,
+		Relation: e.rbac.GrantRelationship,
 		Subject: &pb.SubjectReference{
 			Object: &pb.ObjectReference{
 				ObjectType: e.namespaced(e.rbac.RoleBindingResource),

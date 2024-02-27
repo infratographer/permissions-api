@@ -39,9 +39,7 @@ type ConditionRoleBinding struct{}
 
 // ConditionRoleBindingV2 represents a condition where a role binding is necessary to perform an action.
 // This is the new version of the condition, and it is used to support the new role binding resource type.
-type ConditionRoleBindingV2 struct {
-	GrantRelationship string
-}
+type ConditionRoleBindingV2 struct{}
 
 // ConditionRelationshipAction represents a condition where an action must be able to be performed
 // on another resource along a relation to perform an action.

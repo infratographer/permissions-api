@@ -15,55 +15,7 @@ type PolicyDocument struct {
 	Unions         []Union
 	Actions        []Action
 	ActionBindings []ActionBinding
-	RBAC           RBAC
-}
-
-/*
-RBAC represents a role-based access control policy.
-  - RoleResource is the name of the resource type that represents a role.
-  - RoleRelationshipSubject is the name of the relationship that connects a role to a subject.
-  - RoleOwners is the names of the resource types that can own a role.
-  - RoleBindingResource is the name of the resource type that represents a role binding.
-  - RoleBindingSubjects is the names of the resource types that can be subjects in a role binding.
-  - RolebindingPermissionsPrefix generates the permissions sets to manage role bindings,
-    e.g. rolebinding_create, rolebinding_get, rolebinding_delete
-
-For example, consider the following RBAC policy:
-```zed
-
-	definition user {}
-	definition client {}
-
-	definition group {
-		relation member: user | client
-	}
-
-	definition role {
-		relation owner: organization
-		relation view_organization: user:* | client:*
-	}
-
-	definition role_binding {
-		relation role: role
-		relation subject: user | group#member
-		permission view_organization = subject & role->view_organization
-	}
-
-```
-
-- the RoleResource would be "role"
-- the RoleBindingResource would be "role_binding",
-- the RoleRelationshipSubject would be `[user, client]`.
-- the RoleBindingSubjects would be `[{name: user}, {name: group, subjectrelation: member}]`.
-*/
-type RBAC struct {
-	RoleResource             string
-	RoleRelationshipSubjects []string
-	RoleOwners               []string
-
-	RoleBindingResource          string
-	RoleBindingSubjects          []types.TargetType
-	RoleBindingPermissionsPrefix string
+	RBAC           *RBAC
 }
 
 // ResourceType represents a resource type in the authorization policy.
@@ -120,8 +72,7 @@ type ConditionRoleBinding struct{}
 // ConditionRoleBindingV2 represents a condition where a role binding is necessary to perform an action.
 // This is the new version of the condition, and it is used to support the new role binding resource type.
 type ConditionRoleBindingV2 struct {
-	GrantRelationship string
-	InheritGrant      []string
+	InheritGrants []string
 }
 
 // ConditionRelationshipAction represents a condition where another action must be allowed on a resource
@@ -154,6 +105,11 @@ type policy struct {
 
 // NewPolicy creates a policy from the given policy document.
 func NewPolicy(p PolicyDocument) Policy {
+	if p.RBAC == nil {
+		rbac := DefaultRBAC()
+		p.RBAC = &rbac
+	}
+
 	rt := make(map[string]ResourceType, len(p.ResourceTypes))
 	for _, r := range p.ResourceTypes {
 		rt[r.Name] = r
@@ -612,16 +568,14 @@ func (v *policy) Schema() []types.ResourceType {
 					conds := []types.Condition{
 						{
 							RelationshipAction: &types.ConditionRelationshipAction{
-								Relation:   c.RoleBindingV2.GrantRelationship,
+								Relation:   v.RBAC().GrantRelationship,
 								ActionName: actionName,
 							},
-							RoleBindingV2: &types.ConditionRoleBindingV2{
-								GrantRelationship: c.RoleBindingV2.GrantRelationship,
-							},
+							RoleBindingV2: &types.ConditionRoleBindingV2{},
 						},
 					}
 
-					for _, inheritGrant := range c.RoleBindingV2.InheritGrant {
+					for _, inheritGrant := range c.RoleBindingV2.InheritGrants {
 						conds = append(conds, types.Condition{
 							RelationshipAction: &types.ConditionRelationshipAction{
 								Relation:   inheritGrant,
@@ -680,5 +634,5 @@ func (v *policy) Schema() []types.ResourceType {
 
 // RBAC returns the RBAC configurations
 func (v *policy) RBAC() RBAC {
-	return v.p.RBAC
+	return *v.p.RBAC
 }

@@ -74,7 +74,7 @@ type engine struct {
 
 	rbac                     iapl.RBAC
 	rolebindingV2SubjectsMap map[string]types.TargetType
-	schemaRoleBindingsV2Map  map[string]*types.ConditionRoleBindingV2
+	rolebindingV2Resources   []types.ResourceType
 }
 
 func (e *engine) cacheSchemaResources() {
@@ -83,7 +83,7 @@ func (e *engine) cacheSchemaResources() {
 	e.schemaSubjectRelationMap = make(map[string]map[string][]string)
 	e.schemaRoleables = []types.ResourceType{}
 	e.rolebindingV2SubjectsMap = make(map[string]types.TargetType, len(e.rbac.RoleBindingSubjects))
-	e.schemaRoleBindingsV2Map = make(map[string]*types.ConditionRoleBindingV2)
+	e.rolebindingV2Resources = []types.ResourceType{}
 
 	for _, res := range e.schema {
 		e.schemaPrefixMap[res.IDPrefix] = res
@@ -104,7 +104,7 @@ func (e *engine) cacheSchemaResources() {
 		}
 
 		if rb := resourceHasRoleBindingV2(res); rb != nil {
-			e.schemaRoleBindingsV2Map[res.Name] = rb
+			e.rolebindingV2Resources = append(e.rolebindingV2Resources, res)
 		}
 	}
 

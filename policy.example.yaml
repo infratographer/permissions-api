@@ -14,6 +14,7 @@ rbac:
   # rolebindingpermissionsprefix generates permissions to manage role bindings,
   # e.g. rolebinding_create, rolebinding_get, rolebinding_delete
   rolebindingpermissionsprefix: rolebinding
+  grantrelationship: grant
 
 unions:
   - name: group_member
@@ -131,184 +132,123 @@ actionbindings:
   - actionname: role_create
     typename: resourceowner
     conditions:
-      - rolebindingv2: &rbv2 
-          grantrelationship: grant
+      - &rbv2parent
+        rolebindingv2:
           inheritgrant:
             - parent
       - rolebinding: {}
   - actionname: role_create
     typename: group
     conditions:
-      - rolebindingv2: 
-          <<: *rbv2
-          inheritgrant:
-            - parent
+      - *rbv2parent
 
   - actionname: role_get
     typename: resourceowner
     conditions:
-      - rolebindingv2:
-          <<: *rbv2
-          inheritgrant:
-            - parent
+      - *rbv2parent
       - rolebinding: {}
   - actionname: role_get
     typename: group
     conditions:
-      - rolebindingv2: 
-          <<: *rbv2
-          inheritgrant:
-            - parent
+      - *rbv2parent
 
   - actionname: role_list
     typename: resourceowner
     conditions:
-      - rolebindingv2:
-          <<: *rbv2
-          inheritgrant:
-            - parent
+      - *rbv2parent
       - rolebinding: {}
   - actionname: role_list
     typename: group
     conditions:
-      - rolebindingv2:
-          <<: *rbv2
-          inheritgrant:
-            - parent
+      - *rbv2parent
 
   - actionname: role_update
     typename: resourceowner
     conditions:
-      - rolebindingv2:
-          <<: *rbv2
-          inheritgrant:
-            - parent
+      - *rbv2parent
       - rolebinding: {}
   - actionname: role_update
     typename: group
     conditions:
-      - rolebindingv2:
-          <<: *rbv2
-          inheritgrant:
-            - parent
+      - *rbv2parent
 
   - actionname: role_delete
     typename: resourceowner
     conditions:
-      - rolebindingv2:
-          <<: *rbv2
-          inheritgrant:
-            - parent
+      - *rbv2parent
       - rolebinding: {}
   - actionname: role_delete
     typename: group
     conditions:
-      - rolebindingv2:
-          <<: *rbv2
+      - *rbv2parent
 
   # loadbalancer management - permissions on loadbalancer
   - actionname: loadbalancer_get
     typename: loadbalancer
     conditions:
       - rolebinding: {}
-      - rolebindingv2:
-          <<: *rbv2
+      - &rbv2owner
+        rolebindingv2:
           inheritgrant:
             - owner
   - actionname: loadbalancer_update
     typename: loadbalancer
     conditions:
       - rolebinding: {}
-      - rolebindingv2:
-          <<: *rbv2
-          inheritgrant:
-            - owner
+      - *rbv2owner
   - actionname: loadbalancer_delete
     typename: loadbalancer
     conditions:
       - rolebinding: {}
-      - rolebindingv2:
-          <<: *rbv2
-          inheritgrant:
-            - owner
+      - *rbv2owner
 
   # loadbalancer management - permissions on owner
   - actionname: loadbalancer_create
     typename: resourceowner
     conditions:
-      - rolebindingv2:
-          <<: *rbv2
-          inheritgrant:
-            - parent
+      - *rbv2parent
       - rolebinding: {}
   - actionname: loadbalancer_create
     typename: group
     conditions:
-      - rolebindingv2:
-          <<: *rbv2
-          inheritgrant:
-            - parent
+      - *rbv2parent
   
   - actionname: loadbalancer_get
     typename: resourceowner
     conditions:
-      - rolebindingv2:
-          <<: *rbv2
-          inheritgrant:
-            - parent
+      - *rbv2parent
       - rolebinding: {}
   - actionname: loadbalancer_get
     typename: group
     conditions:
-      - rolebindingv2:
-          <<: *rbv2
-          inheritgrant:
-            - parent
+      - *rbv2parent
 
   - actionname: loadbalancer_list
     typename: resourceowner
     conditions:
-      - rolebindingv2:
-          <<: *rbv2
-          inheritgrant:
-            - parent
+      - *rbv2parent
       - rolebinding: {}
   - actionname: loadbalancer_list
     typename: group
     conditions:
-      - rolebindingv2:
-          <<: *rbv2
-          inheritgrant:
-            - parent
+      - *rbv2parent
 
   - actionname: loadbalancer_update
     typename: resourceowner
     conditions:
-      - rolebindingv2:
-          <<: *rbv2
-          inheritgrant:
-            - parent
+      - *rbv2parent
       - rolebinding: {}
   - actionname: loadbalancer_update
     typename: group
     conditions:
-      - rolebindingv2:
-          <<: *rbv2
-          inheritgrant:
-            - parent
+      - *rbv2parent
 
   - actionname: loadbalancer_delete
     typename: resourceowner
     conditions:
-      - rolebindingv2:
-          <<: *rbv2
-          inheritgrant:
-            - parent
+      - *rbv2parent
       - rolebinding: {}
   - actionname: loadbalancer_delete
     typename: group
     conditions:
-      - rolebindingv2:
-          <<: *rbv2
-          inheritgrant:
-            - parent
+      - *rbv2parent
