@@ -105,11 +105,6 @@ type policy struct {
 
 // NewPolicy creates a policy from the given policy document.
 func NewPolicy(p PolicyDocument) Policy {
-	if p.RBAC == nil {
-		rbac := DefaultRBAC()
-		p.RBAC = &rbac
-	}
-
 	rt := make(map[string]ResourceType, len(p.ResourceTypes))
 	for _, r := range p.ResourceTypes {
 		rt[r.Name] = r
@@ -130,10 +125,12 @@ func NewPolicy(p PolicyDocument) Policy {
 		ac[a.Name] = a
 	}
 
-	for i, rba := range rbActions {
-		actionName := fmt.Sprintf("%s_%s", p.RBAC.RoleBindingPermissionsPrefix, rba)
-		rolebindingActions[i] = actionName
-		ac[actionName] = Action{Name: actionName}
+	if p.RBAC != nil {
+		for i, rba := range rbActions {
+			actionName := fmt.Sprintf("%s_%s", p.RBAC.RoleBindingPermissionsPrefix, rba)
+			rolebindingActions[i] = actionName
+			ac[actionName] = Action{Name: actionName}
+		}
 	}
 
 	out := policy{
@@ -145,8 +142,11 @@ func NewPolicy(p PolicyDocument) Policy {
 		rolebindingActions: rolebindingActions,
 	}
 
-	out.expandRole()
-	out.expandRoleBinding()
+	if p.RBAC != nil {
+		out.expandRole()
+		out.expandRoleBinding()
+	}
+
 	out.expandActionBindings()
 	out.expandResourceTypes()
 
@@ -295,6 +295,60 @@ func (v *policy) validateActionBindings() error {
 
 		if err := v.validateConditions(rt, binding.Conditions); err != nil {
 			return fmt.Errorf("%d: conditions: %w", i, err)
+		}
+	}
+
+	return nil
+}
+
+func (v *policy) validateRoles() error {
+	if v.p.RBAC == nil {
+		return nil
+	}
+
+	for _, roleOwnerName := range v.p.RBAC.RoleOwners {
+		owner, ok := v.rt[roleOwnerName]
+
+		// check if role owner exists
+		if !ok {
+			return fmt.Errorf("%w: role owner %s does not exists", ErrorUnknownType, roleOwnerName)
+		}
+
+		relationshipExists := false
+		targetOk := false
+
+		// role owner must have `member_role` relationship to `role` resource
+	rel_loop:
+		for _, rel := range owner.Relationships {
+			if rel.Relation != RoleOwnerMemberRoleRelation {
+				continue
+			}
+
+			relationshipExists = true
+
+			for i := 0; i < len(rel.TargetTypes) && !targetOk; i++ {
+				if rel.TargetTypes[i].Name == v.p.RBAC.RoleResource {
+					targetOk = true
+				}
+			}
+
+			for i := 0; i < len(rel.TargetTypeNames) && !targetOk; i++ {
+				if rel.TargetTypeNames[i] == v.p.RBAC.RoleResource {
+					targetOk = true
+				}
+			}
+
+			if !targetOk {
+				break rel_loop
+			}
+		}
+
+		if !relationshipExists || !targetOk {
+			return fmt.Errorf(
+				"%w: role owner %s must have %s relation to %s",
+				ErrorMissingRelationship, roleOwnerName, RoleOwnerMemberRoleRelation,
+				v.p.RBAC.RoleResource,
+			)
 		}
 	}
 
@@ -505,6 +559,10 @@ func (v *policy) Validate() error {
 
 	if err := v.validateActionBindings(); err != nil {
 		return fmt.Errorf("actionBindings: %w", err)
+	}
+
+	if err := v.validateRoles(); err != nil {
+		return fmt.Errorf("roles: %w", err)
 	}
 
 	return nil

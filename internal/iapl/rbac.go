@@ -7,9 +7,9 @@ import (
 const (
 	// RoleOwnerRelation is the name of the relationship that connects a role to its owner.
 	RoleOwnerRelation = "owner"
-	// RoleMemberRoleRelation is the name of the relationship that connects a resource
+	// RoleOwnerMemberRoleRelation is the name of the relationship that connects a resource
 	// to a role that it owns
-	RoleMemberRoleRelation = "member_role"
+	RoleOwnerMemberRoleRelation = "member_role"
 	// RolebindingRoleRelation is the name of the relationship that connects a role binding to a role.
 	RolebindingRoleRelation = "role"
 	// RolebindingSubjectRelation is the name of the relationship that connects a role binding to a subject.
