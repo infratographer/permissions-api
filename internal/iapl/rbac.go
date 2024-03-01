@@ -10,6 +10,9 @@ const (
 	// RoleOwnerMemberRoleRelation is the name of the relationship that connects a resource
 	// to a role that it owns
 	RoleOwnerMemberRoleRelation = "member_role"
+	// AvailableRoleRelation is the name of the relationship that list all roles
+	// that are available for a given resource
+	AvailableRoleRelation = "avail_role"
 	// RolebindingRoleRelation is the name of the relationship that connects a role binding to a role.
 	RolebindingRoleRelation = "role"
 	// RolebindingSubjectRelation is the name of the relationship that connects a role binding to a subject.
@@ -17,6 +20,13 @@ const (
 	// RoleOwnerParentRelation is the name of the relationship that connects a role's owner to its parent.
 	RoleOwnerParentRelation = "parent"
 )
+
+// ResourceRoleBindingV2 describes the relationships that will be created
+// for a resource to support role-binding V2
+type ResourceRoleBindingV2 struct {
+	// AvailableRolesFrom is the list of resource types that can provide roles to this resource
+	AvailableRolesFrom []string
+}
 
 /*
 RBAC represents a role-based access control policy.

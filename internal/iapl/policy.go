@@ -22,6 +22,7 @@ type PolicyDocument struct {
 type ResourceType struct {
 	Name          string
 	IDPrefix      string
+	RoleBindingV2 *ResourceRoleBindingV2
 	Relationships []Relationship
 }
 
@@ -101,6 +102,7 @@ type policy struct {
 
 	permissions        []string
 	rolebindingActions []string
+	roleOwners         map[string]struct{}
 }
 
 // NewPolicy creates a policy from the given policy document.
@@ -119,7 +121,7 @@ func NewPolicy(p PolicyDocument) Policy {
 	// role-binding, delete role-binding)
 	rbActions := []string{"create", "list", "delete"}
 	rolebindingActions := make([]string, len(rbActions))
-	ac := make(map[string]Action, len(p.Actions)+len(rbActions))
+	ac := map[string]Action{}
 
 	for _, a := range p.Actions {
 		ac[a.Name] = a
@@ -131,6 +133,8 @@ func NewPolicy(p PolicyDocument) Policy {
 			rolebindingActions[i] = actionName
 			ac[actionName] = Action{Name: actionName}
 		}
+
+		ac[AvailableRoleRelation] = Action{Name: AvailableRoleRelation}
 	}
 
 	out := policy{
@@ -140,6 +144,7 @@ func NewPolicy(p PolicyDocument) Policy {
 		p:                  p,
 		permissions:        []string{},
 		rolebindingActions: rolebindingActions,
+		roleOwners:         map[string]struct{}{},
 	}
 
 	if p.RBAC != nil {
@@ -450,6 +455,11 @@ func (v *policy) expandRole() {
 	}
 
 	v.rt[role.Name] = role
+
+	// 5. create a list of role owners
+	for _, owner := range v.p.RBAC.RoleOwners {
+		v.roleOwners[owner] = struct{}{}
+	}
 }
 
 func (v *policy) expandRoleBinding() {
@@ -542,6 +552,52 @@ func (v *policy) expandResourceTypes() {
 
 			resourceType.Relationships[i].TargetTypeNames = typeNames
 			resourceType.Relationships[i].TargetTypes = targettypes
+		}
+
+		// role-binding V2 configs
+		availRoleConditions := []Condition{}
+
+		// if resource type is a role-owner, add the role-relationship to the
+		// resource
+		if _, ok := v.roleOwners[name]; ok {
+			memberRoleRelation := Relationship{
+				Relation: RoleOwnerMemberRoleRelation,
+				TargetTypes: []types.TargetType{
+					{Name: v.p.RBAC.RoleResource},
+				},
+			}
+
+			resourceType.Relationships = append(resourceType.Relationships, memberRoleRelation)
+
+			// i.e. avail_role = member_role
+			availRoleConditions = append(availRoleConditions, Condition{
+				RelationshipAction: &ConditionRelationshipAction{
+					Relation: RoleOwnerMemberRoleRelation,
+				},
+			})
+		}
+
+		// i.e. avail_role = from[0]->avail_role + from[1]->avail_role ...
+		if resourceType.RoleBindingV2 != nil {
+			for _, from := range resourceType.RoleBindingV2.AvailableRolesFrom {
+				availRoleConditions = append(availRoleConditions, Condition{
+					RelationshipAction: &ConditionRelationshipAction{
+						Relation:   from,
+						ActionName: AvailableRoleRelation,
+					},
+				})
+			}
+		}
+
+		// create available role permission
+		if len(availRoleConditions) > 0 {
+			action := ActionBinding{
+				ActionName: AvailableRoleRelation,
+				TypeName:   resourceType.Name,
+				Conditions: availRoleConditions,
+			}
+
+			v.bn = append(v.bn, action)
 		}
 
 		v.rt[name] = resourceType

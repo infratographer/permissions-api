@@ -34,13 +34,28 @@ unions:
   - name: resourceowner
     resourcetypes:
       - name: tenant
-  - name: resourceowner
+  - name: resourceowner_relationship
     resourcetypes:
       - name: tenant
+      - name: tenant
+        subjectrelation: parent
   - name: subject
     resourcetypenames:
       - user
       - client
+  - name: group_parent
+    resourcetypes:
+      - name: group
+      - name: group
+        subjectrelation: parent
+      - name: tenant
+      - name: tenant
+        subjectrelation: parent
+  - name: tenant_parent
+    resourcetypes:
+      - name: tenant
+      - name: tenant
+        subjectrelation: parent
 
 resourcetypes:
   - name: role
@@ -61,11 +76,14 @@ resourcetypes:
 
   - name: group
     idprefix: idntgrp
+    rolebindingv2:
+      &rolesFromParent
+      availablerolesfrom:
+        - parent
     relationships:
       - relation: parent
         targettypenames:
-          - group
-          - tenant
+          - group_parent
       - relation: member
         targettypenames:
           - group_member
@@ -75,28 +93,28 @@ resourcetypes:
 
   - name: tenant
     idprefix: tnntten
+    rolebindingv2:
+      *rolesFromParent
     relationships:
       - relation: parent
-        targettypes:
-          - name: tenant
+        targettypenames:
+          - tenant_parent
       - relation: member
         targettypenames:
           - tenant_member
       - relation: grant
         targettypes:
           - name: role_binding
-      - relation: member_role
-        targettypes:
-          - name: rolev2
-          - name: tenant
-            subjectrelation: member_role
 
   - name: loadbalancer
     idprefix: loadbal
+    rolebindingv2:
+      availablerolesfrom:
+        - owner
     relationships:
       - relation: owner
-        targettypes:
-          - name: tenant
+        targettypenames:
+          - resourceowner_relationship
       - relation: grant
         targettypes:
           - name: role_binding
@@ -139,7 +157,7 @@ actionbindings:
     conditions:
       - &rbv2parent
         rolebindingv2:
-          inheritgrant:
+          inheritgrants:
             - parent
       - rolebinding: {}
   - actionname: role_create
@@ -194,7 +212,7 @@ actionbindings:
       - rolebinding: {}
       - &rbv2owner
         rolebindingv2:
-          inheritgrant:
+          inheritgrants:
             - owner
   - actionname: loadbalancer_update
     typename: loadbalancer

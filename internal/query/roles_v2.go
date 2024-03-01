@@ -2,12 +2,13 @@ package query
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
 
 	pb "github.com/authzed/authzed-go/proto/authzed/api/v1"
-	"go.infratographer.com/x/gidx"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
@@ -33,7 +34,7 @@ func (e *engine) CreateRoleV2(ctx context.Context, actor, owner types.Resource, 
 
 	role := newRoleWithPrefix(e.schemaTypeMap[e.rbac.RoleResource].IDPrefix, roleName, actions)
 	roleRels := e.roleV2Relationships(role)
-	roleRels = append(roleRels, e.roleV2OwnerRelationship(role, owner))
+	roleRels = append(roleRels, e.roleV2OwnerRelationship(role, owner)...)
 
 	dbCtx, err := e.store.BeginContext(ctx)
 	if err != nil {
@@ -97,131 +98,88 @@ func (e *engine) ListRolesV2(ctx context.Context, owner types.Resource, includeI
 	)
 	defer span.End()
 
-	if !includeInherited {
-		return e.listRolesForOwner(ctx, owner)
+	lookupClient, err := e.client.LookupSubjects(ctx, &pb.LookupSubjectsRequest{
+		Consistency: &pb.Consistency{
+			Requirement: &pb.Consistency_FullyConsistent{
+				FullyConsistent: true,
+			},
+		},
+		Resource:          resourceToSpiceDBRef(e.namespace, owner),
+		Permission:        iapl.AvailableRoleRelation,
+		SubjectObjectType: e.namespaced(e.rbac.RoleResource),
+	})
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		return nil, err
 	}
 
-	// BFS find all parents of the owner
-	parents := []*types.Resource{&owner}
-	visited := map[string]struct{}{}
-	expandRelations := func(ctx context.Context, node *types.Resource, id, relation string) ([]*pb.SubjectReference, error) {
-		tree, err := e.client.ExpandPermissionTree(ctx, &pb.ExpandPermissionTreeRequest{
-			Consistency: &pb.Consistency{
-				Requirement: &pb.Consistency_FullyConsistent{
-					FullyConsistent: true,
-				},
-			},
-			Resource:   resourceToSpiceDBRef(e.namespace, *node),
-			Permission: relation,
-		})
+	roleIDs := []string{}
+
+	for {
+		lookup, err := lookupClient.Recv()
 		if err != nil {
-			return nil, err
+			if !errors.Is(err, io.EOF) {
+				span.RecordError(err)
+				span.SetStatus(codes.Error, err.Error())
+			}
+
+			break
 		}
 
-		root := tree.GetTreeRoot()
-		if root == nil {
-			err := fmt.Errorf("%w: %s not found", ErrResourceNotFound, id)
+		subj := lookup.GetSubject()
+		roleIDs = append(roleIDs, subj.SubjectObjectId)
+	}
+
+	rolesChan := make(chan *types.Role, len(roleIDs))
+	errsChan := make(chan error, len(roleIDs))
+	wg := &sync.WaitGroup{}
+
+	for _, id := range roleIDs {
+		wg.Add(1)
+
+		roleRes, err := e.NewResourceFromIDString(id)
+		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
+			e.logger.Error(err.Error())
 
-			return nil, err
-		}
+			wg.Done()
 
-		leaf := root.GetLeaf()
-		if leaf == nil {
-			visited[id] = struct{}{}
-			return []*pb.SubjectReference{}, nil
-		}
-
-		return leaf.GetSubjects(), nil
-	}
-
-	for i := 0; i < len(parents); i++ {
-		node := parents[i]
-		id := node.ID.String()
-
-		if _, ok := visited[id]; ok {
 			continue
 		}
 
-		parentRels, err := expandRelations(ctx, node, id, iapl.RoleOwnerParentRelation)
-		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
-
-			return nil, err
-		}
-
-		for _, subj := range parentRels {
-			obj := subj.GetObject()
-			if obj == nil {
-				continue
-			}
-
-			res, err := e.NewResourceFromIDString(obj.ObjectId)
-			if err != nil {
-				span.RecordError(err)
-				span.SetStatus(codes.Error, err.Error())
-
-				return nil, err
-			}
-
-			if _, ok := visited[res.ID.String()]; ok {
-				continue
-			}
-
-			parents = append(parents, &res)
-		}
-
-		visited[id] = struct{}{}
-	}
-
-	uniqueParents := make(map[string]*types.Resource, len(parents))
-	for _, parent := range parents {
-		uniqueParents[parent.ID.String()] = parent
-	}
-
-	e.logger.Debugf("found %d parents for %s", len(uniqueParents), owner.ID)
-
-	roles := make(chan []types.Role, len(uniqueParents))
-	errs := make(chan error, len(uniqueParents))
-	wg := &sync.WaitGroup{}
-
-	for _, parent := range uniqueParents {
-		wg.Add(1)
-
-		go func(res *types.Resource) {
+		go func(ctx context.Context, res types.Resource) {
 			defer wg.Done()
 
-			r, err := e.listRolesForOwner(ctx, *res)
+			role, err := e.GetRoleV2(ctx, res)
 			if err != nil {
-				errs <- err
+				errsChan <- err
 				return
 			}
 
-			e.logger.Debugf("found %d roles for %s", len(r), res.ID)
-
-			roles <- r
-		}(parent)
+			rolesChan <- &role
+		}(ctx, roleRes)
 	}
 
 	wg.Wait()
-	close(roles)
-	close(errs)
+	close(rolesChan)
+	close(errsChan)
 
-	for err := range errs {
+	for err := range errsChan {
 		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
-
-			return nil, err
 		}
 	}
 
-	roleList := []types.Role{}
+	roleList := make([]types.Role, 0, len(roleIDs))
 
-	for r := range roles {
-		roleList = append(roleList, r...)
+	for role := range rolesChan {
+		if role != nil {
+			roleList = append(roleList, *role)
+		}
 	}
 
 	return roleList, nil
@@ -443,8 +401,27 @@ func (e *engine) DeleteRoleV2(ctx context.Context, roleResource types.Resource) 
 	ctx, span := e.tracer.Start(ctx, "engine.DeleteRoleV2")
 	defer span.End()
 
+	dbRole, err := e.store.GetRoleByID(ctx, roleResource.ID)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		return err
+	}
+
+	roleOwner, err := e.NewResourceFromID(dbRole.ResourceID)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		return err
+	}
+
 	dbCtx, err := e.store.BeginContext(ctx)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
 		return err
 	}
 
@@ -476,7 +453,7 @@ func (e *engine) DeleteRoleV2(ctx context.Context, roleResource types.Resource) 
 	wg := &sync.WaitGroup{}
 	errs := make(chan error, deleteErrsBufferSize)
 
-	// 2.a remove all role permission and owner relationships
+	// 2.a remove all relationships from this role
 	wg.Add(1)
 
 	go func() {
@@ -494,7 +471,28 @@ func (e *engine) DeleteRoleV2(ctx context.Context, roleResource types.Resource) 
 		}
 	}()
 
-	// 2.b remove all role relationships in role bindings associated with this role
+	// 2.b remove all relationships to this role from its owner
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+
+		ownerRelReq := &pb.DeleteRelationshipsRequest{
+			RelationshipFilter: &pb.RelationshipFilter{
+				ResourceType: e.namespaced(roleOwner.Type),
+				OptionalSubjectFilter: &pb.SubjectFilter{
+					SubjectType:       e.namespaced(e.rbac.RoleResource),
+					OptionalSubjectId: roleResource.ID.String(),
+				},
+			},
+		}
+
+		if _, err := e.client.DeleteRelationships(ctx, ownerRelReq); err != nil {
+			errs <- err
+		}
+	}()
+
+	// 2.c remove all role relationships in role bindings associated with this role
 	wg.Add(1)
 
 	go func() {
@@ -536,87 +534,8 @@ func (e *engine) DeleteRoleV2(ctx context.Context, roleResource types.Resource) 
 	return nil
 }
 
-func (e *engine) listRolesForOwner(ctx context.Context, owner types.Resource) ([]types.Role, error) {
-	ctx, span := e.tracer.Start(
-		ctx,
-		"engine.listRolesForOwner",
-		trace.WithAttributes(
-			attribute.Stringer(
-				"owner",
-				owner.ID,
-			),
-		),
-	)
-	defer span.End()
-
-	// 1. list roles from spice DB
-	roleRelFilter := &pb.RelationshipFilter{
-		ResourceType:     e.namespaced(e.rbac.RoleResource),
-		OptionalRelation: iapl.RoleOwnerRelation,
-		OptionalSubjectFilter: &pb.SubjectFilter{
-			SubjectType:       e.namespaced(owner.Type),
-			OptionalSubjectId: owner.ID.String(),
-		},
-	}
-
-	roleRel, err := e.readRelationships(ctx, roleRelFilter)
-	if err != nil {
-		return nil, err
-	}
-
-	// 2. get all roles
-	roles := make(chan types.Role, len(roleRel))
-	errs := make(chan error, len(roleRel))
-	wg := &sync.WaitGroup{}
-
-	getRoleFn := func(rel *pb.Relationship) {
-		defer wg.Done()
-
-		roleID, err := gidx.Parse(rel.Resource.ObjectId)
-		if err != nil {
-			errs <- err
-			return
-		}
-
-		role, err := e.GetRoleV2(ctx, types.Resource{ID: roleID, Type: e.rbac.RoleResource})
-		if err != nil {
-			errs <- err
-			return
-		}
-
-		roles <- role
-	}
-
-	for _, rel := range roleRel {
-		wg.Add(1)
-
-		go getRoleFn(rel)
-	}
-
-	wg.Wait()
-	close(roles)
-	close(errs)
-
-	for err := range errs {
-		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
-
-			return nil, err
-		}
-	}
-
-	roleList := make([]types.Role, 0, len(roleRel))
-
-	for role := range roles {
-		roleList = append(roleList, role)
-	}
-
-	return roleList, nil
-}
-
-// roleV2OwnerRelationship creates a relationship between a V2 role and its owner.
-func (e *engine) roleV2OwnerRelationship(role types.Role, owner types.Resource) *pb.RelationshipUpdate {
+// roleV2OwnerRelationship creates a relationships between a V2 role and its owner.
+func (e *engine) roleV2OwnerRelationship(role types.Role, owner types.Resource) []*pb.RelationshipUpdate {
 	roleResource, err := e.NewResourceFromID(role.ID)
 	if err != nil {
 		panic(err)
@@ -630,7 +549,8 @@ func (e *engine) roleV2OwnerRelationship(role types.Role, owner types.Resource) 
 	roleRef := resourceToSpiceDBRef(e.namespace, roleResource)
 	ownerRef := resourceToSpiceDBRef(e.namespace, owner)
 
-	return &pb.RelationshipUpdate{
+	// e.g., rolev:super-admin#owner@tenant:tnntten-root
+	ownerRel := &pb.RelationshipUpdate{
 		Operation: pb.RelationshipUpdate_OPERATION_TOUCH,
 		Relationship: &pb.Relationship{
 			Resource: roleRef,
@@ -640,6 +560,20 @@ func (e *engine) roleV2OwnerRelationship(role types.Role, owner types.Resource) 
 			},
 		},
 	}
+
+	// e.g., tenant:tnntten-root#member_role@rolev:super-admin
+	memberRel := &pb.RelationshipUpdate{
+		Operation: pb.RelationshipUpdate_OPERATION_TOUCH,
+		Relationship: &pb.Relationship{
+			Resource: ownerRef,
+			Relation: iapl.RoleOwnerMemberRoleRelation,
+			Subject: &pb.SubjectReference{
+				Object: roleRef,
+			},
+		},
+	}
+
+	return []*pb.RelationshipUpdate{ownerRel, memberRel}
 }
 
 // createRoleV2RelationshipUpdatesForAction creates permission relationship lines in role
