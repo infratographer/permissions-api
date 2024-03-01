@@ -12,7 +12,7 @@ rbac:
     - name: group
       subjectrelation: member
   # rolebindingpermissionsprefix generates permissions to manage role bindings,
-  # e.g. rolebinding_create, rolebinding_get, rolebinding_delete
+  # e.g. rolebinding_create, rolebinding_get, rolebinding_delete, etc.
   rolebindingpermissionsprefix: rolebinding
   grantrelationship: grant
 

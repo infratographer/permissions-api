@@ -92,7 +92,12 @@ type roleBindingRequest struct {
 	Subjects []roleBindingSubject `json:"subjects" binding:"required"`
 }
 
+type rolebindingUpdateRequest struct {
+	Subjects []roleBindingSubject `json:"subjects" binding:"required"`
+}
+
 type roleBindingResponse struct {
+	ID       gidx.PrefixedID         `json:"id"`
 	Role     roleBindingResponseRole `json:"role"`
 	Subjects []roleBindingSubject    `json:"subjects"`
 }

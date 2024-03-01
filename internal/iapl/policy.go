@@ -119,7 +119,7 @@ func NewPolicy(p PolicyDocument) Policy {
 
 	// permissions for performing role-bindings (i.e., create role-binding, get
 	// role-binding, delete role-binding)
-	rbActions := []string{"create", "list", "delete"}
+	rbActions := []string{"create", "list", "get", "update", "delete"}
 	rolebindingActions := make([]string, len(rbActions))
 	ac := map[string]Action{}
 

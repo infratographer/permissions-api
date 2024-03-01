@@ -68,7 +68,7 @@ func (e *Engine) CreateRoleV2(ctx context.Context, actor, owner types.Resource, 
 }
 
 // ListRoleV2 list roles
-func (e *Engine) ListRolesV2(ctx context.Context, owner types.Resource, includeInherirted bool) ([]types.Role, error) {
+func (e *Engine) ListRolesV2(ctx context.Context, owner types.Resource) ([]types.Role, error) {
 	return nil, nil
 }
 
@@ -199,19 +199,29 @@ func (e *Engine) SubjectHasPermission(ctx context.Context, subject types.Resourc
 	return nil
 }
 
-// BindRole returns nothing but satisfies the Engine interface.
-func (e *Engine) BindRole(ctx context.Context, role types.Resource, resource types.Resource, subjects []types.RoleBindingSubject) (types.RoleBinding, error) {
+// CreateRoleBinding returns nothing but satisfies the Engine interface.
+func (e *Engine) CreateRoleBinding(ctx context.Context, resource, role types.Resource, subjects []types.RoleBindingSubject) (types.RoleBinding, error) {
 	return types.RoleBinding{}, nil
 }
 
 // ListRoleBindings returns nothing but satisfies the Engine interface.
-func (e *Engine) ListRoleBindings(ctx context.Context, resource types.Resource, role *types.Resource) ([]types.RoleBinding, error) {
+func (e *Engine) ListRoleBindings(ctx context.Context, resource types.Resource, optionalRole *types.Resource) ([]types.RoleBinding, error) {
 	return nil, nil
 }
 
-// UnbindRole returns nothing but satisfies the Engine interface.
-func (e *Engine) UnbindRole(ctx context.Context, resource, role types.Resource, subjects []types.RoleBindingSubject) error {
+// GetRoleBinding returns nothing but satisfies the Engine interface.
+func (e *Engine) GetRoleBinding(ctx context.Context, resource types.Resource) (types.RoleBinding, error) {
+	return types.RoleBinding{}, nil
+}
+
+// DeleteRoleBinding returns nothing but satisfies the Engine interface.
+func (e *Engine) DeleteRoleBinding(ctx context.Context, rb, res types.Resource) error {
 	return nil
+}
+
+// UpdateRoleBinding returns nothing but satisfies the Engine interface.
+func (e *Engine) UpdateRoleBinding(context.Context, types.Resource, []types.RoleBindingSubject) (types.RoleBinding, error) {
+	return types.RoleBinding{}, nil
 }
 
 // AllActions returns nothing but satisfies the Engine interface.

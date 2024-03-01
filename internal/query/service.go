@@ -46,15 +46,31 @@ type Engine interface {
 	SubjectHasPermission(ctx context.Context, subject types.Resource, action string, resource types.Resource) error
 
 	// v2 functions, add role bindings support
+
+	// CreateRoleV2 creates a v2 role scoped to the given resource with the given actions.
 	CreateRoleV2(ctx context.Context, actor, owner types.Resource, roleName string, actions []string) (types.Role, error)
-	ListRolesV2(ctx context.Context, owner types.Resource, includeInherited bool) ([]types.Role, error)
+	// ListRolesV2 returns all V2 roles owned by the given resource.
+	ListRolesV2(ctx context.Context, owner types.Resource) ([]types.Role, error)
+	// GetRoleV2 returns a V2 role
 	GetRoleV2(ctx context.Context, role types.Resource) (types.Role, error)
+	// UpdateRoleV2 updates a V2 role with the given name and actions.
 	UpdateRoleV2(ctx context.Context, actor, roleResource types.Resource, newName string, newActions []string) (types.Role, error)
+	// DeleteRoleV2 deletes a V2 role.
 	DeleteRoleV2(ctx context.Context, roleResource types.Resource) error
 
-	BindRole(ctx context.Context, resource, role types.Resource, subjects []types.RoleBindingSubject) (types.RoleBinding, error)
-	UnbindRole(ctx context.Context, resource, role types.Resource, subjects []types.RoleBindingSubject) error
+	// CreateRoleBinding creates all the necessary relationships for a role binding.
+	// role binding here establishes a three-way relationship between a role,
+	// a resource, and the subjects.
+	CreateRoleBinding(ctx context.Context, resource, role types.Resource, subjects []types.RoleBindingSubject) (types.RoleBinding, error)
+	// ListRoleBindings lists all role-bindings for a resource, an optional Role
+	// can be provided to filter the role-bindings.
 	ListRoleBindings(ctx context.Context, resource types.Resource, optionalRole *types.Resource) ([]types.RoleBinding, error)
+	// GetRoleBinding fetches a role-binding by its ID.
+	GetRoleBinding(ctx context.Context, rolebinding types.Resource) (types.RoleBinding, error)
+	// UpdateRoleBinding updates the subjects of a role-binding.
+	UpdateRoleBinding(ctx context.Context, rolebinding types.Resource, subjects []types.RoleBindingSubject) (types.RoleBinding, error)
+	// DeleteRoleBinding removes subjects from a role-binding.
+	DeleteRoleBinding(ctx context.Context, rolebinding, resource types.Resource) error
 
 	AllActions() []string
 }

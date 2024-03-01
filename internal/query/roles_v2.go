@@ -24,7 +24,6 @@ func (e *engine) namespaced(name string) string {
 	return e.namespace + "/" + name
 }
 
-// CreateRoleV2 creates a v2 role scoped to the given resource with the given actions.
 func (e *engine) CreateRoleV2(ctx context.Context, actor, owner types.Resource, roleName string, actions []string) (types.Role, error) {
 	ctx, span := e.tracer.Start(ctx, "engine.CreateRoleV2")
 
@@ -80,8 +79,7 @@ func (e *engine) CreateRoleV2(ctx context.Context, actor, owner types.Resource, 
 	return role, nil
 }
 
-// ListRolesV2 returns all V2 roles owned by the given resource.
-func (e *engine) ListRolesV2(ctx context.Context, owner types.Resource, includeInherited bool) ([]types.Role, error) {
+func (e *engine) ListRolesV2(ctx context.Context, owner types.Resource) ([]types.Role, error) {
 	ctx, span := e.tracer.Start(
 		ctx,
 		"engine.ListRolesV2",
@@ -89,10 +87,6 @@ func (e *engine) ListRolesV2(ctx context.Context, owner types.Resource, includeI
 			attribute.Stringer(
 				"owner",
 				owner.ID,
-			),
-			attribute.Bool(
-				"includeInherited",
-				includeInherited,
 			),
 		),
 	)
@@ -185,7 +179,6 @@ func (e *engine) ListRolesV2(ctx context.Context, owner types.Resource, includeI
 	return roleList, nil
 }
 
-// GetRoleV2 returns a V2 role
 func (e *engine) GetRoleV2(ctx context.Context, role types.Resource) (types.Role, error) {
 	const ReadRolesErrBufLen = 2
 
@@ -272,7 +265,6 @@ func (e *engine) GetRoleV2(ctx context.Context, role types.Resource) (types.Role
 	return resp, nil
 }
 
-// UpdateRoleV2 updates a V2 role with the given name and actions.
 func (e *engine) UpdateRoleV2(ctx context.Context, actor, roleResource types.Resource, newName string, newActions []string) (types.Role, error) {
 	ctx, span := e.tracer.Start(ctx, "engine.UpdateRoleV2")
 	defer span.End()
@@ -396,7 +388,6 @@ func (e *engine) UpdateRoleV2(ctx context.Context, actor, roleResource types.Res
 	return role, nil
 }
 
-// DeleteRoleV2 deletes a V2 role.
 func (e *engine) DeleteRoleV2(ctx context.Context, roleResource types.Resource) error {
 	ctx, span := e.tracer.Start(ctx, "engine.DeleteRoleV2")
 	defer span.End()
@@ -498,7 +489,7 @@ func (e *engine) DeleteRoleV2(ctx context.Context, roleResource types.Resource) 
 	go func() {
 		defer wg.Done()
 
-		if err := e.deleteRoleBinding(ctx, roleResource); err != nil {
+		if err := e.deleteRoleBindingForRole(ctx, roleResource); err != nil {
 			errs <- err
 		}
 	}()

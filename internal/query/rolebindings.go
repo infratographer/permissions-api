@@ -16,12 +16,7 @@ import (
 	"go.infratographer.com/permissions-api/internal/types"
 )
 
-// BindRole creates all the necessary relationships for a role binding.
-// role binding here establishes a three-way relationship between a role,
-// a resource, and the subjects.
-// If a role-binding object already exists on the resource, new subjects
-// relationships will be appended to the existing role-binding.
-func (e *engine) BindRole(ctx context.Context, resource, roleResource types.Resource, subjects []types.RoleBindingSubject) (types.RoleBinding, error) {
+func (e *engine) CreateRoleBinding(ctx context.Context, resource, roleResource types.Resource, subjects []types.RoleBindingSubject) (types.RoleBinding, error) {
 	ctx, span := e.tracer.Start(
 		ctx, "engine.BindRole",
 		trace.WithAttributes(
@@ -30,6 +25,13 @@ func (e *engine) BindRole(ctx context.Context, resource, roleResource types.Reso
 		),
 	)
 	defer span.End()
+
+	if err := e.isRoleBindable(ctx, roleResource, resource); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		return types.RoleBinding{}, err
+	}
 
 	dbrole, err := e.store.GetRoleByID(ctx, roleResource.ID)
 	if err != nil {
@@ -44,7 +46,18 @@ func (e *engine) BindRole(ctx context.Context, resource, roleResource types.Reso
 		Name: dbrole.Name,
 	}
 
-	rb, err := e.findOrCreateRoleBinding(ctx, resource, role)
+	rbResourceType, ok := e.schemaTypeMap[e.rbac.RoleBindingResource]
+	if !ok {
+		return types.RoleBinding{}, fmt.Errorf(
+			"%w: invalid role-binding resource type: %s",
+			ErrInvalidType, e.rbac.RoleBindingResource,
+		)
+	}
+
+	rb := newRoleBindingWithPrefix(rbResourceType.IDPrefix, role)
+	roleRel := e.rolebindingRoleRelationship(role.ID.String(), rb.ID.String())
+
+	grantRel, err := e.rolebindingGrantResourceRelationship(resource, rb.ID.String())
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
@@ -52,19 +65,21 @@ func (e *engine) BindRole(ctx context.Context, resource, roleResource types.Reso
 		return types.RoleBinding{}, err
 	}
 
-	currSubjects := make(map[string]struct{}, len(rb.Subjects))
-	updates := make([]*pb.RelationshipUpdate, 0, len(subjects))
-
-	for _, subj := range rb.Subjects {
-		currSubjects[subj.SubjectResource.ID.String()] = struct{}{}
+	updates := []*pb.RelationshipUpdate{
+		{
+			Operation:    pb.RelationshipUpdate_OPERATION_TOUCH,
+			Relationship: roleRel,
+		},
+		{
+			Operation:    pb.RelationshipUpdate_OPERATION_TOUCH,
+			Relationship: grantRel,
+		},
 	}
 
-	for _, subj := range subjects {
-		// skip if subject already in role-binding
-		if _, ok := currSubjects[subj.SubjectResource.ID.String()]; ok {
-			continue
-		}
+	subjUpdates := make([]*pb.RelationshipUpdate, len(subjects))
+	rb.Subjects = make([]types.RoleBindingSubject, len(subjects))
 
+	for i, subj := range subjects {
 		rel, err := e.rolebindingSubjectRelationship(subj.SubjectResource, rb.ID.String())
 		if err != nil {
 			span.RecordError(err)
@@ -73,87 +88,67 @@ func (e *engine) BindRole(ctx context.Context, resource, roleResource types.Reso
 			return types.RoleBinding{}, err
 		}
 
-		rb.Subjects = append(rb.Subjects, subj)
-
-		updates = append(updates, &pb.RelationshipUpdate{
+		rb.Subjects[i] = subj
+		subjUpdates[i] = &pb.RelationshipUpdate{
 			Operation:    pb.RelationshipUpdate_OPERATION_TOUCH,
 			Relationship: rel,
-		})
+		}
 	}
 
-	if len(updates) > 0 {
-		if _, err := e.client.WriteRelationships(ctx, &pb.WriteRelationshipsRequest{Updates: updates}); err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
+	if _, err := e.client.WriteRelationships(ctx, &pb.WriteRelationshipsRequest{
+		Updates: append(updates, subjUpdates...),
+	}); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 
-			return types.RoleBinding{}, err
-		}
+		return types.RoleBinding{}, err
 	}
 
 	return rb, nil
 }
 
-// UnbindRole removes subjects from a role-binding.
-func (e *engine) UnbindRole(ctx context.Context, resource, roleResource types.Resource, subjects []types.RoleBindingSubject) error {
+func (e *engine) DeleteRoleBinding(ctx context.Context, rb, res types.Resource) error {
 	ctx, span := e.tracer.Start(
 		ctx, "engine.UnbindRole",
 		trace.WithAttributes(
-			attribute.Stringer("role_id", roleResource.ID),
-			attribute.Stringer("resource_id", resource.ID),
+			attribute.Stringer("role_binding_id", rb.ID),
 		),
 	)
 	defer span.End()
 
-	_, err := e.store.GetRoleByID(ctx, roleResource.ID)
-	if err != nil {
+	// delete relationships from the role-binding
+	if _, err := e.client.DeleteRelationships(ctx, &pb.DeleteRelationshipsRequest{
+		RelationshipFilter: &pb.RelationshipFilter{
+			ResourceType:       e.namespaced(e.rbac.RoleBindingResource),
+			OptionalResourceId: rb.ID.String(),
+		},
+	}); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 
 		return err
 	}
 
-	bindings, err := e.ListRoleBindings(ctx, resource, &roleResource)
-	if err != nil {
+	// delete relationships to the role-binding
+	if _, err := e.client.DeleteRelationships(ctx, &pb.DeleteRelationshipsRequest{
+		RelationshipFilter: &pb.RelationshipFilter{
+			ResourceType:     e.namespaced(res.Type),
+			OptionalRelation: e.rbac.GrantRelationship,
+			OptionalSubjectFilter: &pb.SubjectFilter{
+				SubjectType:       e.namespaced(e.rbac.RoleBindingResource),
+				OptionalSubjectId: rb.ID.String(),
+			},
+		},
+	}); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 
 		return err
-	}
-
-	if len(bindings) == 0 {
-		// no bindings for role on the resoruce
-		return nil
-	} else if len(bindings) > 1 {
-		// warn if there're multiple rolebindings for the role on the resource
-		e.logger.Warnf("found multiple role-bindings for role: %s, resource: %s", roleResource.ID, resource.ID)
-	}
-
-	// remove subjects from role-binding
-	for _, rb := range bindings {
-		updates := make([]*pb.RelationshipUpdate, len(subjects))
-
-		for i, subj := range subjects {
-			rel, err := e.rolebindingSubjectRelationship(subj.SubjectResource, rb.ID.String())
-			if err != nil {
-				return err
-			}
-
-			updates[i] = &pb.RelationshipUpdate{
-				Operation:    pb.RelationshipUpdate_OPERATION_DELETE,
-				Relationship: rel,
-			}
-		}
-
-		if _, err := e.client.WriteRelationships(ctx, &pb.WriteRelationshipsRequest{Updates: updates}); err != nil {
-			return err
-		}
 	}
 
 	return nil
 }
 
-// ListRoleBindings lists all role-bindings for a resource, an optional Role
-// can be provided to filter the role-bindings.
 func (e *engine) ListRoleBindings(ctx context.Context, resource types.Resource, optionalRole *types.Resource) ([]types.RoleBinding, error) {
 	ctx, span := e.tracer.Start(
 		ctx, "engine.ListRoleBinding",
@@ -243,8 +238,144 @@ func (e *engine) ListRoleBindings(ctx context.Context, resource types.Resource, 
 	return resp, nil
 }
 
-// deleteRoleBinding deletes all role-binding relationships with a given role.
-func (e *engine) deleteRoleBinding(ctx context.Context, roleResource types.Resource) error {
+func (e *engine) UpdateRoleBinding(ctx context.Context, rb types.Resource, subjects []types.RoleBindingSubject) (types.RoleBinding, error) {
+	ctx, span := e.tracer.Start(
+		ctx, "engine.UpdateRoleBindings",
+		trace.WithAttributes(
+			attribute.Stringer("rolebinding_id", rb.ID),
+		),
+	)
+	defer span.End()
+
+	rolebinding, err := e.fetchRoleBinding(ctx, rb)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		return types.RoleBinding{}, err
+	}
+
+	// 1. find the subjects to add or remove
+	current := make([]string, len(rolebinding.Subjects))
+	incoming := make([]string, len(subjects))
+
+	for i, subj := range rolebinding.Subjects {
+		current[i] = subj.SubjectResource.ID.String()
+	}
+
+	for i, subj := range subjects {
+		incoming[i] = subj.SubjectResource.ID.String()
+	}
+
+	add, remove := diff(current, incoming)
+
+	// return if there are no changes
+	if (len(add) + len(remove)) == 0 {
+		return rolebinding, nil
+	}
+
+	// 2. create relationship updates
+	updates := make([]*pb.RelationshipUpdate, len(add)+len(remove))
+	i := 0
+
+	mkupdate := func(id string, op pb.RelationshipUpdate_Operation) (*pb.RelationshipUpdate, error) {
+		subjRes, err := e.NewResourceFromIDString(id)
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+
+			return nil, err
+		}
+
+		rel, err := e.rolebindingSubjectRelationship(subjRes, rb.ID.String())
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+
+			return nil, err
+		}
+
+		return &pb.RelationshipUpdate{Operation: op, Relationship: rel}, nil
+	}
+
+	for _, id := range add {
+		update, err := mkupdate(id, pb.RelationshipUpdate_OPERATION_TOUCH)
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+
+			return types.RoleBinding{}, err
+		}
+
+		updates[i] = update
+		i++
+	}
+
+	for _, id := range remove {
+		update, err := mkupdate(id, pb.RelationshipUpdate_OPERATION_DELETE)
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+
+			return types.RoleBinding{}, err
+		}
+
+		updates[i] = update
+		i++
+	}
+
+	_, err = e.client.WriteRelationships(ctx, &pb.WriteRelationshipsRequest{Updates: updates})
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		return types.RoleBinding{}, err
+	}
+
+	rolebinding.Subjects = subjects
+
+	return rolebinding, nil
+}
+
+func (e *engine) GetRoleBinding(ctx context.Context, rolebinding types.Resource) (types.RoleBinding, error) {
+	ctx, span := e.tracer.Start(
+		ctx, "engine.GetRoleBinding",
+		trace.WithAttributes(attribute.Stringer("role_binding_id", rolebinding.ID)),
+	)
+	defer span.End()
+
+	return e.fetchRoleBinding(ctx, rolebinding)
+}
+
+func (e *engine) isRoleBindable(ctx context.Context, role, res types.Resource) error {
+	req := &pb.CheckPermissionRequest{
+		Resource: &pb.ObjectReference{
+			ObjectType: e.namespaced(res.Type),
+			ObjectId:   res.ID.String(),
+		},
+		Subject: &pb.SubjectReference{
+			Object: &pb.ObjectReference{
+				ObjectType: e.namespaced(e.rbac.RoleResource),
+				ObjectId:   role.ID.String(),
+			},
+		},
+		Permission: iapl.AvailableRoleRelation,
+	}
+
+	err := e.checkPermission(ctx, req)
+
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, ErrActionNotAssigned):
+		return fmt.Errorf("%w: role: %s is not available for resource: %s", ErrRoleNotFound, role.ID, res.ID)
+	default:
+		return err
+	}
+}
+
+// deleteRoleBindingForRole deletes all role-binding relationships with a given role.
+func (e *engine) deleteRoleBindingForRole(ctx context.Context, roleResource types.Resource) error {
 	ctx, span := e.tracer.Start(
 		ctx, "engine.deleteRoleBinding",
 		trace.WithAttributes(
@@ -407,79 +538,6 @@ func (e *engine) fetchRoleBinding(ctx context.Context, roleBinding types.Resourc
 	}
 
 	return rb, nil
-}
-
-func (e *engine) findOrCreateRoleBinding(
-	ctx context.Context, resource types.Resource, role types.Role,
-) (types.RoleBinding, error) {
-	ctx, span := e.tracer.Start(
-		ctx, "engine.findOrCreateRoleBinding",
-		trace.WithAttributes(
-			attribute.Stringer("role_id", role.ID),
-			attribute.Stringer("resource_id", resource.ID),
-		),
-	)
-	defer span.End()
-
-	roleResource := &types.Resource{
-		Type: e.rbac.RoleResource,
-		ID:   role.ID,
-	}
-
-	bindings, err := e.ListRoleBindings(ctx, resource, roleResource)
-	if err != nil {
-		return types.RoleBinding{}, err
-	}
-
-	var roleBinding types.RoleBinding
-
-	switch len(bindings) {
-	case 0:
-		// create new binding if no matching role-binding found
-		rbResourceType, ok := e.schemaTypeMap[e.rbac.RoleBindingResource]
-		if !ok {
-			return types.RoleBinding{}, fmt.Errorf(
-				"%w: invalid role-binding resource type: %s",
-				ErrInvalidType, e.rbac.RoleBindingResource,
-			)
-		}
-
-		roleBinding = newRoleBindingWithPrefix(rbResourceType.IDPrefix, role)
-		roleRel := e.rolebindingRoleRelationship(role.ID.String(), roleBinding.ID.String())
-
-		grantRel, err := e.rolebindingGrantResourceRelationship(resource, roleBinding.ID.String())
-		if err != nil {
-			return types.RoleBinding{}, err
-		}
-
-		_, err = e.client.WriteRelationships(ctx, &pb.WriteRelationshipsRequest{
-			Updates: []*pb.RelationshipUpdate{
-				{
-					Operation:    pb.RelationshipUpdate_OPERATION_TOUCH,
-					Relationship: roleRel,
-				},
-				{
-					Operation:    pb.RelationshipUpdate_OPERATION_TOUCH,
-					Relationship: grantRel,
-				},
-			},
-		})
-		if err != nil {
-			return types.RoleBinding{}, err
-		}
-
-	case 1:
-		roleBinding = bindings[0]
-	default:
-		roleBinding = bindings[0]
-
-		// if there's more than one matching bindings,
-		// return the first role-binding one and print a warning message
-		msg := fmt.Sprintf("found multiple role-bindings for role: %s, resource: %s", role.ID, resource.ID)
-		e.logger.Warn(msg)
-	}
-
-	return roleBinding, nil
 }
 
 func (e *engine) rolebindingSubjectRelationship(subj types.Resource, rbID string) (*pb.Relationship, error) {

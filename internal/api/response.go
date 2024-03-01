@@ -44,6 +44,7 @@ func (r *Router) errorResponse(basemsg string, err error) *echo.HTTPError {
 		httpstatus = http.StatusBadRequest
 	case
 		errors.Is(err, storage.ErrNoRoleFound),
+		errors.Is(err, query.ErrRoleNotFound),
 		errors.Is(err, query.ErrRoleBindingNotFound):
 		httpstatus = http.StatusNotFound
 	default:

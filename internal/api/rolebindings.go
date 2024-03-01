@@ -13,6 +13,8 @@ import (
 
 const (
 	actionRoleBindingCreate = "rolebinding_create"
+	actionRoleBindingGet    = "rolebinding_get"
+	actionRoleBindingUpdate = "rolebinding_update"
 	actionRoleBindingList   = "rolebinding_list"
 	actionRoleBindingDelete = "rolebinding_delete"
 )
@@ -90,20 +92,22 @@ func (r *Router) roleBindingCreate(c echo.Context) error {
 		}
 	}
 
-	rolebinding, err := r.engine.BindRole(ctx, resource, roleResource, subjects)
+	rb, err := r.engine.CreateRoleBinding(ctx, resource, roleResource, subjects)
 	if err != nil {
 		return r.errorResponse("error creating role-binding", err)
 	}
 
-	resp := roleBindingResponse{
-		Subjects: resourceToSubject(rolebinding.Subjects),
-		Role: roleBindingResponseRole{
-			ID:   rolebinding.Role.ID,
-			Name: rolebinding.Role.Name,
+	return c.JSON(
+		http.StatusOK,
+		roleBindingResponse{
+			ID:       rb.ID,
+			Subjects: resourceToSubject(rb.Subjects),
+			Role: roleBindingResponseRole{
+				ID:   rb.Role.ID,
+				Name: rb.Role.Name,
+			},
 		},
-	}
-
-	return c.JSON(http.StatusOK, resp)
+	)
 }
 
 func (r *Router) roleBindingsList(c echo.Context) error {
@@ -162,6 +166,7 @@ func (r *Router) roleBindingsList(c echo.Context) error {
 
 	for i, rb := range rbs {
 		resp.Data[i] = roleBindingResponse{
+			ID:       rb.ID,
 			Subjects: resourceToSubject(rb.Subjects),
 			Role: roleBindingResponseRole{
 				ID:   rb.Role.ID,
@@ -174,24 +179,19 @@ func (r *Router) roleBindingsList(c echo.Context) error {
 }
 
 func (r *Router) roleBindingsDelete(c echo.Context) error {
-	resourceIDStr := c.Param("id")
+	resID := c.Param("id")
+	rbID := c.Param("rb_id")
 
 	ctx, span := tracer.Start(
 		c.Request().Context(), "api.roleBindingDelete",
-		trace.WithAttributes(attribute.String("id", resourceIDStr)),
+		trace.WithAttributes(attribute.String("id", rbID)),
 	)
 	defer span.End()
 
-	resourceID, err := gidx.Parse(resourceIDStr)
+	// resource
+	resourceID, err := gidx.Parse(resID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "error parsing resource ID").SetInternal(err)
-	}
-
-	var body roleBindingRequest
-
-	err = c.Bind(&body)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "error parsing request body").SetInternal(err)
 	}
 
 	resource, err := r.engine.NewResourceFromID(resourceID)
@@ -199,24 +199,144 @@ func (r *Router) roleBindingsDelete(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "error creating resource").SetInternal(err)
 	}
 
-	subjectResource, err := r.currentSubject(c)
+	// role-binding
+	rolebindingID, err := gidx.Parse(rbID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing resource ID").SetInternal(err)
+	}
+
+	rbRes, err := r.engine.NewResourceFromID(rolebindingID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error creating resource").SetInternal(err)
+	}
+
+	actor, err := r.currentSubject(c)
 	if err != nil {
 		return err
 	}
 
 	// permissions on role binding actions, similar to roles v1, are granted on the resources
-	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleBindingDelete, resource); err != nil {
+	if err := r.checkActionWithResponse(ctx, actor, actionRoleBindingDelete, resource); err != nil {
 		return err
 	}
 
-	roleID, err := gidx.Parse(body.RoleID)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "error parsing role ID").SetInternal(err)
+	if err := r.engine.DeleteRoleBinding(ctx, rbRes, resource); err != nil {
+		return r.errorResponse("error updating role-binding", err)
 	}
 
-	roleResource, err := r.engine.NewResourceFromID(roleID)
+	resp := deleteRoleBindingResponse{Success: true}
+
+	return c.JSON(http.StatusOK, resp)
+}
+
+func (r *Router) roleBindingGet(c echo.Context) error {
+	resID := c.Param("id")
+	rbID := c.Param("rb_id")
+
+	ctx, span := tracer.Start(
+		c.Request().Context(), "api.roleBindingGet",
+		trace.WithAttributes(attribute.String("id", rbID)),
+	)
+	defer span.End()
+
+	// resource
+	resourceID, err := gidx.Parse(resID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "error creating role resource").SetInternal(err)
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing resource ID").SetInternal(err)
+	}
+
+	resource, err := r.engine.NewResourceFromID(resourceID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error creating resource").SetInternal(err)
+	}
+
+	// role-binding
+	rolebindingID, err := gidx.Parse(rbID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing resource ID").SetInternal(err)
+	}
+
+	rbRes, err := r.engine.NewResourceFromID(rolebindingID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error creating resource").SetInternal(err)
+	}
+
+	actor, err := r.currentSubject(c)
+	if err != nil {
+		return err
+	}
+
+	// permissions on role binding actions, similar to roles v1, are granted on the resources
+	if err := r.checkActionWithResponse(ctx, actor, actionRoleBindingGet, resource); err != nil {
+		return err
+	}
+
+	rb, err := r.engine.GetRoleBinding(ctx, rbRes)
+	if err != nil {
+		return r.errorResponse("error getting role-binding", err)
+	}
+
+	return c.JSON(
+		http.StatusOK,
+		roleBindingResponse{
+			ID:       rb.ID,
+			Subjects: resourceToSubject(rb.Subjects),
+			Role: roleBindingResponseRole{
+				ID:   rb.Role.ID,
+				Name: rb.Role.Name,
+			},
+		},
+	)
+}
+
+func (r *Router) roleBindingUpdate(c echo.Context) error {
+	resID := c.Param("id")
+	rbID := c.Param("rb_id")
+
+	ctx, span := tracer.Start(
+		c.Request().Context(), "api.roleBindingUpdate",
+		trace.WithAttributes(attribute.String("id", resID)),
+		trace.WithAttributes(attribute.String("rolebinding_id", rbID)),
+	)
+	defer span.End()
+
+	// resource
+	resourceID, err := gidx.Parse(resID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing resource ID").SetInternal(err)
+	}
+
+	resource, err := r.engine.NewResourceFromID(resourceID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error creating resource").SetInternal(err)
+	}
+
+	// role-binding
+	rolebindingID, err := gidx.Parse(rbID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing resource ID").SetInternal(err)
+	}
+
+	rbRes, err := r.engine.NewResourceFromID(rolebindingID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error creating resource").SetInternal(err)
+	}
+
+	actor, err := r.currentSubject(c)
+	if err != nil {
+		return err
+	}
+
+	// permissions on role binding actions, similar to roles v1, are granted on the resources
+	if err := r.checkActionWithResponse(ctx, actor, actionRoleBindingUpdate, resource); err != nil {
+		return err
+	}
+
+	body := &rolebindingUpdateRequest{}
+
+	err = c.Bind(body)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing request body").SetInternal(err)
 	}
 
 	subjects := make([]types.RoleBindingSubject, len(body.Subjects))
@@ -233,11 +353,20 @@ func (r *Router) roleBindingsDelete(c echo.Context) error {
 		}
 	}
 
-	if err := r.engine.UnbindRole(ctx, resource, roleResource, subjects); err != nil {
+	rb, err := r.engine.UpdateRoleBinding(ctx, rbRes, subjects)
+	if err != nil {
 		return r.errorResponse("error updating role-binding", err)
 	}
 
-	resp := deleteRoleBindingResponse{Success: true}
-
-	return c.JSON(http.StatusOK, resp)
+	return c.JSON(
+		http.StatusOK,
+		roleBindingResponse{
+			ID:       rb.ID,
+			Subjects: resourceToSubject(rb.Subjects),
+			Role: roleBindingResponseRole{
+				ID:   rb.Role.ID,
+				Name: rb.Role.Name,
+			},
+		},
+	)
 }
