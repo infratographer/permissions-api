@@ -75,6 +75,25 @@ func (r *Router) Routes(rg *echo.Group) {
 		v1.GET("/allow", r.checkAction)
 		v1.POST("/allow", r.checkAllActions)
 	}
+
+	v2 := rg.Group("api/v2")
+	{
+		v2.Use(r.authMW)
+
+		v2.POST("/resources/:id/roles", r.roleV2Create)
+		v2.GET("/resources/:id/roles", r.roleV2sList)
+		v2.GET("/roles/:role_id", r.roleV2Get)
+		v2.PATCH("/roles/:role_id", r.roleV2Update)
+		v2.DELETE("/roles/:id", r.roleV2Delete)
+
+		v2.GET("/resources/:id/role-bindings", r.roleBindingsList)
+		v2.GET("/resources/:id/role-bindings/:rb_id", r.roleBindingGet)
+		v2.POST("/resources/:id/role-bindings", r.roleBindingCreate)
+		v2.DELETE("/resources/:id/role-bindings/:rb_id", r.roleBindingsDelete)
+		v2.PATCH("/resources/:id/role-bindings/:rb_id", r.roleBindingUpdate)
+
+		v2.GET("/actions", r.listActions)
+	}
 }
 
 func errorMiddleware(next echo.HandlerFunc) echo.HandlerFunc {

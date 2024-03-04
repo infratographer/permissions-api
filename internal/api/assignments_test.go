@@ -42,7 +42,7 @@ func TestAssignmentCreate(t *testing.T) {
 					"subject_id": "bad-id",
 				},
 			},
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
 				engine := mock.Engine{
 					Namespace: "test",
 				}
@@ -67,7 +67,7 @@ func TestAssignmentCreate(t *testing.T) {
 					"subject_id": "idntusr-abc123",
 				},
 			},
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
 				engine := mock.Engine{
 					Namespace: "test",
 				}
@@ -92,7 +92,7 @@ func TestAssignmentCreate(t *testing.T) {
 					"subject_id": "idntusr-def456",
 				},
 			},
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
 				engine := mock.Engine{
 					Namespace: "test",
 				}
@@ -119,7 +119,7 @@ func TestAssignmentCreate(t *testing.T) {
 					"subject_id": "idntusr-def456",
 				},
 			},
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
 				engine := mock.Engine{
 					Namespace: "test",
 				}
@@ -211,7 +211,7 @@ func TestAssignmentsList(t *testing.T) {
 		{
 			Name:  "RoleResourceNotFound",
 			Input: "/api/v1/roles/permrol-abc123/assignments",
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
 				engine := mock.Engine{
 					Namespace: "test",
 				}
@@ -233,7 +233,7 @@ func TestAssignmentsList(t *testing.T) {
 		{
 			Name:  "AssignmentsRetrieved",
 			Input: "/api/v1/roles/permrol-abc123/assignments",
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
 				engine := mock.Engine{
 					Namespace: "test",
 				}
@@ -327,7 +327,7 @@ func TestAssignmentDelete(t *testing.T) {
 					"subject_id": "bad-id",
 				},
 			},
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
 				engine := mock.Engine{
 					Namespace: "test",
 				}
@@ -352,7 +352,7 @@ func TestAssignmentDelete(t *testing.T) {
 					"subject_id": "idntusr-abc123",
 				},
 			},
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
 				engine := mock.Engine{
 					Namespace: "test",
 				}
@@ -377,7 +377,7 @@ func TestAssignmentDelete(t *testing.T) {
 					"subject_id": "idntusr-def456",
 				},
 			},
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
 				engine := mock.Engine{
 					Namespace: "test",
 				}
@@ -404,7 +404,7 @@ func TestAssignmentDelete(t *testing.T) {
 					"subject_id": "idntusr-def456",
 				},
 			},
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
 				engine := mock.Engine{
 					Namespace: "test",
 				}
