@@ -7,10 +7,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"go.infratographer.com/permissions-api/internal/testingx"
+	"go.infratographer.com/permissions-api/internal/types"
 )
 
 func TestPolicy(t *testing.T) {
-	cases := []testingx.TestCase[PolicyDocument, struct{}]{
+	rbac := defaultRBAC()
+
+	cases := []testingx.TestCase[PolicyDocument, Policy]{
 		{
 			Name: "TypeExists",
 			Input: PolicyDocument{
@@ -22,13 +25,13 @@ func TestPolicy(t *testing.T) {
 				Unions: []Union{
 					{
 						Name: "foo",
-						ResourceTypeNames: []string{
-							"foo",
+						ResourceTypes: []types.TargetType{
+							{Name: "foo"},
 						},
 					},
 				},
 			},
-			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[struct{}]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
 				require.ErrorIs(t, res.Err, ErrorTypeExists)
 			},
 		},
@@ -43,13 +46,13 @@ func TestPolicy(t *testing.T) {
 				Unions: []Union{
 					{
 						Name: "bar",
-						ResourceTypeNames: []string{
-							"baz",
+						ResourceTypes: []types.TargetType{
+							{Name: "baz"},
 						},
 					},
 				},
 			},
-			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[struct{}]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
 				require.ErrorIs(t, res.Err, ErrorUnknownType)
 			},
 		},
@@ -64,13 +67,13 @@ func TestPolicy(t *testing.T) {
 				Unions: []Union{
 					{
 						Name: "bar",
-						ResourceTypeNames: []string{
-							"baz",
+						ResourceTypes: []types.TargetType{
+							{Name: "baz"},
 						},
 					},
 				},
 			},
-			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[struct{}]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
 				require.ErrorIs(t, res.Err, ErrorUnknownType)
 			},
 		},
@@ -83,15 +86,15 @@ func TestPolicy(t *testing.T) {
 						Relationships: []Relationship{
 							{
 								Relation: "bar",
-								TargetTypeNames: []string{
-									"baz",
+								TargetTypes: []types.TargetType{
+									{Name: "baz"},
 								},
 							},
 						},
 					},
 				},
 			},
-			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[struct{}]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
 				require.ErrorIs(t, res.Err, ErrorUnknownType)
 			},
 		},
@@ -104,8 +107,8 @@ func TestPolicy(t *testing.T) {
 						Relationships: []Relationship{
 							{
 								Relation: "bar",
-								TargetTypeNames: []string{
-									"foo",
+								TargetTypes: []types.TargetType{
+									{Name: "foo"},
 								},
 							},
 						},
@@ -123,7 +126,7 @@ func TestPolicy(t *testing.T) {
 					},
 				},
 			},
-			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[struct{}]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
 				require.ErrorIs(t, res.Err, ErrorUnknownAction)
 			},
 		},
@@ -136,8 +139,8 @@ func TestPolicy(t *testing.T) {
 						Relationships: []Relationship{
 							{
 								Relation: "bar",
-								TargetTypeNames: []string{
-									"foo",
+								TargetTypes: []types.TargetType{
+									{Name: "foo"},
 								},
 							},
 						},
@@ -163,7 +166,7 @@ func TestPolicy(t *testing.T) {
 					},
 				},
 			},
-			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[struct{}]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
 				require.ErrorIs(t, res.Err, ErrorUnknownAction)
 			},
 		},
@@ -195,7 +198,7 @@ func TestPolicy(t *testing.T) {
 					},
 				},
 			},
-			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[struct{}]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
 				require.ErrorIs(t, res.Err, ErrorUnknownRelation)
 			},
 		},
@@ -208,8 +211,8 @@ func TestPolicy(t *testing.T) {
 						Relationships: []Relationship{
 							{
 								Relation: "bar",
-								TargetTypeNames: []string{
-									"foo",
+								TargetTypes: []types.TargetType{
+									{Name: "foo"},
 								},
 							},
 						},
@@ -221,9 +224,9 @@ func TestPolicy(t *testing.T) {
 				Unions: []Union{
 					{
 						Name: "buzz",
-						ResourceTypeNames: []string{
-							"foo",
-							"baz",
+						ResourceTypes: []types.TargetType{
+							{Name: "foo"},
+							{Name: "baz"},
 						},
 					},
 				},
@@ -247,7 +250,7 @@ func TestPolicy(t *testing.T) {
 					},
 				},
 			},
-			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[struct{}]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
 				require.ErrorIs(t, res.Err, ErrorUnknownRelation)
 			},
 		},
@@ -260,8 +263,8 @@ func TestPolicy(t *testing.T) {
 						Relationships: []Relationship{
 							{
 								Relation: "bar",
-								TargetTypeNames: []string{
-									"foo",
+								TargetTypes: []types.TargetType{
+									{Name: "foo"},
 								},
 							},
 						},
@@ -271,8 +274,8 @@ func TestPolicy(t *testing.T) {
 						Relationships: []Relationship{
 							{
 								Relation: "bar",
-								TargetTypeNames: []string{
-									"foo",
+								TargetTypes: []types.TargetType{
+									{Name: "foo"},
 								},
 							},
 						},
@@ -281,9 +284,9 @@ func TestPolicy(t *testing.T) {
 				Unions: []Union{
 					{
 						Name: "buzz",
-						ResourceTypeNames: []string{
-							"foo",
-							"baz",
+						ResourceTypes: []types.TargetType{
+							{Name: "foo"},
+							{Name: "baz"},
 						},
 					},
 				},
@@ -307,7 +310,7 @@ func TestPolicy(t *testing.T) {
 					},
 				},
 			},
-			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[struct{}]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
 				require.ErrorIs(t, res.Err, ErrorUnknownAction)
 			},
 		},
@@ -320,8 +323,8 @@ func TestPolicy(t *testing.T) {
 						Relationships: []Relationship{
 							{
 								Relation: "bar",
-								TargetTypeNames: []string{
-									"foo",
+								TargetTypes: []types.TargetType{
+									{Name: "foo"},
 								},
 							},
 						},
@@ -331,8 +334,8 @@ func TestPolicy(t *testing.T) {
 						Relationships: []Relationship{
 							{
 								Relation: "bar",
-								TargetTypeNames: []string{
-									"foo",
+								TargetTypes: []types.TargetType{
+									{Name: "foo"},
 								},
 							},
 						},
@@ -341,9 +344,9 @@ func TestPolicy(t *testing.T) {
 				Unions: []Union{
 					{
 						Name: "buzz",
-						ResourceTypeNames: []string{
-							"foo",
-							"baz",
+						ResourceTypes: []types.TargetType{
+							{Name: "foo"},
+							{Name: "baz"},
 						},
 					},
 				},
@@ -367,21 +370,98 @@ func TestPolicy(t *testing.T) {
 					},
 				},
 			},
-			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[struct{}]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
 				require.NoError(t, res.Err)
+			},
+		},
+		{
+			Name: "NoRBACProvided",
+			Input: PolicyDocument{
+				ResourceTypes: []ResourceType{
+					{
+						Name: "foo",
+					},
+					{
+						Name:     "rolev2",
+						IDPrefix: "permrv2",
+					},
+					{
+						Name:     "role_binding",
+						IDPrefix: "permrbn",
+					},
+				},
+			},
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
+				require.NoError(t, res.Err)
+				require.Nil(t, res.Success.RBAC())
+			},
+		},
+		{
+			Name: "RoleOwnerMissing",
+			Input: PolicyDocument{
+				RBAC: &rbac,
+				ResourceTypes: []ResourceType{
+					{
+						Name:     "rolev2",
+						IDPrefix: "permrv2",
+					},
+					{
+						Name:     "role_binding",
+						IDPrefix: "permrbn",
+					},
+				},
+			},
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
+				// unknown resource type: role owner tenant does not exists
+				require.ErrorIs(t, res.Err, ErrorUnknownType)
+			},
+		},
+		{
+			Name: "RBAC_OK",
+			Input: PolicyDocument{
+				RBAC: &RBAC{
+					RoleResource:        RBACResourceDefinition{"rolev2", "permrv2"},
+					RoleBindingResource: RBACResourceDefinition{"role_binding", "permrbn"},
+					RoleSubjectTypes:    []string{"user"},
+					RoleOwners:          []string{"tenant"},
+					RoleBindingSubjects: []types.TargetType{{Name: "user"}},
+				},
+				ResourceTypes: []ResourceType{
+					{
+						Name: "tenant",
+					},
+					{
+						Name:     "user",
+						IDPrefix: "idntusr",
+					},
+				},
+			},
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
+				require.NoError(t, res.Err)
+				require.NotNil(t, res.Success.RBAC())
 			},
 		},
 	}
 
-	testFn := func(_ context.Context, p PolicyDocument) testingx.TestResult[struct{}] {
-		policy := NewPolicy(p)
-		err := policy.Validate()
+	testFn := func(_ context.Context, doc PolicyDocument) testingx.TestResult[Policy] {
+		p := NewPolicy(doc)
+		err := p.Validate()
 
-		return testingx.TestResult[struct{}]{
-			Success: struct{}{},
+		return testingx.TestResult[Policy]{
+			Success: p,
 			Err:     err,
 		}
 	}
 
 	testingx.RunTests(context.Background(), t, cases, testFn)
+}
+
+func defaultRBAC() RBAC {
+	return RBAC{
+		RoleResource:        RBACResourceDefinition{"rolev2", "permrv2"},
+		RoleBindingResource: RBACResourceDefinition{"role_binding", "permrbn"},
+		RoleSubjectTypes:    []string{"user", "client"},
+		RoleOwners:          []string{"tenant"},
+		RoleBindingSubjects: []types.TargetType{{Name: "user"}, {Name: "client"}, {Name: "group", SubjectRelation: "member"}},
+	}
 }

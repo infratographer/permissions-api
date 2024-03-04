@@ -53,6 +53,8 @@ type engine struct {
 	schemaTypeMap            map[string]types.ResourceType
 	schemaSubjectRelationMap map[string]map[string][]string
 	schemaRoleables          []types.ResourceType
+
+	rbac iapl.RBAC
 }
 
 func (e *engine) cacheSchemaResources() {
@@ -67,11 +69,11 @@ func (e *engine) cacheSchemaResources() {
 
 		for _, relationship := range res.Relationships {
 			for _, t := range relationship.Types {
-				if _, ok := e.schemaSubjectRelationMap[t]; !ok {
-					e.schemaSubjectRelationMap[t] = make(map[string][]string)
+				if _, ok := e.schemaSubjectRelationMap[t.Name]; !ok {
+					e.schemaSubjectRelationMap[t.Name] = make(map[string][]string)
 				}
 
-				e.schemaSubjectRelationMap[t][relationship.Relation] = append(e.schemaSubjectRelationMap[t][relationship.Relation], res.Name)
+				e.schemaSubjectRelationMap[t.Name][relationship.Relation] = append(e.schemaSubjectRelationMap[t.Name][relationship.Relation], res.Name)
 			}
 		}
 
@@ -111,7 +113,9 @@ func NewEngine(namespace string, client *authzed.Client, kv nats.KeyValue, store
 	}
 
 	if e.schema == nil {
-		e.schema = iapl.DefaultPolicy().Schema()
+		p := iapl.DefaultPolicy()
+		e.schema = p.Schema()
+		e.rbac = iapl.RBAC{}
 
 		e.cacheSchemaResources()
 	}
@@ -133,6 +137,13 @@ func WithLogger(logger *zap.SugaredLogger) Option {
 func WithPolicy(policy iapl.Policy) Option {
 	return func(e *engine) {
 		e.schema = policy.Schema()
+
+		rbac := policy.RBAC()
+		if rbac == nil {
+			e.rbac = iapl.RBAC{}
+		} else {
+			e.rbac = *rbac
+		}
 
 		e.cacheSchemaResources()
 	}

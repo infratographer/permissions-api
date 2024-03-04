@@ -15,4 +15,8 @@ var (
 	ErrorUnknownRelation = errors.New("unknown relation")
 	// ErrorUnknownAction represents an error where an action is not defined.
 	ErrorUnknownAction = errors.New("unknown action")
+	// ErrorMissingRelationship represents an error where a mandatory relationship is missing.
+	ErrorMissingRelationship = errors.New("missing relationship")
+	// ErrorDuplicateRBACDefinition represents an error where a duplicate RBAC definition was declared.
+	ErrorDuplicateRBACDefinition = errors.New("duplicated RBAC definition")
 )

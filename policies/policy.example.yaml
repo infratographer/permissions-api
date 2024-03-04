@@ -1,34 +1,120 @@
+rbac:
+  roleresource:
+    name: rolev2
+    idprefix: permrv2
+  rolebindingresource: 
+    name: rolebinding
+    idprefix: permrbn
+  rolesubjecttypes:
+    - user
+    - client
+  roleowners:
+    - tenant
+  rolebindingsubjects:
+    - name: user
+    - name: client
+    - name: group
+      subjectrelation: member
+
+unions:
+  - name: group_member
+    resourcetypes:
+      - name: user
+      - name: client
+      - name: group
+        subjectrelation: member
+  - name: tenant_member
+    resourcetypes:
+      - name: user
+      - name: client
+      - name: group
+        subjectrelation: member
+      - name: tenant
+        subjectrelation: member
+  - name: resourceowner
+    resourcetypes:
+      - name: tenant
+  - name: resourceowner_relationship
+    resourcetypes:
+      - name: tenant
+      - name: tenant
+        subjectrelation: parent
+  - name: subject
+    resourcetypes:
+      - name: user
+      - name: client
+  - name: group_parent
+    resourcetypes:
+      - name: group
+      - name: group
+        subjectrelation: parent
+      - name: tenant
+      - name: tenant
+        subjectrelation: parent
+  - name: tenant_parent
+    resourcetypes:
+      - name: tenant
+      - name: tenant
+        subjectrelation: parent
+
 resourcetypes:
   - name: role
     idprefix: permrol
     relationships:
       - relation: subject
-        targettypenames:
-          - subject
+        targettypes:
+          - name: subject
+
   - name: user
     idprefix: idntusr
   - name: client
-    idprefix: idntcli
-  - name: tenant
-    idprefix: tnntten
+    idprefix: idntclt
+
+  - name: group
+    idprefix: idntgrp
+    rolebindingv2:
+      &rolesFromParent
+      inheritpermissionsfrom:
+        - parent
     relationships:
       - relation: parent
-        targettypenames:
-          - tenant
+        targettypes:
+          - name: group_parent
+      - relation: member
+        targettypes:
+          - name: group_member
+      - relation: grant
+        targettypes:
+          - name: rolebinding
+
+  - name: tenant
+    idprefix: tnntten
+    rolebindingv2:
+      *rolesFromParent
+    relationships:
+      - relation: parent
+        targettypes:
+          - name: tenant_parent
+      - relation: member
+        targettypes:
+          - name: tenant_member
+      - relation: grant
+        targettypes:
+          - name: rolebinding
+
   - name: loadbalancer
     idprefix: loadbal
+    rolebindingv2:
+      inheritpermissionsfrom:
+        - owner
     relationships:
       - relation: owner
-        targettypenames:
-          - resourceowner
-unions:
-  - name: subject
-    resourcetypenames:
-      - user
-      - client
-  - name: resourceowner
-    resourcetypenames:
-      - tenant
+        targettypes:
+          - name: resourceowner_relationship
+      - relation: grant
+        targettypes:
+          - name: rolebinding
+
 actions:
   - name: role_create
   - name: role_get
@@ -40,95 +126,142 @@ actions:
   - name: loadbalancer_list
   - name: loadbalancer_update
   - name: loadbalancer_delete
+
 actionbindings:
+  # role management - permissions on role
+  - actionname: role_get
+    typename: rolev2
+    conditions:
+      - relationshipaction:
+          relation: owner
+          actionname: role_get
+  - actionname: role_update
+    typename: rolev2
+    conditions:
+      - relationshipaction:
+          relation: owner
+          actionname: role_update
+  - actionname: role_delete
+    typename: rolev2
+    conditions:
+      - relationshipaction:
+          relation: owner
+          actionname: role_delete
+  # role management - permissions on owner
   - actionname: role_create
     typename: resourceowner
     conditions:
+      - rolebindingv2: {}
       - rolebinding: {}
-      - relationshipaction:
-          relation: parent
-          actionname: role_create
+  - actionname: role_create
+    typename: group
+    conditions:
+      - rolebindingv2: {}
+
   - actionname: role_get
     typename: resourceowner
     conditions:
+      - rolebindingv2: {}
       - rolebinding: {}
-      - relationshipaction:
-          relation: parent
-          actionname: role_get
+  - actionname: role_get
+    typename: group
+    conditions:
+      - rolebindingv2: {}
+
   - actionname: role_list
     typename: resourceowner
     conditions:
+      - rolebindingv2: {}
       - rolebinding: {}
-      - relationshipaction:
-          relation: parent
-          actionname: role_list
+  - actionname: role_list
+    typename: group
+    conditions:
+      - rolebindingv2: {}
+
   - actionname: role_update
     typename: resourceowner
     conditions:
+      - rolebindingv2: {}
       - rolebinding: {}
-      - relationshipaction:
-          relation: parent
-          actionname: role_update
+  - actionname: role_update
+    typename: group
+    conditions:
+      - rolebindingv2: {}
+
   - actionname: role_delete
     typename: resourceowner
     conditions:
+      - rolebindingv2: {}
       - rolebinding: {}
-      - relationshipaction:
-          relation: parent
-          actionname: role_delete
+  - actionname: role_delete
+    typename: group
+    conditions:
+      - rolebindingv2: {}
+
+  # loadbalancer management - permissions on loadbalancer
+  - actionname: loadbalancer_get
+    typename: loadbalancer
+    conditions:
+      - rolebinding: {}
+      - rolebindingv2: {}
+  - actionname: loadbalancer_update
+    typename: loadbalancer
+    conditions:
+      - rolebinding: {}
+      - rolebindingv2: {}
+  - actionname: loadbalancer_delete
+    typename: loadbalancer
+    conditions:
+      - rolebinding: {}
+      - rolebindingv2: {}
+
+  # loadbalancer management - permissions on owner
   - actionname: loadbalancer_create
     typename: resourceowner
     conditions:
+      - rolebindingv2: {}
       - rolebinding: {}
-      - relationshipaction:
-          relation: parent
-          actionname: loadbalancer_create
+  - actionname: loadbalancer_create
+    typename: group
+    conditions:
+      - rolebindingv2: {}
+  
   - actionname: loadbalancer_get
     typename: resourceowner
     conditions:
+      - rolebindingv2: {}
       - rolebinding: {}
-      - relationshipaction:
-          relation: parent
-          actionname: loadbalancer_get
-  - actionname: loadbalancer_update
-    typename: resourceowner
+  - actionname: loadbalancer_get
+    typename: group
     conditions:
-      - rolebinding: {}
-      - relationshipaction:
-          relation: parent
-          actionname: loadbalancer_update
+      - rolebindingv2: {}
+
   - actionname: loadbalancer_list
     typename: resourceowner
     conditions:
+      - rolebindingv2: {}
       - rolebinding: {}
-      - relationshipaction:
-          relation: parent
-          actionname: loadbalancer_list
+  - actionname: loadbalancer_list
+    typename: group
+    conditions:
+      - rolebindingv2: {}
+
+  - actionname: loadbalancer_update
+    typename: resourceowner
+    conditions:
+      - rolebindingv2: {}
+      - rolebinding: {}
+  - actionname: loadbalancer_update
+    typename: group
+    conditions:
+      - rolebindingv2: {}
+
   - actionname: loadbalancer_delete
     typename: resourceowner
     conditions:
+      - rolebindingv2: {}
       - rolebinding: {}
-      - relationshipaction:
-          relation: parent
-          actionname: loadbalancer_delete
-  - actionname: loadbalancer_get
-    typename: loadbalancer
-    conditions:
-      - rolebinding: {}
-      - relationshipaction:
-          relation: owner
-          actionname: loadbalancer_get
-  - actionname: loadbalancer_update
-    typename: loadbalancer
-    conditions:
-      - rolebinding: {}
-      - relationshipaction:
-          relation: owner
-          actionname: loadbalancer_update
   - actionname: loadbalancer_delete
-    typename: loadbalancer
+    typename: group
     conditions:
-      - rolebinding: {}
-      - relationshipaction:
-          relation: owner
-          actionname: loadbalancer_delete
+      - rolebindingv2: {}

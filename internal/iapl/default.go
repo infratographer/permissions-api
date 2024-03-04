@@ -1,5 +1,7 @@
 package iapl
 
+import "go.infratographer.com/permissions-api/internal/types"
+
 // DefaultPolicyDocument returns the default policy document for permissions-api.
 func DefaultPolicyDocument() PolicyDocument {
 	return PolicyDocument{
@@ -10,8 +12,8 @@ func DefaultPolicyDocument() PolicyDocument {
 				Relationships: []Relationship{
 					{
 						Relation: "subject",
-						TargetTypeNames: []string{
-							"subject",
+						TargetTypes: []types.TargetType{
+							{Name: "subject"},
 						},
 					},
 				},
@@ -30,8 +32,8 @@ func DefaultPolicyDocument() PolicyDocument {
 				Relationships: []Relationship{
 					{
 						Relation: "parent",
-						TargetTypeNames: []string{
-							"tenant",
+						TargetTypes: []types.TargetType{
+							{Name: "tenant"},
 						},
 					},
 				},
@@ -42,8 +44,8 @@ func DefaultPolicyDocument() PolicyDocument {
 				Relationships: []Relationship{
 					{
 						Relation: "owner",
-						TargetTypeNames: []string{
-							"resourceowner",
+						TargetTypes: []types.TargetType{
+							{Name: "resourceowner"},
 						},
 					},
 				},
@@ -52,15 +54,15 @@ func DefaultPolicyDocument() PolicyDocument {
 		Unions: []Union{
 			{
 				Name: "subject",
-				ResourceTypeNames: []string{
-					"user",
-					"client",
+				ResourceTypes: []types.TargetType{
+					{Name: "user"},
+					{Name: "client"},
 				},
 			},
 			{
 				Name: "resourceowner",
-				ResourceTypeNames: []string{
-					"tenant",
+				ResourceTypes: []types.TargetType{
+					{Name: "tenant"},
 				},
 			},
 		},

@@ -17,25 +17,27 @@ type PolicyDocument struct {
 	Unions         []Union
 	Actions        []Action
 	ActionBindings []ActionBinding
+	RBAC           *RBAC
 }
 
 // ResourceType represents a resource type in the authorization policy.
 type ResourceType struct {
 	Name          string
 	IDPrefix      string
+	RoleBindingV2 *ResourceRoleBindingV2
 	Relationships []Relationship
 }
 
 // Relationship represents a named relation between two resources.
 type Relationship struct {
-	Relation        string
-	TargetTypeNames []string
+	Relation    string
+	TargetTypes []types.TargetType
 }
 
 // Union represents a named union of multiple concrete resource types.
 type Union struct {
-	Name              string
-	ResourceTypeNames []string
+	Name          string
+	ResourceTypes []types.TargetType
 }
 
 // Action represents an action that can be taken in an authorization policy.
@@ -45,19 +47,26 @@ type Action struct {
 
 // ActionBinding represents a binding of an action to a resource type or union.
 type ActionBinding struct {
-	ActionName string
-	TypeName   string
-	Conditions []Condition
+	ActionName    string
+	TypeName      string
+	Conditions    []Condition
+	ConditionSets []types.ConditionSet
 }
 
 // Condition represents a necessary condition for performing an action.
 type Condition struct {
 	RoleBinding        *ConditionRoleBinding
+	RoleBindingV2      *ConditionRoleBindingV2
 	RelationshipAction *ConditionRelationshipAction
 }
 
 // ConditionRoleBinding represents a condition where a role binding is necessary to perform an action.
 type ConditionRoleBinding struct{}
+
+// ConditionRoleBindingV2 represents a condition where a role binding is necessary to perform an action.
+// Using this condition type in the policy will instruct the policy engine to
+// create all the necessary relationships in the schema to support RBAC V2
+type ConditionRoleBindingV2 struct{}
 
 // ConditionRelationshipAction represents a condition where another action must be allowed on a resource
 // along a relation to perform an action.
@@ -70,6 +79,7 @@ type ConditionRelationshipAction struct {
 type Policy interface {
 	Validate() error
 	Schema() []types.ResourceType
+	RBAC() *RBAC
 }
 
 var _ Policy = &policy{}
@@ -85,7 +95,7 @@ type policy struct {
 
 // NewPolicy creates a policy from the given policy document.
 func NewPolicy(p PolicyDocument) Policy {
-	rt := make(map[string]ResourceType, len(p.ResourceTypes))
+	rt := make(map[string]ResourceType)
 	for _, r := range p.ResourceTypes {
 		rt[r.Name] = r
 	}
@@ -95,7 +105,8 @@ func NewPolicy(p PolicyDocument) Policy {
 		un[t.Name] = t
 	}
 
-	ac := make(map[string]Action, len(p.Actions))
+	ac := map[string]Action{}
+
 	for _, a := range p.Actions {
 		ac[a.Name] = a
 	}
@@ -105,6 +116,16 @@ func NewPolicy(p PolicyDocument) Policy {
 		un: un,
 		ac: ac,
 		p:  p,
+	}
+
+	if p.RBAC != nil {
+		for _, rba := range p.RBAC.RoleBindingActions() {
+			out.ac[rba.Name] = rba
+		}
+
+		out.createV2RoleResourceType()
+		out.createRoleBindingResourceType()
+		out.expandRBACV2Relationships()
 	}
 
 	out.expandActionBindings()
@@ -122,6 +143,10 @@ func (p PolicyDocument) MergeWithPolicyDocument(other PolicyDocument) PolicyDocu
 	p.Actions = append(p.Actions, other.Actions...)
 
 	p.ActionBindings = append(p.ActionBindings, other.ActionBindings...)
+
+	if other.RBAC != nil {
+		p.RBAC = other.RBAC
+	}
 
 	return p
 }
@@ -159,6 +184,10 @@ func NewPolicyFromFiles(filePaths []string) (Policy, error) {
 			return nil, err
 		}
 
+		if mergedPolicy.RBAC != nil && filePolicy.RBAC != nil {
+			return nil, ErrorDuplicateRBACDefinition
+		}
+
 		mergedPolicy = mergedPolicy.MergeWithPolicyDocument(filePolicy)
 	}
 
@@ -189,9 +218,9 @@ func (v *policy) validateUnions() error {
 			return fmt.Errorf("%s: %w", union.Name, ErrorTypeExists)
 		}
 
-		for _, rtName := range union.ResourceTypeNames {
-			if _, ok := v.rt[rtName]; !ok {
-				return fmt.Errorf("%s: resourceTypeNames: %s: %w", union.Name, rtName, ErrorUnknownType)
+		for _, rt := range union.ResourceTypes {
+			if _, ok := v.rt[rt.Name]; !ok {
+				return fmt.Errorf("%s: resourceTypes: %s: %w", union.Name, rt.Name, ErrorUnknownType)
 			}
 		}
 	}
@@ -200,11 +229,15 @@ func (v *policy) validateUnions() error {
 }
 
 func (v *policy) validateResourceTypes() error {
-	for _, resourceType := range v.p.ResourceTypes {
+	for _, resourceType := range v.rt {
 		for _, rel := range resourceType.Relationships {
-			for _, name := range rel.TargetTypeNames {
-				if _, ok := v.rt[name]; !ok {
-					return fmt.Errorf("%s: relationships: %s: %w", resourceType.Name, name, ErrorUnknownType)
+			for _, tt := range rel.TargetTypes {
+				if _, ok := v.rt[tt.Name]; !ok {
+					return fmt.Errorf("%s: relationships: %s: %w", resourceType.Name, tt.Name, ErrorUnknownType)
+				}
+
+				if tt.SubjectRelation != "" && !v.findRelationship(v.rt[tt.Name].Relationships, tt.SubjectRelation) {
+					return fmt.Errorf("%s: subject-relation: %s: %w", resourceType.Name, tt.SubjectRelation, ErrorUnknownRelation)
 				}
 			}
 		}
@@ -232,9 +265,24 @@ func (v *policy) validateConditionRelationshipAction(rt ResourceType, c Conditio
 		return fmt.Errorf("%s: %w", c.Relation, ErrorUnknownRelation)
 	}
 
-	for _, tn := range rel.TargetTypeNames {
-		if _, ok := v.rb[tn][c.ActionName]; !ok {
-			return fmt.Errorf("%s: %s: %s: %w", c.Relation, tn, c.ActionName, ErrorUnknownAction)
+	// if there's a relationship action defined with only the relation,
+	// e.g.,
+	// ```yaml
+	// actionname: someaction
+	// typename: someresource
+	// conditions:
+	//   - relationshipaction:
+	//       relation: some_relation
+	// ```
+	// the above logics ensure that `some_relation` exists, thus can safely
+	// return without error
+	if c.ActionName == "" {
+		return nil
+	}
+
+	for _, tt := range rel.TargetTypes {
+		if _, ok := v.rb[tt.Name][c.ActionName]; !ok {
+			return fmt.Errorf("%s: %s: %s: %w", c.Relation, tt.Name, c.ActionName, ErrorUnknownAction)
 		}
 	}
 
@@ -245,6 +293,10 @@ func (v *policy) validateConditions(rt ResourceType, conds []Condition) error {
 	for i, cond := range conds {
 		var numClauses int
 		if cond.RoleBinding != nil {
+			numClauses++
+		}
+
+		if cond.RoleBindingV2 != nil {
 			numClauses++
 		}
 
@@ -303,14 +355,34 @@ func (v *policy) validateActionBindings() error {
 	return nil
 }
 
+// validateRoles validates V2 role resource types to ensure that:
+//   - role resource type has a valid owner relationship
+func (v *policy) validateRoles() error {
+	if v.p.RBAC == nil {
+		return nil
+	}
+
+	for _, roleOwnerName := range v.p.RBAC.RoleOwners {
+		_, ok := v.rt[roleOwnerName]
+
+		// check if role owner exists
+		if !ok {
+			return fmt.Errorf("%w: role owner %s does not exist", ErrorUnknownType, roleOwnerName)
+		}
+	}
+
+	return nil
+}
+
 func (v *policy) expandActionBindings() {
 	for _, bn := range v.p.ActionBindings {
 		if u, ok := v.un[bn.TypeName]; ok {
-			for _, typeName := range u.ResourceTypeNames {
+			for _, resourceType := range u.ResourceTypes {
 				binding := ActionBinding{
-					TypeName:   typeName,
-					ActionName: bn.ActionName,
-					Conditions: bn.Conditions,
+					TypeName:      resourceType.Name,
+					ActionName:    bn.ActionName,
+					Conditions:    bn.Conditions,
+					ConditionSets: bn.ConditionSets,
 				}
 				v.bn = append(v.bn, binding)
 			}
@@ -331,20 +403,262 @@ func (v *policy) expandActionBindings() {
 	}
 }
 
+// createV2RoleResourceType creates a v2 role resource type contains a list of relationships
+// representing all the actions, as well as relationships and permissions for
+// the management of the roles themselves.
+// This is equivalent to including a resource that looks like:
+//
+//	name: rolev2
+//	idprefix: permrv2
+//	relationships:
+//	  - relation: owner
+//	    targettypes:
+//	      - name: tenant
+//	  - relation: foo_resource_get_rel
+//	    targettypes:
+//	      - name: user
+//	        subjectidentifier: "*"
+func (v *policy) createV2RoleResourceType() {
+	role := ResourceType{
+		Name:     v.p.RBAC.RoleResource.Name,
+		IDPrefix: v.p.RBAC.RoleResource.IDPrefix,
+	}
+
+	// 1. create a relationship for role owners
+	roleOwners := Relationship{
+		Relation:    RoleOwnerRelation,
+		TargetTypes: make([]types.TargetType, len(v.p.RBAC.RoleOwners)),
+	}
+
+	for i, owner := range v.p.RBAC.RoleOwners {
+		roleOwners.TargetTypes[i] = types.TargetType{Name: owner}
+	}
+
+	// 2. create a list of relationships for all permissions and ownerships
+	roleRel := make([]Relationship, 0, len(v.ac)+1)
+
+	for _, action := range v.ac {
+		targettypes := make([]types.TargetType, len(v.p.RBAC.RoleSubjectTypes))
+
+		for j, subject := range v.p.RBAC.RoleSubjectTypes {
+			targettypes[j] = types.TargetType{Name: subject, SubjectIdentifier: "*"}
+		}
+
+		roleRel = append(roleRel,
+			Relationship{
+				Relation:    action.Name + PermissionRelationSuffix,
+				TargetTypes: targettypes,
+			},
+		)
+	}
+
+	// 3. create a role resource type containing all the relationships shown above
+	roleRel = append(roleRel, roleOwners)
+
+	role.Relationships = roleRel
+	v.rt[role.Name] = role
+}
+
+// createRoleBindingResourceType creates a role-binding resource type contains
+// a list of all the actions.
+// The role-binding resources will be used to create a 3-way relationship
+// between a resource, a subject and a role.
+//
+// this function effectively creates:
+// 1. a resource type like this:
+//
+//	name: rolebinding
+//	idprefix: permrbn
+//	relationships:
+//	  - relation: rolev2
+//	    targettypes:
+//	      - name: rolev2
+//	  - relation: subject
+//	    targettypes:
+//	      - name: user
+//	        subjectidentifier: "*"
+//
+// 2. a list of action-bindings representing permissions for all the actions in the policy
+//
+//	actionbindings:
+//	  - actionname: foo_resource_get
+//	    typename: rolebinding
+//	    conditionsets:
+//	      - conditions:
+//	        - relationshipaction:
+//	            relation: rolev2
+//	            actionname: foo_resource_get_rel
+//	      - conditions:
+//	        - relationshipaction:
+//	            relation: subject
+//	   # ... other action bindings on the rolebinding resource for each
+//	   # action defined in the policy
+func (v *policy) createRoleBindingResourceType() {
+	rolebinding := ResourceType{
+		Name:     v.p.RBAC.RoleBindingResource.Name,
+		IDPrefix: v.p.RBAC.RoleBindingResource.IDPrefix,
+	}
+
+	role := Relationship{
+		Relation: RolebindingRoleRelation,
+		TargetTypes: []types.TargetType{
+			{Name: v.p.RBAC.RoleResource.Name},
+		},
+	}
+
+	// 2. create relationship to subjects
+	subjects := Relationship{
+		Relation:    RolebindingSubjectRelation,
+		TargetTypes: v.p.RBAC.RoleBindingSubjects,
+	}
+
+	// 3. create a list of action-bindings representing permissions for all the
+	// actions in the policy
+	actionbindings := make([]ActionBinding, 0, len(v.ac))
+
+	for actionName := range v.ac {
+		ab := ActionBinding{
+			ActionName: actionName,
+			TypeName:   v.p.RBAC.RoleBindingResource.Name,
+			ConditionSets: []types.ConditionSet{
+				{
+					Conditions: []types.Condition{
+						{
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation:   RolebindingRoleRelation,
+								ActionName: actionName + PermissionRelationSuffix,
+							},
+						},
+					},
+				},
+				{
+					Conditions: []types.Condition{
+						{RelationshipAction: &types.ConditionRelationshipAction{Relation: RolebindingSubjectRelation}},
+					},
+				},
+			},
+		}
+
+		actionbindings = append(actionbindings, ab)
+	}
+
+	v.bn = append(v.bn, actionbindings...)
+
+	// 4. create role-binding resource type
+	rolebinding.Relationships = []Relationship{role, subjects}
+	v.rt[v.p.RBAC.RoleBindingResource.Name] = rolebinding
+}
+
+// expandRBACV2Relationships adds RBAC V2 relationships to all the resource
+// types that has `ResourceRoleBindingV2` defined.
+// Relationships like member_roles, available_roles, are created to support
+// role inheritance, e.g., an org should be able to use roles defined by its
+// parents.
+// This function augments the resource types and effectively creating
+// resource types like this:
+//
+// 1. for resource owners, `member_role` relationship is added
+//
+//	```diff
+//	 resourcetypes:
+//	   name: tenant
+//	   idprefix: tnntten
+//	   rolebindingv2:
+//	     *rolesFromParent
+//	   relationships:
+//	     - relation: parent
+//	       targettypes:
+//	         - name: tenant_parent
+//	     # ... other existing relationships
+//	+	  - relation: member_role
+//	+	    targettypes:
+//	+	      - name: rolev2
+//
+//	```
+//
+// 2. for resources that inherit permissions from other resources, `available_roles`
+// action is added
+//
+//	```diff
+//	  actionbindings:
+//	  # ... other existing action bindings
+//	+   - actionname: available_roles
+//	+     typename: tenant
+//	+     conditions:
+//	+       - relationshipaction:
+//	+           relation: member_role
+//	+       - relationshipaction:
+//	+           relation: parent
+//	+           actionname: available_roles
+//	```
+func (v *policy) expandRBACV2Relationships() {
+	for name, resourceType := range v.rt {
+		// not all roles are available for all resources, available roles are
+		// the roles that a resource owners (if it is a role-owner) or inherited
+		// from their owner or parent
+		availableRoles := []Condition{}
+
+		// if resource type is a role-owner, add the role-relationship to the
+		// resource
+		if _, ok := v.RBAC().RoleOwnersSet()[name]; ok {
+			memberRoleRelation := Relationship{
+				Relation: RoleOwnerMemberRoleRelation,
+				TargetTypes: []types.TargetType{
+					{Name: v.p.RBAC.RoleResource.Name},
+				},
+			}
+
+			resourceType.Relationships = append(resourceType.Relationships, memberRoleRelation)
+
+			// i.e. avail_role = member_role
+			availableRoles = append(availableRoles, Condition{
+				RelationshipAction: &ConditionRelationshipAction{
+					Relation: RoleOwnerMemberRoleRelation,
+				},
+			})
+		}
+
+		// i.e. avail_role = from[0]->avail_role + from[1]->avail_role ...
+		if resourceType.RoleBindingV2 != nil {
+			for _, from := range resourceType.RoleBindingV2.InheritPermissionsFrom {
+				availableRoles = append(availableRoles, Condition{
+					RelationshipAction: &ConditionRelationshipAction{
+						Relation:   from,
+						ActionName: AvailableRolesList,
+					},
+				})
+			}
+		}
+
+		// create available role permission
+		if len(availableRoles) > 0 {
+			action := ActionBinding{
+				ActionName: AvailableRolesList,
+				TypeName:   resourceType.Name,
+				Conditions: availableRoles,
+			}
+
+			v.bn = append(v.bn, action)
+		}
+
+		v.rt[name] = resourceType
+	}
+}
+
 func (v *policy) expandResourceTypes() {
 	for name, resourceType := range v.rt {
 		for i, rel := range resourceType.Relationships {
-			var typeNames []string
+			targettypes := []types.TargetType{}
 
-			for _, typeName := range rel.TargetTypeNames {
-				if u, ok := v.un[typeName]; ok {
-					typeNames = append(typeNames, u.ResourceTypeNames...)
+			for _, tt := range rel.TargetTypes {
+				if u, ok := v.un[tt.Name]; ok {
+					targettypes = append(targettypes, u.ResourceTypes...)
 				} else {
-					typeNames = append(typeNames, typeName)
+					targettypes = append(targettypes, tt)
 				}
 			}
 
-			resourceType.Relationships[i].TargetTypeNames = typeNames
+			resourceType.Relationships[i].TargetTypes = targettypes
 		}
 
 		v.rt[name] = resourceType
@@ -364,11 +678,16 @@ func (v *policy) Validate() error {
 		return fmt.Errorf("actionBindings: %w", err)
 	}
 
+	if err := v.validateRoles(); err != nil {
+		return fmt.Errorf("roles: %w", err)
+	}
+
 	return nil
 }
 
 func (v *policy) Schema() []types.ResourceType {
 	typeMap := map[string]*types.ResourceType{}
+	rbv2Actions := map[string][]types.Action{}
 
 	for n, rt := range v.rt {
 		out := types.ResourceType{
@@ -379,7 +698,7 @@ func (v *policy) Schema() []types.ResourceType {
 		for _, rel := range rt.Relationships {
 			outRel := types.ResourceTypeRelationship{
 				Relation: rel.Relation,
-				Types:    rel.TargetTypeNames,
+				Types:    rel.TargetTypes,
 			}
 
 			out.Relationships = append(out.Relationships, outRel)
@@ -389,26 +708,81 @@ func (v *policy) Schema() []types.ResourceType {
 	}
 
 	for _, b := range v.bn {
+		actionName := b.ActionName
+
 		action := types.Action{
-			Name: b.ActionName,
+			Name: actionName,
 		}
+
+		// rbac V2 actions
+		res := v.rt[b.TypeName]
 
 		for _, c := range b.Conditions {
-			condition := types.Condition{
-				RoleBinding:        (*types.ConditionRoleBinding)(c.RoleBinding),
-				RelationshipAction: (*types.ConditionRelationshipAction)(c.RelationshipAction),
+			var conditions []types.Condition
+
+			switch {
+			case c.RoleBinding != nil:
+				conditions = []types.Condition{
+					{
+						RelationshipAction: &types.ConditionRelationshipAction{
+							Relation: actionName + PermissionRelationSuffix,
+						},
+						RoleBinding: &types.ConditionRoleBinding{},
+					},
+				}
+
+				actionRel := types.ResourceTypeRelationship{
+					Relation: actionName + PermissionRelationSuffix,
+					Types:    []types.TargetType{{Name: RolebindingRoleRelation, SubjectRelation: RolebindingSubjectRelation}},
+				}
+
+				typeMap[b.TypeName].Relationships = append(typeMap[b.TypeName].Relationships, actionRel)
+			case c.RoleBindingV2 != nil && res.RoleBindingV2 != nil:
+				conditions = v.RBAC().CreateRoleBindingConditionsForAction(actionName, res.RoleBindingV2.InheritPermissionsFrom...)
+
+				// add role-binding v2 conditions to the resource, if not exists
+				if _, ok := rbv2Actions[b.TypeName]; !ok {
+					rbv2Actions[b.TypeName] = v.RBAC().CreateRoleBindingActionsForResource(res.RoleBindingV2.InheritPermissionsFrom...)
+				}
+			default:
+				conditions = []types.Condition{
+					{
+						RelationshipAction: (*types.ConditionRelationshipAction)(c.RelationshipAction),
+					},
+				}
 			}
 
-			action.Conditions = append(action.Conditions, condition)
+			action.Conditions = append(action.Conditions, conditions...)
 		}
+
+		action.ConditionSets = b.ConditionSets
 
 		typeMap[b.TypeName].Actions = append(typeMap[b.TypeName].Actions, action)
 	}
 
-	out := make([]types.ResourceType, len(v.p.ResourceTypes))
-	for i, rt := range v.p.ResourceTypes {
-		out[i] = *typeMap[rt.Name]
+	for resType, actions := range rbv2Actions {
+		typeMap[resType].Actions = append(typeMap[resType].Actions, actions...)
+	}
+
+	out := make([]types.ResourceType, 0, len(typeMap))
+	for _, rt := range typeMap {
+		out = append(out, *rt)
 	}
 
 	return out
+}
+
+// RBAC returns the RBAC configurations
+func (v *policy) RBAC() *RBAC {
+	return v.p.RBAC
+}
+
+func (v *policy) findRelationship(rels []Relationship, name string) bool {
+	for _, rel := range rels {
+		if rel.Relation == name {
+			return true
+		}
+	}
+
+	return false
 }

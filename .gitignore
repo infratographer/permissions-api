@@ -17,8 +17,26 @@
 # Emacs stuff
 *~
 
+# vscode stuff
+.vscode/*
+.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+
+# Local History for Visual Studio Code
+.history/
+
+# Built Visual Studio Code Extensions
+*.vsix
+
 # .tools dir
 .tools/
 
 # NATS dirs
 .devcontainer/nsc/
+resolver.conf
+
+# binary files
+permissions-api
+tmp
