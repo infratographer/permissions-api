@@ -42,12 +42,14 @@ func NewClient(cfg Config, enableTracing bool) (*authzed.Client, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to load system certificates: %w", err)
 			}
+
 			clientOpts = append(clientOpts, opt)
 		} else {
 			opt, err := grpcutil.WithSystemCerts(grpcutil.SkipVerifyCA)
 			if err != nil {
 				return nil, fmt.Errorf("failed to load system certificates: %w", err)
 			}
+
 			clientOpts = append(clientOpts, opt)
 		}
 	}

@@ -13,6 +13,13 @@ import (
 
 var (
 	mermaidTemplate = `erDiagram
+{{- if ne .RBAC.RoleResource nil}}
+	{{ .RBAC.RoleBindingResource }} }o--o{ {{ .RBAC.RoleResource }} : role
+	{{- range $subj := .RBAC.RoleBindingSubjects }}
+	{{ $.RBAC.RoleBindingResource }} }o--o{ {{ $subj.Name }} : subject
+	{{- end }}
+{{- end }}
+
 {{- range $resource := .ResourceTypes }}
 	{{ $resource.Name }} {
 		id_prefix {{ $resource.IDPrefix }}
@@ -29,6 +36,11 @@ var (
 	{{- range $targetName := $rel.TargetTypeNames }}
 	{{ $resource.Name }} }o--o{ {{ $targetName }} : {{ $rel.Relation }}
 	{{- end }}
+
+	{{- range $target := $rel.TargetTypes }}
+	{{ $resource.Name }} }o--o{ {{ $target.Name -}} : {{ $rel.Relation -}}
+	{{- end }}
+
 	{{- end }}
 {{- end }}
 {{- range $union := .Unions }}
@@ -45,7 +57,13 @@ var (
 	{{- range $typ := $union.ResourceTypeNames }}
 	{{ $union.Name }} ||--|| {{ $typ }} : alias
 	{{- end }}
-{{- end }}`
+
+	{{- range $typ := $union.ResourceTypes }}
+	{{ $union.Name }} ||--|| {{ $typ.Name -}} : alias
+	{{- end}}
+
+{{- end }}
+`
 
 	mermaidTmpl = template.Must(template.New("mermaid").Parse(mermaidTemplate))
 )
@@ -55,6 +73,7 @@ type mermaidContext struct {
 	Unions         []iapl.Union
 	Actions        map[string][]string
 	RelatedActions map[string]map[string][]string
+	RBAC           *iapl.RBAC
 }
 
 func outputPolicyMermaid(filePath string, markdown bool) {
@@ -99,6 +118,11 @@ func outputPolicyMermaid(filePath string, markdown bool) {
 		Unions:         policy.Unions,
 		Actions:        actions,
 		RelatedActions: relatedActions,
+		RBAC:           nil,
+	}
+
+	if policy.RBAC != nil {
+		ctx.RBAC = policy.RBAC
 	}
 
 	var out bytes.Buffer

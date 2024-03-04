@@ -1,3 +1,62 @@
+rbac:
+  roleresource: rolev2
+  rolerelationshipsubjects:
+    - user
+    - client
+  roleowners:
+    - tenant
+  rolebindingresource: role_binding
+  rolebindingsubjects:
+    - name: user
+    - name: client
+    - name: group
+      subjectrelation: member
+  # rolebindingpermissionsprefix generates permissions to manage role bindings,
+  # e.g. rolebinding_create, rolebinding_get, rolebinding_delete, etc.
+  rolebindingpermissionsprefix: rolebinding
+  grantrelationship: grant
+
+unions:
+  - name: group_member
+    resourcetypes:
+      - name: user
+      - name: client
+      - name: group
+        subjectrelation: member
+  - name: tenant_member
+    resourcetypes:
+      - name: user
+      - name: client
+      - name: group
+        subjectrelation: member
+      - name: tenant
+        subjectrelation: member
+  - name: resourceowner
+    resourcetypes:
+      - name: tenant
+  - name: resourceowner_relationship
+    resourcetypes:
+      - name: tenant
+      - name: tenant
+        subjectrelation: parent
+  - name: subject
+    resourcetypenames:
+      - user
+      - client
+  - name: group_parent
+    resourcetypes:
+      - name: group
+      - name: group
+        subjectrelation: parent
+      - name: tenant
+      - name: tenant
+        subjectrelation: parent
+  - name: tenant_parent
+    resourcetypes:
+      - name: tenant
+      - name: tenant
+        subjectrelation: parent
+
 resourcetypes:
   - name: role
     idprefix: permrol
@@ -5,30 +64,61 @@ resourcetypes:
       - relation: subject
         targettypenames:
           - subject
+  - name: rolev2
+    idprefix: permrv2
+  - name: role_binding
+    idprefix: permrbn
+
   - name: user
     idprefix: idntusr
   - name: client
-    idprefix: idntcli
-  - name: tenant
-    idprefix: tnntten
+    idprefix: idntclt
+
+  - name: group
+    idprefix: idntgrp
+    rolebindingv2:
+      &rolesFromParent
+      availablerolesfrom:
+        - parent
     relationships:
       - relation: parent
         targettypenames:
-          - tenant
+          - group_parent
+      - relation: member
+        targettypenames:
+          - group_member
+      - relation: grant
+        targettypes:
+          - name: role_binding
+
+  - name: tenant
+    idprefix: tnntten
+    rolebindingv2:
+      *rolesFromParent
+    relationships:
+      - relation: parent
+        targettypenames:
+          - tenant_parent
+      - relation: member
+        targettypenames:
+          - tenant_member
+      - relation: grant
+        targettypes:
+          - name: role_binding
+
   - name: loadbalancer
     idprefix: loadbal
+    rolebindingv2:
+      availablerolesfrom:
+        - owner
     relationships:
       - relation: owner
         targettypenames:
-          - resourceowner
-unions:
-  - name: subject
-    resourcetypenames:
-      - user
-      - client
-  - name: resourceowner
-    resourcetypenames:
-      - tenant
+          - resourceowner_relationship
+      - relation: grant
+        targettypes:
+          - name: role_binding
+
 actions:
   - name: role_create
   - name: role_get
@@ -40,95 +130,148 @@ actions:
   - name: loadbalancer_list
   - name: loadbalancer_update
   - name: loadbalancer_delete
+
 actionbindings:
+  # role management - permissions on role
+  - actionname: role_get
+    typename: rolev2
+    conditions:
+      - relationshipaction:
+          relation: owner
+          actionname: role_get
+  - actionname: role_update
+    typename: rolev2
+    conditions:
+      - relationshipaction:
+          relation: owner
+          actionname: role_update
+  - actionname: role_delete
+    typename: rolev2
+    conditions:
+      - relationshipaction:
+          relation: owner
+          actionname: role_delete
+  # role management - permissions on owner
   - actionname: role_create
     typename: resourceowner
     conditions:
+      - &rbv2parent
+        rolebindingv2:
+          inheritgrants:
+            - parent
       - rolebinding: {}
-      - relationshipaction:
-          relation: parent
-          actionname: role_create
+  - actionname: role_create
+    typename: group
+    conditions:
+      - *rbv2parent
+
   - actionname: role_get
     typename: resourceowner
     conditions:
+      - *rbv2parent
       - rolebinding: {}
-      - relationshipaction:
-          relation: parent
-          actionname: role_get
+  - actionname: role_get
+    typename: group
+    conditions:
+      - *rbv2parent
+
   - actionname: role_list
     typename: resourceowner
     conditions:
+      - *rbv2parent
       - rolebinding: {}
-      - relationshipaction:
-          relation: parent
-          actionname: role_list
+  - actionname: role_list
+    typename: group
+    conditions:
+      - *rbv2parent
+
   - actionname: role_update
     typename: resourceowner
     conditions:
+      - *rbv2parent
       - rolebinding: {}
-      - relationshipaction:
-          relation: parent
-          actionname: role_update
+  - actionname: role_update
+    typename: group
+    conditions:
+      - *rbv2parent
+
   - actionname: role_delete
     typename: resourceowner
     conditions:
+      - *rbv2parent
       - rolebinding: {}
-      - relationshipaction:
-          relation: parent
-          actionname: role_delete
+  - actionname: role_delete
+    typename: group
+    conditions:
+      - *rbv2parent
+
+  # loadbalancer management - permissions on loadbalancer
+  - actionname: loadbalancer_get
+    typename: loadbalancer
+    conditions:
+      - rolebinding: {}
+      - &rbv2owner
+        rolebindingv2:
+          inheritgrants:
+            - owner
+  - actionname: loadbalancer_update
+    typename: loadbalancer
+    conditions:
+      - rolebinding: {}
+      - *rbv2owner
+  - actionname: loadbalancer_delete
+    typename: loadbalancer
+    conditions:
+      - rolebinding: {}
+      - *rbv2owner
+
+  # loadbalancer management - permissions on owner
   - actionname: loadbalancer_create
     typename: resourceowner
     conditions:
+      - *rbv2parent
       - rolebinding: {}
-      - relationshipaction:
-          relation: parent
-          actionname: loadbalancer_create
+  - actionname: loadbalancer_create
+    typename: group
+    conditions:
+      - *rbv2parent
+  
   - actionname: loadbalancer_get
     typename: resourceowner
     conditions:
+      - *rbv2parent
       - rolebinding: {}
-      - relationshipaction:
-          relation: parent
-          actionname: loadbalancer_get
-  - actionname: loadbalancer_update
-    typename: resourceowner
+  - actionname: loadbalancer_get
+    typename: group
     conditions:
-      - rolebinding: {}
-      - relationshipaction:
-          relation: parent
-          actionname: loadbalancer_update
+      - *rbv2parent
+
   - actionname: loadbalancer_list
     typename: resourceowner
     conditions:
+      - *rbv2parent
       - rolebinding: {}
-      - relationshipaction:
-          relation: parent
-          actionname: loadbalancer_list
+  - actionname: loadbalancer_list
+    typename: group
+    conditions:
+      - *rbv2parent
+
+  - actionname: loadbalancer_update
+    typename: resourceowner
+    conditions:
+      - *rbv2parent
+      - rolebinding: {}
+  - actionname: loadbalancer_update
+    typename: group
+    conditions:
+      - *rbv2parent
+
   - actionname: loadbalancer_delete
     typename: resourceowner
     conditions:
+      - *rbv2parent
       - rolebinding: {}
-      - relationshipaction:
-          relation: parent
-          actionname: loadbalancer_delete
-  - actionname: loadbalancer_get
-    typename: loadbalancer
-    conditions:
-      - rolebinding: {}
-      - relationshipaction:
-          relation: owner
-          actionname: loadbalancer_get
-  - actionname: loadbalancer_update
-    typename: loadbalancer
-    conditions:
-      - rolebinding: {}
-      - relationshipaction:
-          relation: owner
-          actionname: loadbalancer_update
   - actionname: loadbalancer_delete
-    typename: loadbalancer
+    typename: group
     conditions:
-      - rolebinding: {}
-      - relationshipaction:
-          relation: owner
-          actionname: loadbalancer_delete
+      - *rbv2parent

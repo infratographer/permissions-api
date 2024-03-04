@@ -48,8 +48,8 @@ func (e *engine) validateRelationship(rel types.Relationship) error {
 		// If we find a relation with a name and type that matches our relationship,
 		// return
 		if rel.Relation == typeRel.Relation {
-			for _, typeName := range typeRel.Types {
-				if subjType.Name == typeName {
+			for _, t := range typeRel.Types {
+				if subjType.Name == t.Name {
 					return nil
 				}
 			}
@@ -760,7 +760,8 @@ func (e *engine) relationshipsToNonRoles(rels []*pb.Relationship) ([]types.Relat
 	var out []types.Relationship
 
 	for _, rel := range rels {
-		if rel.Subject.Object.ObjectType == e.namespace+"/role" {
+		// skip relationships for v1 roles, and wildcard relationships for v2 roles
+		if rel.Subject.Object.ObjectType == e.namespace+"/role" || rel.Subject.Object.ObjectId == "*" {
 			continue
 		}
 
@@ -849,6 +850,21 @@ func (e *engine) ListRoles(ctx context.Context, resource types.Resource) ([]type
 		return nil, err
 	}
 
+	dbRolesv1 := make([]storage.Role, 0, len(dbRoles))
+
+	for _, dbRole := range dbRoles {
+		res, err := e.NewResourceFromID(dbRole.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		if res.Type == e.rbac.RoleResource {
+			continue
+		}
+
+		dbRolesv1 = append(dbRolesv1, dbRole)
+	}
+
 	resType := e.namespace + "/" + resource.Type
 	roleType := e.namespace + "/role"
 
@@ -876,9 +892,9 @@ func (e *engine) ListRoles(ctx context.Context, resource types.Resource) ([]type
 		rolesByID[role.ID] = role
 	}
 
-	out := make([]types.Role, len(dbRoles))
+	out := make([]types.Role, len(dbRolesv1))
 
-	for i, dbRole := range dbRoles {
+	for i, dbRole := range dbRolesv1 {
 		spicedbRole := rolesByID[dbRole.ID]
 
 		out[i] = types.Role{
