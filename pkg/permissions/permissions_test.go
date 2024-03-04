@@ -110,6 +110,18 @@ func TestPermissions(t *testing.T) {
 			nil,
 		},
 		{
+			"allow unconfigured checks",
+			permissions.Config{
+				DefaultAllow: true,
+			},
+			nil,
+			"",
+			"somersc-abc123",
+			"some-action",
+			nil,
+			nil,
+		},
+		{
 			"check allowed",
 			permissions.Config{
 				URL: srv.URL,
