@@ -15,6 +15,7 @@ import (
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/permissions-api/internal/spicedbx"
 	"go.infratographer.com/permissions-api/internal/storage"
+	"go.infratographer.com/permissions-api/internal/types"
 )
 
 const (
@@ -22,17 +23,16 @@ const (
 	createRoleFlagResource = "resource"
 	createRoleFlagActions  = "actions"
 	createRoleFlagName     = "name"
+	createRoleFlagIsV2     = "v2"
 )
 
-var (
-	createRoleCmd = &cobra.Command{
-		Use:   "create-role",
-		Short: "create role in SpiceDB directly",
-		Run: func(cmd *cobra.Command, _ []string) {
-			createRole(cmd.Context(), globalCfg)
-		},
-	}
-)
+var createRoleCmd = &cobra.Command{
+	Use:   "create-role",
+	Short: "create role in SpiceDB directly",
+	Run: func(cmd *cobra.Command, _ []string) {
+		createRole(cmd.Context(), globalCfg)
+	},
+}
 
 func init() {
 	rootCmd.AddCommand(createRoleCmd)
@@ -42,6 +42,7 @@ func init() {
 	flags.StringSlice(createRoleFlagActions, []string{}, "actions to assign to created role")
 	flags.String(createRoleFlagResource, "", "resource to bind to created role")
 	flags.String(createRoleFlagName, "", "name of role to create")
+	flags.Bool(createRoleFlagIsV2, false, "create a v2 role")
 
 	v := viper.GetViper()
 
@@ -49,6 +50,7 @@ func init() {
 	viperx.MustBindFlag(v, createRoleFlagActions, flags.Lookup(createRoleFlagActions))
 	viperx.MustBindFlag(v, createRoleFlagResource, flags.Lookup(createRoleFlagResource))
 	viperx.MustBindFlag(v, createRoleFlagName, flags.Lookup(createRoleFlagName))
+	viperx.MustBindFlag(v, createRoleFlagIsV2, flags.Lookup(createRoleFlagIsV2))
 }
 
 func createRole(ctx context.Context, cfg *config.AppConfig) {
@@ -56,6 +58,7 @@ func createRole(ctx context.Context, cfg *config.AppConfig) {
 	actions := viper.GetStringSlice(createRoleFlagActions)
 	resourceIDStr := viper.GetString(createRoleFlagResource)
 	name := viper.GetString(createRoleFlagName)
+	v2 := viper.GetBool(createRoleFlagIsV2)
 
 	if subjectIDStr == "" || len(actions) == 0 || resourceIDStr == "" || name == "" {
 		logger.Fatal("invalid config")
@@ -125,14 +128,35 @@ func createRole(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("error creating subject resource", "error", err)
 	}
 
-	role, err := engine.CreateRole(ctx, subjectResource, resource, name, actions)
-	if err != nil {
-		logger.Fatalw("error creating role", "error", err)
-	}
+	if v2 {
+		role, err := engine.CreateRoleV2(ctx, subjectResource, resource, name, actions)
+		if err != nil {
+			logger.Fatalw("error creating role", "error", err)
+		}
 
-	if err = engine.AssignSubjectRole(ctx, subjectResource, role); err != nil {
-		logger.Fatalw("error creating role", "error", err)
-	}
+		rbsubj := []types.RoleBindingSubject{{SubjectResource: subjectResource}}
 
-	logger.Infow("role successfully created", "role_id", role.ID)
+		roleres, err := engine.NewResourceFromID(role.ID)
+		if err != nil {
+			logger.Fatalw("error creating role resource", "error", err)
+		}
+
+		rb, err := engine.CreateRoleBinding(ctx, resource, roleres, rbsubj)
+		if err != nil {
+			logger.Fatalw("error creating role binding", "error", err)
+		}
+
+		logger.Infof("created role %s[%s] and role-binding %s", role.Name, role.ID, rb.ID)
+	} else {
+		role, err := engine.CreateRole(ctx, subjectResource, resource, name, actions)
+		if err != nil {
+			logger.Fatalw("error creating role", "error", err)
+		}
+
+		if err = engine.AssignSubjectRole(ctx, subjectResource, role); err != nil {
+			logger.Fatalw("error creating role", "error", err)
+		}
+
+		logger.Infow("role successfully created", "role_id", role.ID)
+	}
 }

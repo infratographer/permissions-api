@@ -426,7 +426,10 @@ func (e *engine) DeleteRoleV2(ctx context.Context, roleResource types.Resource) 
 		errs = append(errs, err)
 	}
 
-	// 2.c TODO remove all role relationships in role bindings associated with this role
+	// 2.c remove all role relationships in role bindings associated with this role
+	if err := e.deleteRoleBindingsForRole(ctx, roleResource); err != nil {
+		errs = append(errs, err)
+	}
 
 	for _, err := range errs {
 		if err != nil {
