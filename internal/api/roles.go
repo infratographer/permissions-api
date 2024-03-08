@@ -11,6 +11,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"go.infratographer.com/permissions-api/internal/query"
+	"go.infratographer.com/permissions-api/internal/storage"
 )
 
 const (
@@ -54,7 +55,14 @@ func (r *Router) roleCreate(c echo.Context) error {
 	}
 
 	role, err := r.engine.CreateRole(ctx, subjectResource, resource, reqBody.Name, reqBody.Actions)
-	if err != nil {
+
+	switch {
+	case err == nil:
+	case errors.Is(err, query.ErrInvalidAction):
+		return echo.NewHTTPError(http.StatusBadRequest, "error creating resource: "+err.Error())
+	case errors.Is(err, storage.ErrRoleAlreadyExists), errors.Is(err, storage.ErrRoleNameTaken):
+		return echo.NewHTTPError(http.StatusConflict, "error creating resource: "+err.Error())
+	default:
 		return echo.NewHTTPError(http.StatusInternalServerError, "error creating resource").SetInternal(err)
 	}
 
@@ -103,11 +111,12 @@ func (r *Router) roleUpdate(c echo.Context) error {
 	// Roles belong to resources by way of the actions they can perform; do the permissions
 	// check on the role resource.
 	resource, err := r.engine.GetRoleResource(ctx, roleResource)
-	if err != nil {
-		if errors.Is(err, query.ErrRoleNotFound) {
-			return echo.NewHTTPError(http.StatusNotFound, "resource not found").SetInternal(err)
-		}
 
+	switch {
+	case err == nil:
+	case errors.Is(err, query.ErrRoleNotFound):
+		return echo.NewHTTPError(http.StatusNotFound, "resource not found").SetInternal(err)
+	default:
 		return echo.NewHTTPError(http.StatusInternalServerError, "error getting resource").SetInternal(err)
 	}
 
@@ -116,7 +125,14 @@ func (r *Router) roleUpdate(c echo.Context) error {
 	}
 
 	role, err := r.engine.UpdateRole(ctx, subjectResource, roleResource, reqBody.Name, reqBody.Actions)
-	if err != nil {
+
+	switch {
+	case err == nil:
+	case errors.Is(err, query.ErrInvalidAction):
+		return echo.NewHTTPError(http.StatusBadRequest, "error updating resource: "+err.Error())
+	case errors.Is(err, storage.ErrRoleNameTaken):
+		return echo.NewHTTPError(http.StatusConflict, "error updating resource: "+err.Error())
+	default:
 		return echo.NewHTTPError(http.StatusInternalServerError, "error updating resource").SetInternal(err)
 	}
 

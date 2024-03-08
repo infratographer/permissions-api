@@ -68,6 +68,28 @@ func resourceToSpiceDBRef(namespace string, r types.Resource) *pb.ObjectReferenc
 	}
 }
 
+func (e *engine) validateResourceActions(resource types.Resource, actions ...string) error {
+	var invalidActions []string
+
+	for _, action := range actions {
+		containsFn := func(sliceAction types.Action) bool {
+			return sliceAction.Name == action
+		}
+
+		rescType := e.schemaTypeMap[resource.Type]
+
+		if !slices.ContainsFunc(rescType.Actions, containsFn) {
+			invalidActions = append(invalidActions, action)
+		}
+	}
+
+	if len(invalidActions) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("%w: %s for %s", ErrInvalidAction, strings.Join(invalidActions, ","), resource.Type)
+}
+
 // SubjectHasPermission checks if the given subject can do the given action on the given resource
 func (e *engine) SubjectHasPermission(ctx context.Context, subject types.Resource, action string, resource types.Resource) error {
 	ctx, span := e.tracer.Start(
@@ -99,14 +121,10 @@ func (e *engine) SubjectHasPermission(ctx context.Context, subject types.Resourc
 		),
 	)
 
-	var err error
-
-	containsFn := func(sliceAction types.Action) bool {
-		return sliceAction.Name == action
-	}
+	err := e.validateResourceActions(resource, action)
 
 	// Only check permissions if the requested action exists in the policy.
-	if rescType := e.schemaTypeMap[resource.Type]; slices.ContainsFunc(rescType.Actions, containsFn) {
+	if err == nil {
 		req := &pb.CheckPermissionRequest{
 			Consistency: consistency,
 			Resource:    resourceToSpiceDBRef(e.namespace, resource),
@@ -117,8 +135,6 @@ func (e *engine) SubjectHasPermission(ctx context.Context, subject types.Resourc
 		}
 
 		err = e.checkPermission(ctx, req)
-	} else {
-		err = ErrInvalidAction
 	}
 
 	switch {
@@ -293,6 +309,10 @@ func (e *engine) CreateRole(ctx context.Context, actor, res types.Resource, role
 
 	defer span.End()
 
+	if err := e.validateResourceActions(res, actions...); err != nil {
+		return types.Role{}, err
+	}
+
 	roleName = strings.TrimSpace(roleName)
 
 	role := newRole(roleName, actions)
@@ -384,6 +404,10 @@ func (e *engine) UpdateRole(ctx context.Context, actor, roleResource types.Resou
 	ctx, span := e.tracer.Start(ctx, "engine.UpdateRole")
 
 	defer span.End()
+
+	if err := e.validateResourceActions(roleResource, newActions...); err != nil {
+		return types.Role{}, err
+	}
 
 	dbCtx, err := e.store.BeginContext(ctx)
 	if err != nil {
