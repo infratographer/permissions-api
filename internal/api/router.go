@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -51,6 +52,8 @@ func NewRouter(authCfg echojwtx.AuthConfig, engine query.Engine, options ...Opti
 
 // Routes will add the routes for this API version to a router group
 func (r *Router) Routes(rg *echo.Group) {
+	rg.Use(errorMiddleware)
+
 	v1 := rg.Group("api/v1")
 	{
 		v1.Use(r.authMW)
@@ -71,6 +74,28 @@ func (r *Router) Routes(rg *echo.Group) {
 		// /allow is the permissions check endpoint
 		v1.GET("/allow", r.checkAction)
 		v1.POST("/allow", r.checkAllActions)
+	}
+}
+
+func errorMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		err := next(c)
+
+		if err == nil {
+			return nil
+		}
+
+		// If error is an echo.HTTPError simply return it
+		if _, ok := err.(*echo.HTTPError); ok {
+			return err
+		}
+
+		switch {
+		case errors.Is(err, context.Canceled):
+			return echo.ErrUnprocessableEntity.WithInternal(err)
+		default:
+			return err
+		}
 	}
 }
 
