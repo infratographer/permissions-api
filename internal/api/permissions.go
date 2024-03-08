@@ -94,6 +94,14 @@ func (r *Router) checkActionWithResponse(ctx context.Context, subjectResource ty
 		)
 
 		return echo.NewHTTPError(http.StatusForbidden, msg).SetInternal(err)
+	case errors.Is(err, query.ErrInvalidAction):
+		msg := fmt.Sprintf(
+			"invalid action '%s' for resource '%s'",
+			action,
+			resource.ID.String(),
+		)
+
+		return echo.NewHTTPError(http.StatusBadRequest, msg).SetInternal(err)
 	case err != nil:
 		return echo.NewHTTPError(http.StatusInternalServerError, "an error occurred checking permissions").SetInternal(err)
 	default:
@@ -218,6 +226,7 @@ func (r *Router) checkAllActions(c echo.Context) error {
 	}
 
 	var (
+		badRequestErrors   int
 		unauthorizedErrors int
 		internalErrors     int
 		allErrors          []error
@@ -227,7 +236,8 @@ func (r *Router) checkAllActions(c echo.Context) error {
 		select {
 		case result := <-resultsCh:
 			if result.Error != nil {
-				if errors.Is(result.Error, query.ErrActionNotAssigned) {
+				switch {
+				case errors.Is(result.Error, query.ErrActionNotAssigned):
 					err := fmt.Errorf(
 						"%w: subject '%s' does not have permission to perform action '%s' on resource '%s'",
 						ErrAccessDenied,
@@ -239,7 +249,18 @@ func (r *Router) checkAllActions(c echo.Context) error {
 					unauthorizedErrors++
 
 					allErrors = append(allErrors, err)
-				} else {
+				case errors.Is(result.Error, query.ErrInvalidAction):
+					err := fmt.Errorf(
+						"%w: invalid action '%s' for resource '%s'",
+						result.Error,
+						result.Request.Action,
+						result.Request.Resource.ID,
+					)
+
+					badRequestErrors++
+
+					allErrors = append(allErrors, err)
+				default:
 					err := fmt.Errorf("check %d: %w", result.Request.Index, result.Error)
 
 					internalErrors++
@@ -270,6 +291,10 @@ func (r *Router) checkAllActions(c echo.Context) error {
 		)
 
 		return echo.NewHTTPError(http.StatusForbidden, msg).SetInternal(multierr.Combine(allErrors...))
+	}
+
+	if badRequestErrors != 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, multierr.Combine(allErrors...))
 	}
 
 	return nil

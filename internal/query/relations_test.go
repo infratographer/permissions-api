@@ -811,13 +811,23 @@ func TestSubjectActions(t *testing.T) {
 			},
 		},
 		{
-			Name: "BadAction",
+			Name: "DeniedAction",
 			Input: testInput{
 				resource: tenRes,
 				action:   "loadbalancer_delete",
 			},
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[any]) {
 				assert.ErrorIs(t, res.Err, ErrActionNotAssigned)
+			},
+		},
+		{
+			Name: "BadAction",
+			Input: testInput{
+				resource: tenRes,
+				action:   "bad_action",
+			},
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[any]) {
+				assert.ErrorIs(t, res.Err, ErrInvalidAction)
 			},
 		},
 		{

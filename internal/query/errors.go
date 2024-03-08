@@ -7,6 +7,9 @@ var (
 	// the given request.
 	ErrActionNotAssigned = errors.New("the subject does not have permissions to complete this request")
 
+	// ErrInvalidAction represents an error condition where the action provided is not valid for the provided resource.
+	ErrInvalidAction = errors.New("invalid action for resource")
+
 	// ErrInvalidReference represents an error condition where a given SpiceDB object reference is for some reason invalid.
 	ErrInvalidReference = errors.New("invalid reference")
 

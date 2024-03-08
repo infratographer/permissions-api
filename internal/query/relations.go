@@ -14,6 +14,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 
 	"go.infratographer.com/permissions-api/internal/storage"
 	"go.infratographer.com/permissions-api/internal/types"
@@ -98,16 +99,27 @@ func (e *engine) SubjectHasPermission(ctx context.Context, subject types.Resourc
 		),
 	)
 
-	req := &pb.CheckPermissionRequest{
-		Consistency: consistency,
-		Resource:    resourceToSpiceDBRef(e.namespace, resource),
-		Permission:  action,
-		Subject: &pb.SubjectReference{
-			Object: resourceToSpiceDBRef(e.namespace, subject),
-		},
+	var err error
+
+	containsFn := func(sliceAction types.Action) bool {
+		return sliceAction.Name == action
 	}
 
-	err := e.checkPermission(ctx, req)
+	// Only check permissions if the requested action exists in the policy.
+	if rescType := e.schemaTypeMap[resource.Type]; slices.ContainsFunc(rescType.Actions, containsFn) {
+		req := &pb.CheckPermissionRequest{
+			Consistency: consistency,
+			Resource:    resourceToSpiceDBRef(e.namespace, resource),
+			Permission:  action,
+			Subject: &pb.SubjectReference{
+				Object: resourceToSpiceDBRef(e.namespace, subject),
+			},
+		}
+
+		err = e.checkPermission(ctx, req)
+	} else {
+		err = ErrInvalidAction
+	}
 
 	switch {
 	case err == nil:
@@ -117,7 +129,7 @@ func (e *engine) SubjectHasPermission(ctx context.Context, subject types.Resourc
 				outcomeAllowed,
 			),
 		)
-	case errors.Is(err, ErrActionNotAssigned):
+	case errors.Is(err, ErrActionNotAssigned), errors.Is(err, ErrInvalidAction):
 		span.SetAttributes(
 			attribute.String(
 				"permissions.outcome",
