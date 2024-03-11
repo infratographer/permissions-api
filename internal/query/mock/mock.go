@@ -3,7 +3,6 @@ package mock
 import (
 	"context"
 	"errors"
-	"time"
 
 	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/query"
@@ -45,27 +44,16 @@ func (e *Engine) CreateRelationships(ctx context.Context, rels []types.Relations
 
 // CreateRole creates a Role object and does not persist it anywhere.
 func (e *Engine) CreateRole(ctx context.Context, actor, res types.Resource, name string, actions []string) (types.Role, error) {
-	// Copy actions instead of using the given slice
-	outActions := make([]string, len(actions))
+	args := e.Called()
 
-	copy(outActions, actions)
+	retRole := args.Get(0).(types.Role)
 
-	role := types.Role{
-		ID:        gidx.MustNewID(query.ApplicationPrefix),
-		Name:      name,
-		Actions:   outActions,
-		CreatedBy: actor.ID,
-		UpdatedBy: actor.ID,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	}
-
-	return role, nil
+	return retRole, args.Error(1)
 }
 
 // UpdateRole returns the provided mock results.
 func (e *Engine) UpdateRole(ctx context.Context, actor, roleResource types.Resource, newName string, newActions []string) (types.Role, error) {
-	args := e.Called(actor, roleResource, newName, newActions)
+	args := e.Called()
 
 	retRole := args.Get(0).(types.Role)
 
@@ -74,12 +62,20 @@ func (e *Engine) UpdateRole(ctx context.Context, actor, roleResource types.Resou
 
 // GetRole returns nothing but satisfies the Engine interface.
 func (e *Engine) GetRole(ctx context.Context, roleResource types.Resource) (types.Role, error) {
-	return types.Role{}, nil
+	args := e.Called()
+
+	retRole := args.Get(0).(types.Role)
+
+	return retRole, args.Error(1)
 }
 
 // GetRoleResource returns nothing but satisfies the Engine interface.
 func (e *Engine) GetRoleResource(ctx context.Context, roleResource types.Resource) (types.Resource, error) {
-	return types.Resource{}, nil
+	args := e.Called()
+
+	retResc := args.Get(0).(types.Resource)
+
+	return retResc, args.Error(1)
 }
 
 // ListAssignments returns nothing but satisfies the Engine interface.

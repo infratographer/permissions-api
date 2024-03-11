@@ -1126,6 +1126,10 @@ func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource) er
 	if err != nil {
 		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
 
+		if errors.Is(err, storage.ErrNoRoleFound) {
+			return ErrRoleNotFound
+		}
+
 		return err
 	}
 

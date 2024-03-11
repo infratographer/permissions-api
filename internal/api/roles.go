@@ -174,8 +174,13 @@ func (r *Router) roleGet(c echo.Context) error {
 	// Roles belong to resources by way of the actions they can perform; do the permissions
 	// check on the role resource.
 	resource, err := r.engine.GetRoleResource(ctx, roleResource)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+
+	switch {
+	case err == nil:
+	case errors.Is(err, query.ErrRoleNotFound):
+		return echo.NewHTTPError(http.StatusNotFound, "resource not found").SetInternal(err)
+	default:
+		return echo.NewHTTPError(http.StatusInternalServerError, "error getting resource").SetInternal(err)
 	}
 
 	// TODO: This shows an error for the role's resource, not the role. Determine if that
@@ -185,8 +190,13 @@ func (r *Router) roleGet(c echo.Context) error {
 	}
 
 	role, err := r.engine.GetRole(ctx, roleResource)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "error getting resource").SetInternal(err)
+
+	switch {
+	case err == nil:
+	case errors.Is(err, query.ErrRoleNotFound):
+		return echo.NewHTTPError(http.StatusNotFound, "role not found").SetInternal(err)
+	default:
+		return echo.NewHTTPError(http.StatusInternalServerError, "error getting role").SetInternal(err)
 	}
 
 	resp := roleResponse{
@@ -278,16 +288,27 @@ func (r *Router) roleDelete(c echo.Context) error {
 	// Roles belong to resources by way of the actions they can perform; do the permissions
 	// check on the role resource.
 	resource, err := r.engine.GetRoleResource(ctx, roleResource)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+
+	switch {
+	case err == nil:
+	case errors.Is(err, query.ErrRoleNotFound):
+		return echo.NewHTTPError(http.StatusNotFound, "resource not found").SetInternal(err)
+	default:
+		return echo.NewHTTPError(http.StatusInternalServerError, "error getting resource").SetInternal(err)
 	}
 
 	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleDelete, resource); err != nil {
 		return err
 	}
 
-	if err = r.engine.DeleteRole(ctx, roleResource); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "error deleting resource").SetInternal(err)
+	err = r.engine.DeleteRole(ctx, roleResource)
+
+	switch {
+	case err == nil:
+	case errors.Is(err, query.ErrRoleNotFound):
+		return echo.NewHTTPError(http.StatusNotFound, "role not found").SetInternal(err)
+	default:
+		return echo.NewHTTPError(http.StatusInternalServerError, "error deleting role").SetInternal(err)
 	}
 
 	resp := deleteRoleResponse{
@@ -321,8 +342,13 @@ func (r *Router) roleGetResource(c echo.Context) error {
 	// There's a little irony here in that getting a role's resource here is required to actually
 	// do the permissions check.
 	resource, err := r.engine.GetRoleResource(ctx, roleResource)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "error getting resource").SetInternal(err)
+
+	switch {
+	case err == nil:
+	case errors.Is(err, query.ErrRoleNotFound):
+		return echo.NewHTTPError(http.StatusNotFound, "role not found").SetInternal(err)
+	default:
+		return echo.NewHTTPError(http.StatusInternalServerError, "error getting role").SetInternal(err)
 	}
 
 	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleGet, resource); err != nil {
