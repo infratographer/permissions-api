@@ -27,12 +27,16 @@ type Engine struct {
 
 // AssignSubjectRole does nothing but satisfies the Engine interface.
 func (e *Engine) AssignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) error {
-	return nil
+	args := e.Called()
+
+	return args.Error(0)
 }
 
 // UnassignSubjectRole does nothing but satisfies the Engine interface.
 func (e *Engine) UnassignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) error {
-	return nil
+	args := e.Called()
+
+	return args.Error(0)
 }
 
 // CreateRelationships does nothing but satisfies the Engine interface.
@@ -80,7 +84,11 @@ func (e *Engine) GetRoleResource(ctx context.Context, roleResource types.Resourc
 
 // ListAssignments returns nothing but satisfies the Engine interface.
 func (e *Engine) ListAssignments(ctx context.Context, role types.Role) ([]types.Resource, error) {
-	return nil, nil
+	args := e.Called()
+
+	ret := args.Get(0).([]types.Resource)
+
+	return ret, args.Error(1)
 }
 
 // ListRelationshipsFrom returns nothing but satisfies the Engine interface.
