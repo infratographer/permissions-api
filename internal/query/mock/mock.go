@@ -13,9 +13,7 @@ import (
 	"go.infratographer.com/x/gidx"
 )
 
-var (
-	errorInvalidNamespace = errors.New("invalid namespace")
-)
+var errorInvalidNamespace = errors.New("invalid namespace")
 
 var _ query.Engine = &Engine{}
 
@@ -63,6 +61,17 @@ func (e *Engine) CreateRole(ctx context.Context, actor, res types.Resource, name
 	return role, nil
 }
 
+// CreateRoleV2 creates a v2 role object
+// TODO: Implement this
+func (e *Engine) CreateRoleV2(ctx context.Context, actor, owner types.Resource, roleName string, actions []string) (types.Role, error) {
+	return types.Role{}, nil
+}
+
+// ListRolesV2 list roles
+func (e *Engine) ListRolesV2(ctx context.Context, owner types.Resource) ([]types.Role, error) {
+	return nil, nil
+}
+
 // UpdateRole returns the provided mock results.
 func (e *Engine) UpdateRole(ctx context.Context, actor, roleResource types.Resource, newName string, newActions []string) (types.Role, error) {
 	args := e.Called(actor, roleResource, newName, newActions)
@@ -72,8 +81,18 @@ func (e *Engine) UpdateRole(ctx context.Context, actor, roleResource types.Resou
 	return retRole, args.Error(1)
 }
 
+// UpdateRoleV2 returns nothing but satisfies the Engine interface.
+func (e *Engine) UpdateRoleV2(ctx context.Context, actor, roleResource types.Resource, newName string, newActions []string) (types.Role, error) {
+	return types.Role{}, nil
+}
+
 // GetRole returns nothing but satisfies the Engine interface.
 func (e *Engine) GetRole(ctx context.Context, roleResource types.Resource) (types.Role, error) {
+	return types.Role{}, nil
+}
+
+// GetRoleV2 returns nothing but satisfies the Engine interface.
+func (e *Engine) GetRoleV2(ctx context.Context, owner types.Resource) (types.Role, error) {
 	return types.Role{}, nil
 }
 
@@ -114,6 +133,11 @@ func (e *Engine) DeleteRole(ctx context.Context, roleResource types.Resource) er
 	args := e.Called()
 
 	return args.Error(0)
+}
+
+// DeleteRoleV2 does nothing but satisfies the Engine interface.
+func (e *Engine) DeleteRoleV2(ctx context.Context, roleResource types.Resource) error {
+	return nil
 }
 
 // DeleteResourceRelationships does nothing but satisfies the Engine interface.
@@ -172,5 +196,35 @@ func (e *Engine) GetResourceType(name string) *types.ResourceType {
 func (e *Engine) SubjectHasPermission(ctx context.Context, subject types.Resource, action string, resource types.Resource) error {
 	e.Called()
 
+	return nil
+}
+
+// CreateRoleBinding returns nothing but satisfies the Engine interface.
+func (e *Engine) CreateRoleBinding(ctx context.Context, resource, role types.Resource, subjects []types.RoleBindingSubject) (types.RoleBinding, error) {
+	return types.RoleBinding{}, nil
+}
+
+// ListRoleBindings returns nothing but satisfies the Engine interface.
+func (e *Engine) ListRoleBindings(ctx context.Context, resource types.Resource, optionalRole *types.Resource) ([]types.RoleBinding, error) {
+	return nil, nil
+}
+
+// GetRoleBinding returns nothing but satisfies the Engine interface.
+func (e *Engine) GetRoleBinding(ctx context.Context, resource types.Resource) (types.RoleBinding, error) {
+	return types.RoleBinding{}, nil
+}
+
+// DeleteRoleBinding returns nothing but satisfies the Engine interface.
+func (e *Engine) DeleteRoleBinding(ctx context.Context, rb, res types.Resource) error {
+	return nil
+}
+
+// UpdateRoleBinding returns nothing but satisfies the Engine interface.
+func (e *Engine) UpdateRoleBinding(context.Context, types.Resource, []types.RoleBindingSubject) (types.RoleBinding, error) {
+	return types.RoleBinding{}, nil
+}
+
+// AllActions returns nothing but satisfies the Engine interface.
+func (e *Engine) AllActions() []string {
 	return nil
 }

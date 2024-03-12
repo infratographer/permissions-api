@@ -18,6 +18,11 @@ import (
 const (
 	outcomeAllowed = "allowed"
 	outcomeDenied  = "denied"
+
+	// DefaultRoleResourceName is the default name for a role resource
+	DefaultRoleResourceName = "role"
+	// DefaultRoleBindingResourceName is the default name for a role binding resource
+	DefaultRoleBindingResourceName = "role_binding"
 )
 
 // Engine represents a client for making permissions queries.
@@ -39,6 +44,35 @@ type Engine interface {
 	NewResourceFromID(id gidx.PrefixedID) (types.Resource, error)
 	GetResourceType(name string) *types.ResourceType
 	SubjectHasPermission(ctx context.Context, subject types.Resource, action string, resource types.Resource) error
+
+	// v2 functions, add role bindings support
+
+	// CreateRoleV2 creates a v2 role scoped to the given resource with the given actions.
+	CreateRoleV2(ctx context.Context, actor, owner types.Resource, roleName string, actions []string) (types.Role, error)
+	// ListRolesV2 returns all V2 roles owned by the given resource.
+	ListRolesV2(ctx context.Context, owner types.Resource) ([]types.Role, error)
+	// GetRoleV2 returns a V2 role
+	GetRoleV2(ctx context.Context, role types.Resource) (types.Role, error)
+	// UpdateRoleV2 updates a V2 role with the given name and actions.
+	UpdateRoleV2(ctx context.Context, actor, roleResource types.Resource, newName string, newActions []string) (types.Role, error)
+	// DeleteRoleV2 deletes a V2 role.
+	DeleteRoleV2(ctx context.Context, roleResource types.Resource) error
+
+	// CreateRoleBinding creates all the necessary relationships for a role binding.
+	// role binding here establishes a three-way relationship between a role,
+	// a resource, and the subjects.
+	CreateRoleBinding(ctx context.Context, resource, role types.Resource, subjects []types.RoleBindingSubject) (types.RoleBinding, error)
+	// ListRoleBindings lists all role-bindings for a resource, an optional Role
+	// can be provided to filter the role-bindings.
+	ListRoleBindings(ctx context.Context, resource types.Resource, optionalRole *types.Resource) ([]types.RoleBinding, error)
+	// GetRoleBinding fetches a role-binding by its ID.
+	GetRoleBinding(ctx context.Context, rolebinding types.Resource) (types.RoleBinding, error)
+	// UpdateRoleBinding updates the subjects of a role-binding.
+	UpdateRoleBinding(ctx context.Context, rolebinding types.Resource, subjects []types.RoleBindingSubject) (types.RoleBinding, error)
+	// DeleteRoleBinding removes subjects from a role-binding.
+	DeleteRoleBinding(ctx context.Context, rolebinding, resource types.Resource) error
+
+	AllActions() []string
 }
 
 type engine struct {
@@ -53,6 +87,10 @@ type engine struct {
 	schemaTypeMap            map[string]types.ResourceType
 	schemaSubjectRelationMap map[string]map[string][]string
 	schemaRoleables          []types.ResourceType
+
+	rbac                     iapl.RBAC
+	rolebindingV2SubjectsMap map[string]types.TargetType
+	rolebindingV2Resources   []types.ResourceType
 }
 
 func (e *engine) cacheSchemaResources() {
@@ -60,6 +98,8 @@ func (e *engine) cacheSchemaResources() {
 	e.schemaTypeMap = make(map[string]types.ResourceType, len(e.schema))
 	e.schemaSubjectRelationMap = make(map[string]map[string][]string)
 	e.schemaRoleables = []types.ResourceType{}
+	e.rolebindingV2SubjectsMap = make(map[string]types.TargetType, len(e.rbac.RoleBindingSubjects))
+	e.rolebindingV2Resources = []types.ResourceType{}
 
 	for _, res := range e.schema {
 		e.schemaPrefixMap[res.IDPrefix] = res
@@ -67,17 +107,25 @@ func (e *engine) cacheSchemaResources() {
 
 		for _, relationship := range res.Relationships {
 			for _, t := range relationship.Types {
-				if _, ok := e.schemaSubjectRelationMap[t]; !ok {
-					e.schemaSubjectRelationMap[t] = make(map[string][]string)
+				if _, ok := e.schemaSubjectRelationMap[t.Name]; !ok {
+					e.schemaSubjectRelationMap[t.Name] = make(map[string][]string)
 				}
 
-				e.schemaSubjectRelationMap[t][relationship.Relation] = append(e.schemaSubjectRelationMap[t][relationship.Relation], res.Name)
+				e.schemaSubjectRelationMap[t.Name][relationship.Relation] = append(e.schemaSubjectRelationMap[t.Name][relationship.Relation], res.Name)
 			}
 		}
 
 		if resourceHasRoleBindings(res) {
 			e.schemaRoleables = append(e.schemaRoleables, res)
 		}
+
+		if rb := resourceHasRoleBindingV2(res); rb != nil {
+			e.rolebindingV2Resources = append(e.rolebindingV2Resources, res)
+		}
+	}
+
+	for _, subj := range e.rbac.RoleBindingSubjects {
+		e.rolebindingV2SubjectsMap[subj.Name] = subj
 	}
 }
 
@@ -91,6 +139,18 @@ func resourceHasRoleBindings(resType types.ResourceType) bool {
 	}
 
 	return false
+}
+
+func resourceHasRoleBindingV2(resType types.ResourceType) *types.ConditionRoleBindingV2 {
+	for _, action := range resType.Actions {
+		for _, cond := range action.Conditions {
+			if cond.RoleBindingV2 != nil {
+				return cond.RoleBindingV2
+			}
+		}
+	}
+
+	return nil
 }
 
 // NewEngine returns a new client for making permissions queries.
@@ -111,7 +171,9 @@ func NewEngine(namespace string, client *authzed.Client, kv nats.KeyValue, store
 	}
 
 	if e.schema == nil {
-		e.schema = iapl.DefaultPolicy().Schema()
+		p := iapl.DefaultPolicy()
+		e.schema = p.Schema()
+		e.rbac = iapl.RBAC{}
 
 		e.cacheSchemaResources()
 	}
@@ -133,6 +195,13 @@ func WithLogger(logger *zap.SugaredLogger) Option {
 func WithPolicy(policy iapl.Policy) Option {
 	return func(e *engine) {
 		e.schema = policy.Schema()
+
+		rbac := policy.RBAC()
+		if rbac == nil {
+			e.rbac = iapl.RBAC{}
+		} else {
+			e.rbac = *rbac
+		}
 
 		e.cacheSchemaResources()
 	}

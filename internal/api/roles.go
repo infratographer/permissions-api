@@ -1,7 +1,7 @@
 package api
 
 import (
-	"errors"
+	"context"
 	"net/http"
 	"time"
 
@@ -10,7 +10,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
-	"go.infratographer.com/permissions-api/internal/query"
+	"go.infratographer.com/permissions-api/internal/types"
 )
 
 const (
@@ -53,9 +53,19 @@ func (r *Router) roleCreate(c echo.Context) error {
 		return err
 	}
 
-	role, err := r.engine.CreateRole(ctx, subjectResource, resource, reqBody.Name, reqBody.Actions)
+	apiversion := r.getAPIVersion(c)
+
+	var role types.Role
+
+	switch apiversion {
+	case "v2":
+		role, err = r.engine.CreateRoleV2(ctx, subjectResource, resource, reqBody.Name, reqBody.Actions)
+	default:
+		role, err = r.engine.CreateRole(ctx, subjectResource, resource, reqBody.Name, reqBody.Actions)
+	}
+
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "error creating resource").SetInternal(err)
+		return r.errorResponse("error creating role", err)
 	}
 
 	resp := roleResponse{
@@ -95,29 +105,55 @@ func (r *Router) roleUpdate(c echo.Context) error {
 		return err
 	}
 
-	roleResource, err := r.engine.NewResourceFromID(roleID)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "error updating role").SetInternal(err)
-	}
+	apiversion := r.getAPIVersion(c)
 
-	// Roles belong to resources by way of the actions they can perform; do the permissions
-	// check on the role resource.
-	resource, err := r.engine.GetRoleResource(ctx, roleResource)
-	if err != nil {
-		if errors.Is(err, query.ErrRoleNotFound) {
-			return echo.NewHTTPError(http.StatusNotFound, "resource not found").SetInternal(err)
+	var (
+		role         types.Role
+		resource     types.Resource
+		roleResource types.Resource
+
+		updateRoleFn func(ctx context.Context, actor types.Resource, roleResource types.Resource, newName string, newActions []string) (types.Role, error)
+	)
+
+	switch apiversion {
+	case "v2":
+		// for v2 roles
+		// Roles themselves are the resource, permissions check should be performed
+		// on the roles themselves.
+		roleResource, err = r.engine.NewResourceFromID(roleID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
 		}
 
-		return echo.NewHTTPError(http.StatusInternalServerError, "error getting resource").SetInternal(err)
+		resource = roleResource
+		updateRoleFn = r.engine.UpdateRoleV2
+
+	default:
+		// for v1 roles
+		// Roles belong to resources by way of the actions they can perform; do the permissions
+		// check on the role resource.
+		roleResource, err = r.engine.NewResourceFromID(roleID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "error getting role resource").SetInternal(err)
+		}
+
+		resource, err = r.engine.GetRoleResource(ctx, roleResource)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+		}
+
+		updateRoleFn = r.engine.UpdateRole
 	}
 
-	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleUpdate, resource); err != nil {
+	// TODO: This shows an error for the role's resource, not the role. Determine if that
+	// matters.
+	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleGet, resource); err != nil {
 		return err
 	}
 
-	role, err := r.engine.UpdateRole(ctx, subjectResource, roleResource, reqBody.Name, reqBody.Actions)
+	role, err = updateRoleFn(ctx, subjectResource, roleResource, reqBody.Name, reqBody.Actions)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "error updating resource").SetInternal(err)
+		return r.errorResponse("error updating role", err)
 	}
 
 	resp := roleResponse{
@@ -150,16 +186,44 @@ func (r *Router) roleGet(c echo.Context) error {
 		return err
 	}
 
-	roleResource, err := r.engine.NewResourceFromID(roleResourceID)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
-	}
+	apiversion := r.getAPIVersion(c)
 
-	// Roles belong to resources by way of the actions they can perform; do the permissions
-	// check on the role resource.
-	resource, err := r.engine.GetRoleResource(ctx, roleResource)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+	var (
+		role         types.Role
+		resource     types.Resource
+		roleResource types.Resource
+
+		getRoleFn func(ctx context.Context, roleResource types.Resource) (types.Role, error)
+	)
+
+	switch apiversion {
+	case "v2":
+		// for v2 roles
+		// Roles themselves are the resource, permissions check should be performed
+		// on the roles themselves.
+		roleResource, err = r.engine.NewResourceFromID(roleResourceID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+		}
+
+		resource = roleResource
+		getRoleFn = r.engine.GetRoleV2
+
+	default:
+		// for v1 roles
+		// Roles belong to resources by way of the actions they can perform; do the permissions
+		// check on the role resource.
+		roleResource, err = r.engine.NewResourceFromID(roleResourceID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "error getting role resource").SetInternal(err)
+		}
+
+		resource, err = r.engine.GetRoleResource(ctx, roleResource)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+		}
+
+		getRoleFn = r.engine.GetRole
 	}
 
 	// TODO: This shows an error for the role's resource, not the role. Determine if that
@@ -168,9 +232,9 @@ func (r *Router) roleGet(c echo.Context) error {
 		return err
 	}
 
-	role, err := r.engine.GetRole(ctx, roleResource)
+	role, err = getRoleFn(ctx, roleResource)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "error getting resource").SetInternal(err)
+		return r.errorResponse("error getting role", err)
 	}
 
 	resp := roleResponse{
@@ -212,9 +276,19 @@ func (r *Router) rolesList(c echo.Context) error {
 		return err
 	}
 
-	roles, err := r.engine.ListRoles(ctx, resource)
+	apiversion := r.getAPIVersion(c)
+
+	var roles []types.Role
+
+	switch apiversion {
+	case "v2":
+		roles, err = r.engine.ListRolesV2(ctx, resource)
+	default:
+		roles, err = r.engine.ListRoles(ctx, resource)
+	}
+
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "error getting role").SetInternal(err)
+		return r.errorResponse("error getting roles", err)
 	}
 
 	resp := listRolesResponse{
@@ -254,24 +328,52 @@ func (r *Router) roleDelete(c echo.Context) error {
 		return err
 	}
 
-	roleResource, err := r.engine.NewResourceFromID(roleResourceID)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "error deleting resource").SetInternal(err)
-	}
+	apiversion := r.getAPIVersion(c)
 
-	// Roles belong to resources by way of the actions they can perform; do the permissions
-	// check on the role resource.
-	resource, err := r.engine.GetRoleResource(ctx, roleResource)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+	var (
+		resource     types.Resource
+		roleResource types.Resource
+
+		DeleteRoleFn func(ctx context.Context, roleResource types.Resource) error
+	)
+
+	switch apiversion {
+	case "v2":
+		// for v2 roles
+		// Roles themselves are the resource, permissions check should be performed
+		// on the roles themselves.
+		roleResource, err = r.engine.NewResourceFromID(roleResourceID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+		}
+
+		resource = roleResource
+		DeleteRoleFn = r.engine.DeleteRoleV2
+
+	default:
+		// for v1 roles
+		// Roles belong to resources by way of the actions they can perform; do the permissions
+		// check on the role resource.
+		roleResource, err = r.engine.NewResourceFromID(roleResourceID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "error getting role resource").SetInternal(err)
+		}
+
+		resource, err = r.engine.GetRoleResource(ctx, roleResource)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "error getting resource").SetInternal(err)
+		}
+
+		DeleteRoleFn = r.engine.DeleteRole
 	}
 
 	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleDelete, resource); err != nil {
 		return err
 	}
 
-	if err = r.engine.DeleteRole(ctx, roleResource); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "error deleting resource").SetInternal(err)
+	err = DeleteRoleFn(ctx, roleResource)
+	if err != nil {
+		return r.errorResponse("error deleting role", err)
 	}
 
 	resp := deleteRoleResponse{
@@ -318,4 +420,8 @@ func (r *Router) roleGetResource(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, resp)
+}
+
+func (r *Router) listActions(c echo.Context) error {
+	return c.JSON(http.StatusOK, r.engine.AllActions())
 }
