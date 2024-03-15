@@ -39,9 +39,6 @@ var (
 	}
 
 	tracer = otel.GetTracerProvider().Tracer("go.infratographer.com/permissions-api/pkg/permissions")
-
-	// ErrPermissionsMiddlewareMissing is returned when a permissions method has been called but the middleware is missing.
-	ErrPermissionsMiddlewareMissing = errors.New("permissions middleware missing")
 )
 
 // Permissions handles supporting authorization checks
@@ -71,17 +68,17 @@ func (p *Permissions) Middleware() echo.MiddlewareFunc {
 
 			actor := echojwtx.Actor(c)
 			if actor == "" {
-				return echo.ErrUnauthorized.WithInternal(ErrNoAuthToken)
+				return ErrNoAuthToken
 			}
 
 			authHeader := strings.TrimSpace(c.Request().Header.Get(echo.HeaderAuthorization))
 
 			if len(authHeader) <= len(bearerPrefix) {
-				return echo.ErrUnauthorized.WithInternal(ErrInvalidAuthToken)
+				return ErrInvalidAuthToken
 			}
 
 			if !strings.EqualFold(authHeader[:len(bearerPrefix)], bearerPrefix) {
-				return echo.ErrUnauthorized.WithInternal(ErrInvalidAuthToken)
+				return ErrInvalidAuthToken
 			}
 
 			token := authHeader[len(bearerPrefix):]
