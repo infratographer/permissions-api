@@ -77,7 +77,7 @@ func (p *Permissions) submitAuthRelationshipRequest(ctx context.Context, topic s
 	}
 
 	if resp != nil {
-		if resp.Error() != nil {
+		if err := resp.Error(); err != nil {
 			errs = append(errs, err)
 		}
 
