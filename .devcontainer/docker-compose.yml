@@ -38,7 +38,7 @@ services:
 
   # Environment setup
   create_databases:
-    image: cockroachdb/cockroach:v23.1.12
+    image: cockroachdb/cockroach:v23.2.2
     restart: on-failure:5
     command: |
       sql --insecure -e '
@@ -67,7 +67,7 @@ services:
 
   # Required services (databases, etc)
   crdb:
-    image: cockroachdb/cockroach:v23.1.12
+    image: cockroachdb/cockroach:v23.2.2
     command: start-single-node --insecure
     restart: unless-stopped
     volumes:
