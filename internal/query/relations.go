@@ -14,6 +14,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 
 	"go.infratographer.com/permissions-api/internal/storage"
 	"go.infratographer.com/permissions-api/internal/types"
@@ -67,6 +68,28 @@ func resourceToSpiceDBRef(namespace string, r types.Resource) *pb.ObjectReferenc
 	}
 }
 
+func (e *engine) validateResourceActions(resource types.Resource, actions ...string) error {
+	var invalidActions []string
+
+	for _, action := range actions {
+		containsFn := func(sliceAction types.Action) bool {
+			return sliceAction.Name == action
+		}
+
+		rescType := e.schemaTypeMap[resource.Type]
+
+		if !slices.ContainsFunc(rescType.Actions, containsFn) {
+			invalidActions = append(invalidActions, action)
+		}
+	}
+
+	if len(invalidActions) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("%w: %s for %s", ErrInvalidAction, strings.Join(invalidActions, ","), resource.Type)
+}
+
 // SubjectHasPermission checks if the given subject can do the given action on the given resource
 func (e *engine) SubjectHasPermission(ctx context.Context, subject types.Resource, action string, resource types.Resource) error {
 	ctx, span := e.tracer.Start(
@@ -98,16 +121,21 @@ func (e *engine) SubjectHasPermission(ctx context.Context, subject types.Resourc
 		),
 	)
 
-	req := &pb.CheckPermissionRequest{
-		Consistency: consistency,
-		Resource:    resourceToSpiceDBRef(e.namespace, resource),
-		Permission:  action,
-		Subject: &pb.SubjectReference{
-			Object: resourceToSpiceDBRef(e.namespace, subject),
-		},
-	}
+	err := e.validateResourceActions(resource, action)
 
-	err := e.checkPermission(ctx, req)
+	// Only check permissions if the requested action exists in the policy.
+	if err == nil {
+		req := &pb.CheckPermissionRequest{
+			Consistency: consistency,
+			Resource:    resourceToSpiceDBRef(e.namespace, resource),
+			Permission:  action,
+			Subject: &pb.SubjectReference{
+				Object: resourceToSpiceDBRef(e.namespace, subject),
+			},
+		}
+
+		err = e.checkPermission(ctx, req)
+	}
 
 	switch {
 	case err == nil:
@@ -117,7 +145,7 @@ func (e *engine) SubjectHasPermission(ctx context.Context, subject types.Resourc
 				outcomeAllowed,
 			),
 		)
-	case errors.Is(err, ErrActionNotAssigned):
+	case errors.Is(err, ErrActionNotAssigned), errors.Is(err, ErrInvalidAction):
 		span.SetAttributes(
 			attribute.String(
 				"permissions.outcome",
@@ -281,6 +309,10 @@ func (e *engine) CreateRole(ctx context.Context, actor, res types.Resource, role
 
 	defer span.End()
 
+	if err := e.validateResourceActions(res, actions...); err != nil {
+		return types.Role{}, err
+	}
+
 	roleName = strings.TrimSpace(roleName)
 
 	role := newRole(roleName, actions)
@@ -372,6 +404,10 @@ func (e *engine) UpdateRole(ctx context.Context, actor, roleResource types.Resou
 	ctx, span := e.tracer.Start(ctx, "engine.UpdateRole")
 
 	defer span.End()
+
+	if err := e.validateResourceActions(roleResource, newActions...); err != nil {
+		return types.Role{}, err
+	}
 
 	dbCtx, err := e.store.BeginContext(ctx)
 	if err != nil {
@@ -1089,6 +1125,10 @@ func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource) er
 	_, err = e.store.DeleteRole(dbCtx, roleResource.ID)
 	if err != nil {
 		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		if errors.Is(err, storage.ErrNoRoleFound) {
+			return ErrRoleNotFound
+		}
 
 		return err
 	}

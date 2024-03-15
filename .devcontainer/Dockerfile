@@ -1,5 +1,5 @@
 # [Choice] Go version (use -bullseye variants on local arm64/Apple Silicon): 1, 1.18, 1.17, 1-bullseye, 1.18-bullseye, 1.17-bullseye, 1-buster, 1.18-buster, 1.17-buster
-FROM mcr.microsoft.com/vscode/devcontainers/go:1-1.20-bullseye
+FROM mcr.microsoft.com/vscode/devcontainers/go:1-1.22-bullseye
 
 # [Choice] Node.js version: none, lts/*, 16, 14, 12, 10
 ARG NODE_VERSION="none"
