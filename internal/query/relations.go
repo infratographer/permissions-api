@@ -405,10 +405,6 @@ func (e *engine) UpdateRole(ctx context.Context, actor, roleResource types.Resou
 
 	defer span.End()
 
-	if err := e.validateResourceActions(roleResource, newActions...); err != nil {
-		return types.Role{}, err
-	}
-
 	dbCtx, err := e.store.BeginContext(ctx)
 	if err != nil {
 		return types.Role{}, err
@@ -428,6 +424,20 @@ func (e *engine) UpdateRole(ctx context.Context, actor, roleResource types.Resou
 
 	role, err := e.GetRole(dbCtx, roleResource)
 	if err != nil {
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return types.Role{}, err
+	}
+
+	res, err := e.NewResourceFromID(role.ResourceID)
+	if err != nil {
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return types.Role{}, err
+	}
+
+	// Validate actions against role resource
+	if err := e.validateResourceActions(res, newActions...); err != nil {
 		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
 
 		return types.Role{}, err
