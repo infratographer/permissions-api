@@ -36,12 +36,10 @@ In the IAPL, a new `rbac` directive is introduced to define the RBAC configurati
 property | yaml | type | description
 -|-|-|-
 RoleResource |`rbac.roleresource`| string | name of the resource type that represents a role.
-RoleRelationshipSubject |`rbac.rolerelationshipsubject`| string | name of the relationship that connects a role to a subject.
-RoleOwners |`rbac.roleowners`| []string | names of the resource types that can own a role.
+RoleSubjectTypes |`rbac.rolesubjecttypes`| string | a list of subject types that the relationships in a role resource will contain.
+RoleOwners |`rbac.roleowners`| []string | the list of resource types that can own a role.  These resources should be (but not limited to) organizational resources like tenant, organization, project, group, etc When a role is owned by an entity, say a group, that means this role will be available to perform role-bindings for resources that are owned by this group and its subgroups.  The RoleOwners relationship is particularly useful to limit access to custom roles.
 RoleBindingResource |`rbac.rolebindingresource`| string | name of the resource type that represents a role binding.
 RoleBindingSubjects |`rbac.rolebindingsubjects`| []string | names of the resource types that can be subjects in a role binding.
-RolebindingPermissionsPrefix |`rbac.rolebindingpermissionsprefix`| string | generates the permissions sets to manage role bindings,
-GrantRelationship |`rbac.grantrelationship`| string | name of the relationship that connects a role binding to a resource.  e.g. rolebinding_create, rolebinding_list, rolebinding_delete, etc.
 
 For example, consider the following spicedb schema:
 

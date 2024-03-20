@@ -18,7 +18,7 @@ var (
 	schemaCmd = &cobra.Command{
 		Use:   "schema",
 		Short: "write the schema into SpiceDB",
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(cmd *cobra.Command, _ []string) {
 			writeSchema(cmd.Context(), dryRun, globalCfg)
 		},
 	}
@@ -43,7 +43,7 @@ func init() {
 	}
 }
 
-func writeSchema(ctx context.Context, dryRun bool, cfg *config.AppConfig) {
+func writeSchema(_ context.Context, dryRun bool, cfg *config.AppConfig) {
 	var (
 		err    error
 		policy iapl.Policy

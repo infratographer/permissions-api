@@ -7,10 +7,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"go.infratographer.com/permissions-api/internal/testingx"
+	"go.infratographer.com/permissions-api/internal/types"
 )
 
 func TestPolicy(t *testing.T) {
-	rbac := DefaultRBAC()
+	rbac := defaultRBAC()
 
 	cases := []testingx.TestCase[PolicyDocument, Policy]{
 		{
@@ -380,6 +381,14 @@ func TestPolicy(t *testing.T) {
 					{
 						Name: "foo",
 					},
+					{
+						Name:     "rolev2",
+						IDPrefix: "permrv2",
+					},
+					{
+						Name:     "role_binding",
+						IDPrefix: "permrbn",
+					},
 				},
 			},
 			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
@@ -391,6 +400,16 @@ func TestPolicy(t *testing.T) {
 			Name: "RoleOwnerMissing",
 			Input: PolicyDocument{
 				RBAC: &rbac,
+				ResourceTypes: []ResourceType{
+					{
+						Name:     "rolev2",
+						IDPrefix: "permrv2",
+					},
+					{
+						Name:     "role_binding",
+						IDPrefix: "permrbn",
+					},
+				},
 			},
 			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
 				// unknown resource type: role owner tenant does not exists
@@ -400,10 +419,28 @@ func TestPolicy(t *testing.T) {
 		{
 			Name: "RBAC_OK",
 			Input: PolicyDocument{
-				RBAC: &rbac,
+				RBAC: &RBAC{
+					RoleResource:        "rolev2",
+					RoleSubjectTypes:    []string{"user"},
+					RoleOwners:          []string{"tenant"},
+					RoleBindingResource: "role_binding",
+					RoleBindingSubjects: []types.TargetType{{Name: "user"}},
+				},
 				ResourceTypes: []ResourceType{
 					{
 						Name: "tenant",
+					},
+					{
+						Name:     "rolev2",
+						IDPrefix: "permrv2",
+					},
+					{
+						Name:     "role_binding",
+						IDPrefix: "permrbn",
+					},
+					{
+						Name:     "user",
+						IDPrefix: "idntusr",
 					},
 				},
 			},
@@ -425,4 +462,14 @@ func TestPolicy(t *testing.T) {
 	}
 
 	testingx.RunTests(context.Background(), t, cases, testFn)
+}
+
+func defaultRBAC() RBAC {
+	return RBAC{
+		RoleResource:        "rolev2",
+		RoleSubjectTypes:    []string{"user", "client"},
+		RoleOwners:          []string{"tenant"},
+		RoleBindingResource: "role_binding",
+		RoleBindingSubjects: []types.TargetType{{Name: "user"}, {Name: "client"}, {Name: "group", SubjectRelation: "member"}},
+	}
 }

@@ -1,6 +1,6 @@
 rbac:
   roleresource: rolev2
-  rolerelationshipsubjects:
+  rolesubjecttypes:
     - user
     - client
   roleowners:
@@ -157,7 +157,7 @@ actionbindings:
     conditions:
       - &rbv2parent
         rolebindingv2:
-          inheritgrants:
+          inheritgrantsfrom:
             - parent
       - rolebinding: {}
   - actionname: role_create
@@ -212,7 +212,7 @@ actionbindings:
       - rolebinding: {}
       - &rbv2owner
         rolebindingv2:
-          inheritgrants:
+          inheritgrantsfrom:
             - owner
   - actionname: loadbalancer_update
     typename: loadbalancer
