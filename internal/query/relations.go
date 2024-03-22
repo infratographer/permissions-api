@@ -858,7 +858,7 @@ func (e *engine) ListRoles(ctx context.Context, resource types.Resource) ([]type
 			return nil, err
 		}
 
-		if res.Type == e.rbac.RoleResource {
+		if res.Type == e.rbac.RoleResource.Name {
 			continue
 		}
 

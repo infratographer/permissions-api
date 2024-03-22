@@ -13,7 +13,7 @@ import (
 
 var (
 	mermaidTemplate = `erDiagram
-{{- if ne .RBAC.RoleResource nil}}
+{{- if ne .RBAC nil}}
 	{{ .RBAC.RoleBindingResource }} }o--o{ {{ .RBAC.RoleResource }} : role
 	{{- range $subj := .RBAC.RoleBindingSubjects }}
 	{{ $.RBAC.RoleBindingResource }} }o--o{ {{ $subj.Name }} : subject
@@ -33,9 +33,6 @@ var (
 		{{- end }}
 	}
     {{- range $rel := $resource.Relationships }}
-	{{- range $targetName := $rel.TargetTypeNames }}
-	{{ $resource.Name }} }o--o{ {{ $targetName }} : {{ $rel.Relation }}
-	{{- end }}
 
 	{{- range $target := $rel.TargetTypes }}
 	{{ $resource.Name }} }o--o{ {{ $target.Name -}} : {{ $rel.Relation -}}
@@ -54,10 +51,6 @@ var (
 		{{- end }}
 		{{- end }}
 	}
-	{{- range $typ := $union.ResourceTypeNames }}
-	{{ $union.Name }} ||--|| {{ $typ }} : alias
-	{{- end }}
-
 	{{- range $typ := $union.ResourceTypes }}
 	{{ $union.Name }} ||--|| {{ $typ.Name -}} : alias
 	{{- end}}

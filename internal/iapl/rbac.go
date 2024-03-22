@@ -45,14 +45,15 @@ const (
 // ResourceRoleBindingV2 describes the relationships that will be created
 // for a resource to support role-binding V2
 type ResourceRoleBindingV2 struct {
-	// AvailableRolesFrom is the list of resource types that can provide roles to this resource
+	// InheritPermissionsFrom is the list of resource types that can provide roles
+	// and grants to this resource
 	// Note that not all roles are available to all resources. This relationship is used to
 	// determine which roles are available to a resource.
 	// Before creating a role binding for a resource, one should check whether or
 	// not the role is available for the resource.
 	//
 	// Also see the RoleOwners field in the RBAC struct
-	AvailableRolesFrom []string
+	InheritPermissionsFrom []string
 }
 
 /*
@@ -70,8 +71,8 @@ For example, consider the following spicedb schema:
 
 	definition organization {
 		relation parent: organization
-		relation member: user | client | organization#member
-		relation member_role: role | organization#member_role
+		relation member: user | client
+		relation member_role: role
 		relation grant: rolebinding
 
 		permissions rolebinding_list: grant->rolebinding_list
@@ -87,7 +88,7 @@ For example, consider the following spicedb schema:
 		relation rolebinding_delete_rel: user:* | client:*
 	}
 
-	definition role_binding {
+	definition rolebinding {
 		relation role: role
 		relation subject: user | group#member
 		permission view_organization = subject & role->view_organization
@@ -98,16 +99,16 @@ For example, consider the following spicedb schema:
 
 ```
 in IAPL policy terms:
-- the RoleResource would be "role"
-- the RoleBindingResource would be "role_binding",
+- the RoleResource would be "{name: role, idprefix: someprefix}"
+- the RoleBindingResource would be "{name: rolebinding, idprefix: someprefix}",
 - the RoleRelationshipSubject would be `[user, client]`.
 - the RoleBindingSubjects would be `[{name: user}, {name: group, subjectrelation: member}]`.
 */
 type RBAC struct {
 	// RoleResource is the name of the resource type that represents a role.
-	RoleResource string
+	RoleResource rbacResourceDefinition
 	// RoleBindingResource is the name of the resource type that represents a role binding.
-	RoleBindingResource string
+	RoleBindingResource rbacResourceDefinition
 	// RoleSubjectTypes is a list of subject types that the relationships in a
 	// role resource will contain, see the example above.
 	RoleSubjectTypes []string
@@ -125,6 +126,13 @@ type RBAC struct {
 	RoleBindingSubjects []types.TargetType
 
 	roleownersset map[string]struct{}
+}
+
+// rbacResourceDefinition is a struct to define a resource type for a role
+// and role-bindings
+type rbacResourceDefinition struct {
+	Name     string
+	IDPrefix string
 }
 
 // CreateRoleBindingConditionsForAction creates the conditions that is used for role binding v2,

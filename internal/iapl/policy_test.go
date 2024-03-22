@@ -25,8 +25,8 @@ func TestPolicy(t *testing.T) {
 				Unions: []Union{
 					{
 						Name: "foo",
-						ResourceTypeNames: []string{
-							"foo",
+						ResourceTypes: []types.TargetType{
+							{Name: "foo"},
 						},
 					},
 				},
@@ -46,8 +46,8 @@ func TestPolicy(t *testing.T) {
 				Unions: []Union{
 					{
 						Name: "bar",
-						ResourceTypeNames: []string{
-							"baz",
+						ResourceTypes: []types.TargetType{
+							{Name: "baz"},
 						},
 					},
 				},
@@ -67,8 +67,8 @@ func TestPolicy(t *testing.T) {
 				Unions: []Union{
 					{
 						Name: "bar",
-						ResourceTypeNames: []string{
-							"baz",
+						ResourceTypes: []types.TargetType{
+							{Name: "baz"},
 						},
 					},
 				},
@@ -86,8 +86,8 @@ func TestPolicy(t *testing.T) {
 						Relationships: []Relationship{
 							{
 								Relation: "bar",
-								TargetTypeNames: []string{
-									"baz",
+								TargetTypes: []types.TargetType{
+									{Name: "baz"},
 								},
 							},
 						},
@@ -107,8 +107,8 @@ func TestPolicy(t *testing.T) {
 						Relationships: []Relationship{
 							{
 								Relation: "bar",
-								TargetTypeNames: []string{
-									"foo",
+								TargetTypes: []types.TargetType{
+									{Name: "foo"},
 								},
 							},
 						},
@@ -139,8 +139,8 @@ func TestPolicy(t *testing.T) {
 						Relationships: []Relationship{
 							{
 								Relation: "bar",
-								TargetTypeNames: []string{
-									"foo",
+								TargetTypes: []types.TargetType{
+									{Name: "foo"},
 								},
 							},
 						},
@@ -211,8 +211,8 @@ func TestPolicy(t *testing.T) {
 						Relationships: []Relationship{
 							{
 								Relation: "bar",
-								TargetTypeNames: []string{
-									"foo",
+								TargetTypes: []types.TargetType{
+									{Name: "foo"},
 								},
 							},
 						},
@@ -224,9 +224,9 @@ func TestPolicy(t *testing.T) {
 				Unions: []Union{
 					{
 						Name: "buzz",
-						ResourceTypeNames: []string{
-							"foo",
-							"baz",
+						ResourceTypes: []types.TargetType{
+							{Name: "foo"},
+							{Name: "baz"},
 						},
 					},
 				},
@@ -263,8 +263,8 @@ func TestPolicy(t *testing.T) {
 						Relationships: []Relationship{
 							{
 								Relation: "bar",
-								TargetTypeNames: []string{
-									"foo",
+								TargetTypes: []types.TargetType{
+									{Name: "foo"},
 								},
 							},
 						},
@@ -274,8 +274,8 @@ func TestPolicy(t *testing.T) {
 						Relationships: []Relationship{
 							{
 								Relation: "bar",
-								TargetTypeNames: []string{
-									"foo",
+								TargetTypes: []types.TargetType{
+									{Name: "foo"},
 								},
 							},
 						},
@@ -284,9 +284,9 @@ func TestPolicy(t *testing.T) {
 				Unions: []Union{
 					{
 						Name: "buzz",
-						ResourceTypeNames: []string{
-							"foo",
-							"baz",
+						ResourceTypes: []types.TargetType{
+							{Name: "foo"},
+							{Name: "baz"},
 						},
 					},
 				},
@@ -323,8 +323,8 @@ func TestPolicy(t *testing.T) {
 						Relationships: []Relationship{
 							{
 								Relation: "bar",
-								TargetTypeNames: []string{
-									"foo",
+								TargetTypes: []types.TargetType{
+									{Name: "foo"},
 								},
 							},
 						},
@@ -334,8 +334,8 @@ func TestPolicy(t *testing.T) {
 						Relationships: []Relationship{
 							{
 								Relation: "bar",
-								TargetTypeNames: []string{
-									"foo",
+								TargetTypes: []types.TargetType{
+									{Name: "foo"},
 								},
 							},
 						},
@@ -344,9 +344,9 @@ func TestPolicy(t *testing.T) {
 				Unions: []Union{
 					{
 						Name: "buzz",
-						ResourceTypeNames: []string{
-							"foo",
-							"baz",
+						ResourceTypes: []types.TargetType{
+							{Name: "foo"},
+							{Name: "baz"},
 						},
 					},
 				},
@@ -420,23 +420,15 @@ func TestPolicy(t *testing.T) {
 			Name: "RBAC_OK",
 			Input: PolicyDocument{
 				RBAC: &RBAC{
-					RoleResource:        "rolev2",
+					RoleResource:        rbacResourceDefinition{"rolev2", "permrv2"},
+					RoleBindingResource: rbacResourceDefinition{"role_binding", "permrbn"},
 					RoleSubjectTypes:    []string{"user"},
 					RoleOwners:          []string{"tenant"},
-					RoleBindingResource: "role_binding",
 					RoleBindingSubjects: []types.TargetType{{Name: "user"}},
 				},
 				ResourceTypes: []ResourceType{
 					{
 						Name: "tenant",
-					},
-					{
-						Name:     "rolev2",
-						IDPrefix: "permrv2",
-					},
-					{
-						Name:     "role_binding",
-						IDPrefix: "permrbn",
 					},
 					{
 						Name:     "user",
@@ -466,10 +458,10 @@ func TestPolicy(t *testing.T) {
 
 func defaultRBAC() RBAC {
 	return RBAC{
-		RoleResource:        "rolev2",
+		RoleResource:        rbacResourceDefinition{"rolev2", "permrv2"},
+		RoleBindingResource: rbacResourceDefinition{"role_binding", "permrbn"},
 		RoleSubjectTypes:    []string{"user", "client"},
 		RoleOwners:          []string{"tenant"},
-		RoleBindingResource: "role_binding",
 		RoleBindingSubjects: []types.TargetType{{Name: "user"}, {Name: "client"}, {Name: "group", SubjectRelation: "member"}},
 	}
 }

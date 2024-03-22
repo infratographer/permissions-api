@@ -88,8 +88,6 @@ in IAPL policy terms:
 - the RoleBindingResource would be "role_binding",
 - the RoleRelationshipSubject would be `[user, client]`.
 - the RoleBindingSubjects would be `[{name: user}, {name: group, subjectrelation: member}]`.
-- the RolebindingPermissionsPrefix would be "rolebinding"
-- the GrantRelationship would be "grant"
 
 ### Roles
 
@@ -183,10 +181,18 @@ use cases.
 
 ### Ownerships
 
-To accommodate inheritance of the grant relationships, a new type of `Condition`
-is introduced to the IAPL:
+To accommodate inheritance of the grant relationships,
+a new property `RoleBindingV2` is added to the resource type definitions
+and a new type of `Condition` is introduced to the IAPL:
 
 ```diff
+  type ResourceType struct {
+    Name          string
+    IDPrefix      string
++   RoleBindingV2 *ResourceRoleBindingV2
+    Relationships []Relationship
+  }
+
   type Condition struct {
     RoleBinding        *ConditionRoleBinding
 +   RoleBindingV2      *ConditionRoleBindingV2
@@ -194,28 +200,40 @@ is introduced to the IAPL:
   }
 ```
 
-a property of `InheritGrants []string` is defined in `ConditionRoleBindingV2`
+A property of `InheritPermissionsFrom []string` is defined in `ResourceRoleBindingV2`
 that allows the IAPL to generate a permission line in the SpiceDB schema that
-allows grants to be inherited from its owner or parent.
+allows grants and roles to be inherited from its owner or parent.
+
+When `RoleBindingV2` is defined in a given `Condition`, the IAPL will look for
+the `resourcetype.RoleBindingV2.InheritPermissionsFrom` property in the resource
+type that the condition's action belongs to.
 
 For example, consider the following `ActionBinding`:
 
 ```yaml
 # ...
 
+resourcetypes:
+  - name: doc
+    idprefix: doc
+    rolebindingv2:
+      inheritpermissionsfrom:
+        - owner
+  - name: tenant
+    idprefix: tenant
+    rolebindingv2:
+      inheritpermissionsfrom:
+        - parent
+
 actionbindings:
   - actionname: read_doc
     typename: doc
     conditions:
-      rolebindingv2:
-        inheritgrants:
-          - owner 
+      rolebindingv2: {}
   - actionname: read_doc
     typename: tenant
     conditions:
-      rolebindingv2:
-        inheritgrants:
-          - parent
+      rolebindingv2: {}
 
 # ...
 ```
@@ -385,3 +403,13 @@ flowchart TD
   permok-->ok{{ok ✅}}
   memberok-->ok
 ```
+
+## Glossary
+
+- **Subject**: The entities that permissions can be granted to, such as users, clients, or group members
+- **Role**: An entity that contains a set of permissions
+- **RoleBinding**: An entity that creates a relationship between a role and some subjects,
+  meaning that these subjects are "in possession" of the permissions defined in the role
+- **Grant**: The relationship between a role-binding and a resource, effectively creating a
+  three way relationship between a role, a resource, and the subjects
+- **Inheritance**: The ability to propagate permissions and roles from a parent resource to its children
