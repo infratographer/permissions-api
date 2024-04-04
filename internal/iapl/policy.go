@@ -255,9 +255,9 @@ func (v *policy) validateActionBindings() error {
 
 		if _, ok := bindingMap[key]; ok {
 			return fmt.Errorf("%d: %w", i, ErrorActionBindingExists)
-		} else {
-			bindingMap[key] = struct{}{}
 		}
+
+		bindingMap[key] = struct{}{}
 
 		if _, ok := v.ac[binding.ActionName]; !ok {
 			return fmt.Errorf("%d: %s: %w", i, binding.ActionName, ErrorUnknownAction)
