@@ -74,13 +74,7 @@ func outputPolicyMermaid(filePaths []string, markdown bool) {
 				logger.Fatalw("failed to open policy document file", "error", err)
 			}
 
-			policy.ActionBindings = append(policy.ActionBindings, filePolicy.ActionBindings...)
-
-			policy.Actions = append(policy.Actions, filePolicy.Actions...)
-
-			policy.ResourceTypes = append(policy.ResourceTypes, filePolicy.ResourceTypes...)
-
-			policy.Unions = append(policy.Unions, filePolicy.Unions...)
+			policy = policy.MergeWithPolicyDocument(filePolicy)
 		}
 	} else {
 		policy = iapl.DefaultPolicyDocument()

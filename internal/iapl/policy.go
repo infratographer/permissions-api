@@ -111,6 +111,19 @@ func NewPolicy(p PolicyDocument) Policy {
 	return &out
 }
 
+// MergeWithPolicyDocument merges this document with another, returning the new PolicyDocument.
+func (p PolicyDocument) MergeWithPolicyDocument(other PolicyDocument) PolicyDocument {
+	p.ResourceTypes = append(p.ResourceTypes, other.ResourceTypes...)
+
+	p.Unions = append(p.Unions, other.Unions...)
+
+	p.Actions = append(p.Actions, other.Actions...)
+
+	p.ActionBindings = append(p.ActionBindings, other.ActionBindings...)
+
+	return p
+}
+
 // NewPolicyFromFile reads the provided file path and returns a new Policy.
 func NewPolicyFromFile(filePath string) (Policy, error) {
 	file, err := os.Open(filePath)
@@ -144,13 +157,7 @@ func NewPolicyFromFiles(filePaths []string) (Policy, error) {
 			return nil, err
 		}
 
-		mergedPolicy.ActionBindings = append(mergedPolicy.ActionBindings, filePolicy.ActionBindings...)
-
-		mergedPolicy.Actions = append(mergedPolicy.Actions, filePolicy.Actions...)
-
-		mergedPolicy.ResourceTypes = append(mergedPolicy.ResourceTypes, filePolicy.ResourceTypes...)
-
-		mergedPolicy.Unions = append(mergedPolicy.Unions, filePolicy.Unions...)
+		mergedPolicy = mergedPolicy.MergeWithPolicyDocument(filePolicy)
 	}
 
 	return NewPolicy(mergedPolicy), nil
