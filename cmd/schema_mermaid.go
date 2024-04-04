@@ -57,19 +57,30 @@ type mermaidContext struct {
 	RelatedActions map[string]map[string][]string
 }
 
-func outputPolicyMermaid(filePath string, markdown bool) {
-	var policy iapl.PolicyDocument
+func outputPolicyMermaid(filePaths []string, markdown bool) {
+	policy := iapl.PolicyDocument{}
 
-	if filePath != "" {
-		file, err := os.Open(filePath)
-		if err != nil {
-			logger.Fatalw("failed to open policy document file", "error", err)
-		}
+	if len(filePaths) > 0 {
+		for _, filePath := range filePaths {
+			file, err := os.Open(filePath)
+			if err != nil {
+				logger.Fatalw("failed to open policy document file", "error", err)
+			}
+			defer file.Close()
 
-		defer file.Close()
+			var filePolicy iapl.PolicyDocument
 
-		if err := yaml.NewDecoder(file).Decode(&policy); err != nil {
-			logger.Fatalw("failed to load policy document file", "error", err)
+			if err := yaml.NewDecoder(file).Decode(&filePolicy); err != nil {
+				logger.Fatalw("failed to open policy document file", "error", err)
+			}
+
+			policy.ActionBindings = append(policy.ActionBindings, filePolicy.ActionBindings...)
+
+			policy.Actions = append(policy.Actions, filePolicy.Actions...)
+
+			policy.ResourceTypes = append(policy.ResourceTypes, filePolicy.ResourceTypes...)
+
+			policy.Unions = append(policy.Unions, filePolicy.Unions...)
 		}
 	} else {
 		policy = iapl.DefaultPolicyDocument()

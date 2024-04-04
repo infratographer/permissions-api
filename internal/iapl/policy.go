@@ -127,6 +127,35 @@ func NewPolicyFromFile(filePath string) (Policy, error) {
 	return NewPolicy(policy), nil
 }
 
+// NewPolicyFromFiles reads the provided file paths, merges them, and returns a new Policy.
+func NewPolicyFromFiles(filePaths []string) (Policy, error) {
+	mergedPolicy := PolicyDocument{}
+
+	for _, filePath := range filePaths {
+		file, err := os.Open(filePath)
+		if err != nil {
+			return nil, err
+		}
+		defer file.Close()
+
+		var filePolicy PolicyDocument
+
+		if err := yaml.NewDecoder(file).Decode(&filePolicy); err != nil {
+			return nil, err
+		}
+
+		mergedPolicy.ActionBindings = append(mergedPolicy.ActionBindings, filePolicy.ActionBindings...)
+
+		mergedPolicy.Actions = append(mergedPolicy.Actions, filePolicy.Actions...)
+
+		mergedPolicy.ResourceTypes = append(mergedPolicy.ResourceTypes, filePolicy.ResourceTypes...)
+
+		mergedPolicy.Unions = append(mergedPolicy.Unions, filePolicy.Unions...)
+	}
+
+	return NewPolicy(mergedPolicy), nil
+}
+
 func (v *policy) validateUnions() error {
 	for _, union := range v.p.Unions {
 		if _, ok := v.rt[union.Name]; ok {
@@ -211,7 +240,25 @@ func (v *policy) validateConditions(rt ResourceType, conds []Condition) error {
 }
 
 func (v *policy) validateActionBindings() error {
+	type bindingMapKey struct {
+		actionName string
+		typeName   string
+	}
+
+	bindingMap := make(map[bindingMapKey]struct{}, len(v.p.ActionBindings))
+
 	for i, binding := range v.bn {
+		key := bindingMapKey{
+			actionName: binding.ActionName,
+			typeName:   binding.TypeName,
+		}
+
+		if _, ok := bindingMap[key]; ok {
+			return fmt.Errorf("%d: %w", i, ErrorActionBindingExists)
+		} else {
+			bindingMap[key] = struct{}{}
+		}
+
 		if _, ok := v.ac[binding.ActionName]; !ok {
 			return fmt.Errorf("%d: %s: %w", i, binding.ActionName, ErrorUnknownAction)
 		}
