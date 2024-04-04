@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/cockroachdb/cockroach-go/v2/testserver"
+	_ "github.com/jackc/pgx/v5/stdlib" //nolint:revive // used for tests
 	"github.com/pressly/goose/v3"
 
 	"go.infratographer.com/permissions-api/internal/storage"
