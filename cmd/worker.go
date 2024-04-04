@@ -29,7 +29,7 @@ const shutdownTimeout = 10 * time.Second
 var workerCmd = &cobra.Command{
 	Use:   "worker",
 	Short: "starts a permissions-api queue worker",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		worker(cmd.Context(), globalCfg)
 	},
 }

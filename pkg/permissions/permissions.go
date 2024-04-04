@@ -94,7 +94,7 @@ type checkPermissionRequest struct {
 	Actions []AccessRequest `json:"actions"`
 }
 
-func (p *Permissions) checker(c echo.Context, actor, token string) Checker {
+func (p *Permissions) checker(c echo.Context, actor, _ string) Checker {
 	return func(ctx context.Context, requests ...AccessRequest) error {
 		ctx, span := tracer.Start(ctx, "permissions.checker")
 		defer span.End()

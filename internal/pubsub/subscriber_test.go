@@ -107,7 +107,7 @@ func TestNATS(t *testing.T) {
 				subject: "goodcreate.loadbalancer",
 				request: createMsg,
 			},
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
 				var engine mock.Engine
 				engine.On("CreateRelationships").Return(nil)
 
@@ -128,13 +128,13 @@ func TestNATS(t *testing.T) {
 				subject: "errcreate.loadbalancer",
 				request: createMsg,
 			},
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
 				var engine mock.Engine
 				engine.On("CreateRelationships").Return(io.ErrUnexpectedEOF)
 
 				return context.WithValue(ctx, contextKeyEngine, &engine)
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[events.Message[events.AuthRelationshipResponse]]) {
+			CheckFn: func(_ context.Context, t *testing.T, result testingx.TestResult[events.Message[events.AuthRelationshipResponse]]) {
 				require.NoError(t, result.Err)
 				require.NotNil(t, result.Success)
 				require.NotEmpty(t, result.Success.Message().Errors)
@@ -146,7 +146,7 @@ func TestNATS(t *testing.T) {
 				subject: "nocreate.loadbalancer",
 				request: noCreateMsg,
 			},
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
 				var engine mock.Engine
 
 				return context.WithValue(ctx, contextKeyEngine, &engine)

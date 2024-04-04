@@ -39,7 +39,7 @@ func TestGetRoleByID(t *testing.T) {
 		{
 			Name:  "NotFound",
 			Input: "permrol-notfound123",
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[storage.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[storage.Role]) {
 				require.Error(t, res.Err, "error expected when no role is found")
 				assert.ErrorIs(t, res.Err, storage.ErrNoRoleFound)
 				require.Empty(t, res.Success.ID, "no role expected to be returned")
@@ -48,7 +48,7 @@ func TestGetRoleByID(t *testing.T) {
 		{
 			Name:  "Found",
 			Input: roleID,
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[storage.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[storage.Role]) {
 				require.NoError(t, err, "no error expected while retrieving role")
 
 				assert.Equal(t, roleID, res.Success.ID)
@@ -105,7 +105,7 @@ func TestListResourceRoles(t *testing.T) {
 		{
 			Name:  "NoRoles",
 			Input: "testten-noroles123",
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]storage.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[[]storage.Role]) {
 				require.NoError(t, res.Err, "no error expected while retrieving resource roles")
 				require.Len(t, res.Success, 0, "no roles should be returned before they're created")
 			},
@@ -113,7 +113,7 @@ func TestListResourceRoles(t *testing.T) {
 		{
 			Name:  "FoundRoles",
 			Input: resourceID,
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]storage.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[[]storage.Role]) {
 				require.NoError(t, res.Err, "no error expected while retrieving role")
 
 				assert.Len(t, res.Success, len(groups), "expected returned roles to match group count")

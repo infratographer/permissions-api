@@ -3,6 +3,7 @@
 package teststore
 
 import (
+	"context"
 	"testing"
 
 	"github.com/cockroachdb/cockroach-go/v2/testserver"
@@ -33,7 +34,7 @@ func NewTestStorage(t *testing.T) (storage.Storage, func()) {
 		return nil, func() {}
 	}
 
-	if err = goose.Run("up", db, "migrations"); err != nil {
+	if err = goose.RunContext(context.Background(), "up", db, "migrations"); err != nil {
 		t.Error(err)
 
 		db.Close()

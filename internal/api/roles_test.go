@@ -711,7 +711,7 @@ func TestRoleDelete(t *testing.T) {
 	testingx.RunTests(ctx, t, testCases, testFn)
 }
 
-func echoTestLogger(t *testing.T, e *echo.Echo) echo.MiddlewareFunc {
+func echoTestLogger(t *testing.T, _ *echo.Echo) echo.MiddlewareFunc {
 	t.Helper()
 
 	return func(next echo.HandlerFunc) echo.HandlerFunc {

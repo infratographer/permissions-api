@@ -28,7 +28,7 @@ var (
 	createRoleCmd = &cobra.Command{
 		Use:   "create-role",
 		Short: "create role in SpiceDB directly",
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(cmd *cobra.Command, _ []string) {
 			createRole(cmd.Context(), globalCfg)
 		},
 	}
