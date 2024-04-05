@@ -3,6 +3,8 @@ package iapl
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"go.infratographer.com/permissions-api/internal/types"
 
@@ -111,6 +113,19 @@ func NewPolicy(p PolicyDocument) Policy {
 	return &out
 }
 
+// MergeWithPolicyDocument merges this document with another, returning the new PolicyDocument.
+func (p PolicyDocument) MergeWithPolicyDocument(other PolicyDocument) PolicyDocument {
+	p.ResourceTypes = append(p.ResourceTypes, other.ResourceTypes...)
+
+	p.Unions = append(p.Unions, other.Unions...)
+
+	p.Actions = append(p.Actions, other.Actions...)
+
+	p.ActionBindings = append(p.ActionBindings, other.ActionBindings...)
+
+	return p
+}
+
 // NewPolicyFromFile reads the provided file path and returns a new Policy.
 func NewPolicyFromFile(filePath string) (Policy, error) {
 	file, err := os.Open(filePath)
@@ -125,6 +140,47 @@ func NewPolicyFromFile(filePath string) (Policy, error) {
 	}
 
 	return NewPolicy(policy), nil
+}
+
+// NewPolicyFromFiles reads the provided file paths, merges them, and returns a new Policy.
+func NewPolicyFromFiles(filePaths []string) (Policy, error) {
+	mergedPolicy := PolicyDocument{}
+
+	for _, filePath := range filePaths {
+		file, err := os.Open(filePath)
+		if err != nil {
+			return nil, err
+		}
+		defer file.Close()
+
+		var filePolicy PolicyDocument
+
+		if err := yaml.NewDecoder(file).Decode(&filePolicy); err != nil {
+			return nil, err
+		}
+
+		mergedPolicy = mergedPolicy.MergeWithPolicyDocument(filePolicy)
+	}
+
+	return NewPolicy(mergedPolicy), nil
+}
+
+// NewPolicyFromDirectory reads the provided directory path, reads all files in the directory, merges them, and returns a new Policy.
+func NewPolicyFromDirectory(directoryPath string) (Policy, error) {
+	files, err := os.ReadDir(directoryPath)
+	if err != nil {
+		return nil, err
+	}
+
+	filePaths := make([]string, 0, len(files))
+
+	for _, file := range files {
+		if !file.IsDir() && (strings.EqualFold(filepath.Ext(file.Name()), ".yml") || strings.EqualFold(filepath.Ext(file.Name()), ".yaml")) {
+			filePaths = append(filePaths, directoryPath+"/"+file.Name())
+		}
+	}
+
+	return NewPolicyFromFiles(filePaths)
 }
 
 func (v *policy) validateUnions() error {
@@ -211,7 +267,25 @@ func (v *policy) validateConditions(rt ResourceType, conds []Condition) error {
 }
 
 func (v *policy) validateActionBindings() error {
+	type bindingMapKey struct {
+		actionName string
+		typeName   string
+	}
+
+	bindingMap := make(map[bindingMapKey]struct{}, len(v.p.ActionBindings))
+
 	for i, binding := range v.bn {
+		key := bindingMapKey{
+			actionName: binding.ActionName,
+			typeName:   binding.TypeName,
+		}
+
+		if _, ok := bindingMap[key]; ok {
+			return fmt.Errorf("%d: %w", i, ErrorActionBindingExists)
+		}
+
+		bindingMap[key] = struct{}{}
+
 		if _, ok := v.ac[binding.ActionName]; !ok {
 			return fmt.Errorf("%d: %s: %w", i, binding.ActionName, ErrorUnknownAction)
 		}

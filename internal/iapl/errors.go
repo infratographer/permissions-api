@@ -5,6 +5,8 @@ import "errors"
 var (
 	// ErrorTypeExists represents an error where a duplicate type or union was declared.
 	ErrorTypeExists = errors.New("type already exists")
+	// ErrorActionBindingExists represents an error where a duplicate binding between a type and action was declared.
+	ErrorActionBindingExists = errors.New("action binding already exists")
 	// ErrorUnknownType represents an error where a resource type is unknown in the authorization policy.
 	ErrorUnknownType = errors.New("unknown resource type")
 	// ErrorInvalidCondition represents an error where an action binding condition is invalid.

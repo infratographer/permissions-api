@@ -45,7 +45,6 @@ config:
     pskSecretName: ""
     # policyConfigMapName is the name of the Config Map containing the policy file configuration
     policyConfigMapName: ""
-
   crdb:
     # migrateHook sets when to run database migrations. one of: pre-sync, init, manual
     #  - pre-sync: hook runs as a job before any other changes are synced.

@@ -3,6 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	v1 "github.com/authzed/authzed-go/proto/authzed/api/v1"
 	"github.com/spf13/cobra"
@@ -49,13 +52,13 @@ func writeSchema(_ context.Context, dryRun bool, cfg *config.AppConfig) {
 		policy iapl.Policy
 	)
 
-	if cfg.SpiceDB.PolicyFile != "" {
-		policy, err = iapl.NewPolicyFromFile(cfg.SpiceDB.PolicyFile)
+	if cfg.SpiceDB.PolicyDir != "" {
+		policy, err = iapl.NewPolicyFromDirectory(cfg.SpiceDB.PolicyDir)
 		if err != nil {
-			logger.Fatalw("unable to load new policy from schema file", "policy_file", cfg.SpiceDB.PolicyFile, "error", err)
+			logger.Fatalw("unable to load new policy from schema directory", "policy_dir", cfg.SpiceDB.PolicyDir, "error", err)
 		}
 	} else {
-		logger.Warn("no spicedb policy file defined, using default policy")
+		logger.Warn("no spicedb policy defined, using default policy")
 
 		policy = iapl.DefaultPolicy()
 	}
@@ -70,7 +73,22 @@ func writeSchema(_ context.Context, dryRun bool, cfg *config.AppConfig) {
 	}
 
 	if viper.GetBool("mermaid") || viper.GetBool("mermaid-markdown") {
-		outputPolicyMermaid(cfg.SpiceDB.PolicyFile, viper.GetBool("mermaid-markdown"))
+		if cfg.SpiceDB.PolicyDir != "" {
+			files, err := os.ReadDir(cfg.SpiceDB.PolicyDir)
+			if err != nil {
+				logger.Fatalw("failed to read policy files from directory", "error", err)
+			}
+
+			filePaths := make([]string, 0, len(files))
+
+			for _, file := range files {
+				if !file.IsDir() && (strings.EqualFold(filepath.Ext(file.Name()), ".yml") || strings.EqualFold(filepath.Ext(file.Name()), ".yaml")) {
+					filePaths = append(filePaths, cfg.SpiceDB.PolicyDir+"/"+file.Name())
+				}
+			}
+
+			outputPolicyMermaid(filePaths, viper.GetBool("mermaid-markdown"))
+		}
 
 		return
 	}
