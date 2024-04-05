@@ -163,6 +163,24 @@ func NewPolicyFromFiles(filePaths []string) (Policy, error) {
 	return NewPolicy(mergedPolicy), nil
 }
 
+// NewPolicyFromDirectory reads the provided directory path, reads all files in the directory, merges them, and returns a new Policy.
+func NewPolicyFromDirectory(directoryPath string) (Policy, error) {
+	files, err := os.ReadDir(directoryPath)
+	if err != nil {
+		return nil, err
+	}
+
+	filePaths := make([]string, 0, len(files))
+
+	for _, file := range files {
+		if !file.IsDir() {
+			filePaths = append(filePaths, directoryPath+"/"+file.Name())
+		}
+	}
+
+	return NewPolicyFromFiles(filePaths)
+}
+
 func (v *policy) validateUnions() error {
 	for _, union := range v.p.Unions {
 		if _, ok := v.rt[union.Name]; ok {

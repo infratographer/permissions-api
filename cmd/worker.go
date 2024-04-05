@@ -73,13 +73,13 @@ func worker(ctx context.Context, cfg *config.AppConfig) {
 
 	var policy iapl.Policy
 
-	if len(cfg.SpiceDB.PolicyFiles) > 0 {
-		policy, err = iapl.NewPolicyFromFiles(cfg.SpiceDB.PolicyFiles)
+	if cfg.SpiceDB.PolicyDir != "" {
+		policy, err = iapl.NewPolicyFromDirectory(cfg.SpiceDB.PolicyDir)
 		if err != nil {
-			logger.Fatalw("unable to load new policy from schema files", "policy_files", cfg.SpiceDB.PolicyFiles, "error", err)
+			logger.Fatalw("unable to load new policy from schema directory", "policy_dir", cfg.SpiceDB.PolicyDir, "error", err)
 		}
 	} else {
-		logger.Warn("no spicedb policy file defined, using default policy")
+		logger.Warn("no spicedb policy defined, using default policy")
 
 		policy = iapl.DefaultPolicy()
 	}

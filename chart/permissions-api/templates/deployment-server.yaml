@@ -86,6 +86,10 @@ spec:
                   name: {{ . }}
                   key: uri
           {{- end }}
+          {{- if .Values.config.spicedb.policyConfigMapName }}
+            - name: PERMISSIONSAPI_SPICEDB_POLICYDIR
+              value: /policies
+          {{- end }}
             {{- if .Values.config.spicedb.caSecretName }}
             - name: SSL_CERT_DIR
               value: "/etc/ssl/spicedb"

@@ -1,8 +1,7 @@
 oidc:
   issuer: http://mock-oauth2-server:8081/default
 spicedb:
-  policyFiles: 
-    - /workspace/policy.example.yaml
+  policyDir: /workspace/policies
 events:
   nats:
     credsFile: /tmp/user.creds

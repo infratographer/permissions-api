@@ -47,7 +47,7 @@
 {{- end }}
 {{- if .Values.config.spicedb.policyConfigMapName }}
 - name: policy-files
-  mountPath: {{ .Values.config.spicedb.policyConfigMapMountPoint }}
+  mountPath: /policies
 {{- end }}
 {{- end }}
 
@@ -94,6 +94,6 @@
 {{- end }}
 {{- if .Values.config.spicedb.policyConfigMapName }}
 - name: policy-files
-  mountPath: {{ .Values.config.spicedb.policyConfigMapMountPoint }}
+  mountPath: /policies
 {{- end }}
 {{- end }}
