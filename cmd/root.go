@@ -68,8 +68,8 @@ func init() {
 	viperx.MustBindFlag(viper.GetViper(), "spicedb.verifyca", rootCmd.PersistentFlags().Lookup("spicedb-verifyca"))
 	rootCmd.PersistentFlags().String("spicedb-prefix", "", "spicedb prefix")
 	viperx.MustBindFlag(viper.GetViper(), "spicedb.prefix", rootCmd.PersistentFlags().Lookup("spicedb-prefix"))
-	rootCmd.PersistentFlags().String("spicedb-policy", "", "spicedb policy file")
-	viperx.MustBindFlag(viper.GetViper(), "spicedb.policyFile", rootCmd.PersistentFlags().Lookup("spicedb-policy"))
+	rootCmd.PersistentFlags().String("spicedb-policydir", "", "spicedb policy directory")
+	viperx.MustBindFlag(viper.GetViper(), "spicedb.policyDir", rootCmd.PersistentFlags().Lookup("spicedb-policydir"))
 }
 
 // initConfig reads in config file and ENV variables if set.
