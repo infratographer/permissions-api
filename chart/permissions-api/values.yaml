@@ -45,6 +45,10 @@ config:
     pskSecretName: ""
     # policyConfigMapName is the name of the Config Map containing the policy file configuration
     policyConfigMapName: ""
+    # policyConfigMapMountPoint is the filesystem location where the policies should be mounted. Needed to define policyFiles below.
+    policyConfigMapMountPoint: ""
+    # policyFiles is a list of filenames in the policy config map to load
+    policyFiles: []
 
   crdb:
     # migrateHook sets when to run database migrations. one of: pre-sync, init, manual
