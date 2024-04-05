@@ -56,8 +56,7 @@ func NewClient(cfg Config, enableTracing bool) (*authzed.Client, error) {
 
 	if enableTracing {
 		clientOpts = append(clientOpts,
-			grpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
-			grpc.WithStreamInterceptor(otelgrpc.StreamClientInterceptor()),
+			grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 		)
 	}
 
