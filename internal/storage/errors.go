@@ -3,7 +3,7 @@ package storage
 import (
 	"errors"
 
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 var (
@@ -28,6 +28,9 @@ var (
 )
 
 const (
+	// Postgres error codes: https://www.postgresql.org/docs/11/errcodes-appendix.html
+	pgErrCodeUniqueViolation = "23505"
+
 	pqIndexRolesPrimaryKey     = "roles_pkey"
 	pqIndexRolesResourceIDName = "roles_resource_id_name"
 )
@@ -37,8 +40,8 @@ const (
 // If postgres has raised a unique violation error on this index it means a record already exists
 // with a matching primary key (role id).
 func pqIsRoleAlreadyExistsError(err error) bool {
-	if pqErr, ok := err.(*pq.Error); ok {
-		return pqErr.Code.Name() == "unique_violation" && pqErr.Constraint == pqIndexRolesPrimaryKey
+	if pgErr, ok := err.(*pgconn.PgError); ok {
+		return pgErr.Code == pgErrCodeUniqueViolation && pgErr.ConstraintName == pqIndexRolesPrimaryKey
 	}
 
 	return false
@@ -49,8 +52,8 @@ func pqIsRoleAlreadyExistsError(err error) bool {
 // If postgres has raised a unique violation error on this index it means a record already exists
 // with the same resource id and role name combination.
 func pqIsRoleNameTakenError(err error) bool {
-	if pqErr, ok := err.(*pq.Error); ok {
-		return pqErr.Code.Name() == "unique_violation" && pqErr.Constraint == pqIndexRolesResourceIDName
+	if pgErr, ok := err.(*pgconn.PgError); ok {
+		return pgErr.Code == pgErrCodeUniqueViolation && pgErr.ConstraintName == pqIndexRolesResourceIDName
 	}
 
 	return false

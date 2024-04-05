@@ -228,7 +228,7 @@ func TestPermissions(t *testing.T) {
 
 			var nextCalled bool
 
-			nextFn := func(c echo.Context) error {
+			nextFn := func(_ echo.Context) error {
 				nextCalled = true
 
 				return nil

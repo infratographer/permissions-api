@@ -3,9 +3,11 @@
 package teststore
 
 import (
+	"context"
 	"testing"
 
 	"github.com/cockroachdb/cockroach-go/v2/testserver"
+	_ "github.com/jackc/pgx/v5/stdlib" //nolint:revive // used for tests
 	"github.com/pressly/goose/v3"
 
 	"go.infratographer.com/permissions-api/internal/storage"
@@ -33,7 +35,7 @@ func NewTestStorage(t *testing.T) (storage.Storage, func()) {
 		return nil, func() {}
 	}
 
-	if err = goose.Run("up", db, "migrations"); err != nil {
+	if err = goose.RunContext(context.Background(), "up", db, "migrations"); err != nil {
 		t.Error(err)
 
 		db.Close()

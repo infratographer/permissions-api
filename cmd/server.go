@@ -28,7 +28,7 @@ var (
 var serverCmd = &cobra.Command{
 	Use:   "server",
 	Short: "starts the permissions-api server",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		serve(cmd.Context(), globalCfg)
 	},
 }
@@ -44,7 +44,7 @@ func init() {
 	events.MustViperFlags(v, serverCmd.Flags(), appName)
 }
 
-func serve(ctx context.Context, cfg *config.AppConfig) {
+func serve(_ context.Context, cfg *config.AppConfig) {
 	err := otelx.InitTracer(cfg.Tracing, appName, logger)
 	if err != nil {
 		logger.Fatalw("unable to initialize tracing system", "error", err)

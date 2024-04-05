@@ -370,7 +370,7 @@ func actionsDiff(oldActions, newActions []string) ([]string, []string) {
 	}
 
 	old := make(map[string]struct{}, len(oldActions))
-	new := make(map[string]struct{}, len(newActions))
+	new := make(map[string]struct{}, len(newActions)) //nolint:revive // new makes sense in this context
 
 	var add, rem []string
 
