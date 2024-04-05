@@ -24,7 +24,7 @@
     secretName: {{ . }}
 {{- end }}
 {{- with .Values.config.spicedb.policyConfigMapName }}
-- name: policy-file
+- name: policy-files
   configMap:
     name: {{ . }}
 {{- end }}
@@ -46,8 +46,8 @@
   mountPath: {{ .Values.config.crdb.caMountPath }}
 {{- end }}
 {{- if .Values.config.spicedb.policyConfigMapName }}
-- name: policy-file
-  mountPath: /policy
+- name: policy-files
+  mountPath: {{ .Values.config.spicedb.policyConfigMapMountPoint }}
 {{- end }}
 {{- end }}
 
@@ -71,7 +71,7 @@
     secretName: {{ . }}
 {{- end }}
 {{- with .Values.config.spicedb.policyConfigMapName }}
-- name: policy-file
+- name: policy-files
   configMap:
     name: {{ . }}
 {{- end }}
@@ -93,7 +93,7 @@
   mountPath: /nats
 {{- end }}
 {{- if .Values.config.spicedb.policyConfigMapName }}
-- name: policy-file
-  mountPath: /policy
+- name: policy-files
+  mountPath: {{ .Values.config.spicedb.policyConfigMapMountPoint }}
 {{- end }}
 {{- end }}
