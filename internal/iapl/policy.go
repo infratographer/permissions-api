@@ -3,6 +3,8 @@ package iapl
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"go.infratographer.com/permissions-api/internal/types"
 
@@ -173,7 +175,7 @@ func NewPolicyFromDirectory(directoryPath string) (Policy, error) {
 	filePaths := make([]string, 0, len(files))
 
 	for _, file := range files {
-		if !file.IsDir() {
+		if !file.IsDir() && (strings.EqualFold(filepath.Ext(file.Name()), ".yml") || strings.EqualFold(filepath.Ext(file.Name()), ".yaml")) {
 			filePaths = append(filePaths, directoryPath+"/"+file.Name())
 		}
 	}

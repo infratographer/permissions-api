@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	v1 "github.com/authzed/authzed-go/proto/authzed/api/v1"
 	"github.com/spf13/cobra"
@@ -80,7 +82,7 @@ func writeSchema(ctx context.Context, dryRun bool, cfg *config.AppConfig) {
 			filePaths := make([]string, 0, len(files))
 
 			for _, file := range files {
-				if !file.IsDir() {
+				if !file.IsDir() && (strings.EqualFold(filepath.Ext(file.Name()), ".yml") || strings.EqualFold(filepath.Ext(file.Name()), ".yaml")) {
 					filePaths = append(filePaths, cfg.SpiceDB.PolicyDir+"/"+file.Name())
 				}
 			}
