@@ -53,9 +53,9 @@ A `Relationship` describes a named relation between a resource of a given type a
 | Key               | Type       | Description                                                                                            |
 |-------------------|------------|--------------------------------------------------------------------------------------------------------|
 | `relation`        | `string`   | The name of the relationship. Must be all alphabetical.                                                |
-| `targetTypeNames` | `[]string` | The types of resources on the other side of the relationship. Must be defined resource type or unions. |
+| `targetTypes` | `[]TargetTypes` | The types of resources on the other side of the relationship. Must be defined resource type or unions. |
 
-Specifying a `targetTypeName` value of `[foo]` where `foo` is a union over types `bar` and `baz` is equivalent to specifying a value of `[bar, baz]`.
+Specifying a `targetType` value of `[name: foo]` where `foo` is a union over types `bar` and `baz` is equivalent to specifying a value of `[bar, baz]`.
 
 #### `Action`
 
@@ -115,8 +115,8 @@ resourceTypes:
     idPrefix: idntten
     relationships:
       - relation: parent
-        targetTypeNames:
-          - tenant
+        targettypes:
+          - name: tenant
 ---
 # Provided by enterprise-api
 resourceTypes:
@@ -124,14 +124,14 @@ resourceTypes:
     idPrefix: entrprj
     relationships:
       - relation: parent
-        targetTypeNames:
-          - organization
+        targettypes:
+          - name: organization
   - name: organization
     idPrefix: entrorg
     relationships:
       - relation: parent
-        targetTypeNames:
-          - tenant
+        targettypes:
+          - name: tenant
 ---
 # Provided by load-balancer-api
 resourceTypes:
@@ -139,8 +139,8 @@ resourceTypes:
     idPrefix: loadbal
     relationships:
       - relation: owner
-        targetTypeNames:
-          - resourceowner
+        targettypes:
+          - name: resourceowner
 actions:
   - name: loadbalancer_get
   - name: loadbalancer_create
@@ -177,10 +177,10 @@ actionBindings:
 # Provided by resource-owner-config
 unions:
   - name: resourceowner
-    resourceTypeNames:
-      - tenant
-      - project
-      - organization
+    resourceTypes:
+      - name: tenant
+      - name: project
+      - name: organization
 ```
 
 ### Policy validation algorithm
@@ -198,10 +198,10 @@ BN = []
 BNKeys = []
 for bn in actionBindings:
   if bn.typeName in UN:
-    for typeName in UN[bn.typeName].targetTypeNames:
+    for type in UN[bn.typeName].targetTypes:
       BN += [
         ActionBinding(
-          typeName: typeName,
+          typeName: type.Name,
           actionName: bn.actionName,
           conditions: bn.conditions,
         ),
@@ -217,13 +217,13 @@ for bn in actionBindings:
 for rt in RT:
   rels = []
   for rel in rt.relationships:
-    typeNames = []
-    for typeName in rel.targetTypeNames:
-      if typeName in UN:
-        typeNames += UN[typeName].resourceTypeNames
+    types = []
+    for type in rel.targetTypes:
+      if type in UN:
+        types += UN[type.Name].resourceTypes
       else:
-        typeNames += [typeName]
-    rel.typeNames = typeNames
+        types += [type]
+    rel.types = type
     rels += [rel]
 
   rt.relationships = rels
@@ -235,12 +235,12 @@ for bn in BN:
 # validation phase
 
 for un in UN:
-  for name in un.resourceTypeNames:
-    assert name in UN
+  for type in un.resourceTypes:
+    assert type.name in UN
 
 for rt in RT:
   for rel in rt.relationships:
-    for tn in rel.targetTypeNames:
+    for tn in rel.targetTypes:
       assert tn in RT
 
 for bn in BN:
@@ -256,7 +256,7 @@ for bn in BN:
       rel = find(rt.relationships, lambda x: c.relation == x.relation)
       assert rel
 
-      for tn in rel.targetTypeNames:
+      for tn in rel.targetTypes:
         assert bn.actionName in RB[tn]
 ```
 

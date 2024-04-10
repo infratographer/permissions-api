@@ -39,9 +39,9 @@ func TestSchema(t *testing.T) {
 			Relationships: []types.ResourceTypeRelationship{
 				{
 					Relation: "subject",
-					Types: []string{
-						"user",
-						"client",
+					Types: []types.TargetType{
+						{Name: "user"},
+						{Name: "client"},
 					},
 				},
 			},
@@ -51,8 +51,32 @@ func TestSchema(t *testing.T) {
 			Relationships: []types.ResourceTypeRelationship{
 				{
 					Relation: "parent",
-					Types: []string{
-						"tenant",
+					Types: []types.TargetType{
+						{Name: "tenant"},
+					},
+				},
+				{
+					Relation: "loadbalancer_create_rel",
+					Types: []types.TargetType{
+						{Name: "role", SubjectRelation: "subject"},
+					},
+				},
+				{
+					Relation: "loadbalancer_get_rel",
+					Types: []types.TargetType{
+						{Name: "role", SubjectRelation: "subject"},
+					},
+				},
+				{
+					Relation: "port_create_rel",
+					Types: []types.TargetType{
+						{Name: "role", SubjectRelation: "subject"},
+					},
+				},
+				{
+					Relation: "port_get_rel",
+					Types: []types.TargetType{
+						{Name: "role", SubjectRelation: "subject"},
 					},
 				},
 			},
@@ -61,6 +85,9 @@ func TestSchema(t *testing.T) {
 					Name: "loadbalancer_create",
 					Conditions: []types.Condition{
 						{
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation: "loadbalancer_create_rel",
+							},
 							RoleBinding: &types.ConditionRoleBinding{},
 						},
 						{
@@ -75,6 +102,9 @@ func TestSchema(t *testing.T) {
 					Name: "loadbalancer_get",
 					Conditions: []types.Condition{
 						{
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation: "loadbalancer_get_rel",
+							},
 							RoleBinding: &types.ConditionRoleBinding{},
 						},
 						{
@@ -89,6 +119,9 @@ func TestSchema(t *testing.T) {
 					Name: "port_create",
 					Conditions: []types.Condition{
 						{
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation: "port_create_rel",
+							},
 							RoleBinding: &types.ConditionRoleBinding{},
 						},
 						{
@@ -103,6 +136,9 @@ func TestSchema(t *testing.T) {
 					Name: "port_get",
 					Conditions: []types.Condition{
 						{
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation: "port_get_rel",
+							},
 							RoleBinding: &types.ConditionRoleBinding{},
 						},
 						{
@@ -120,8 +156,14 @@ func TestSchema(t *testing.T) {
 			Relationships: []types.ResourceTypeRelationship{
 				{
 					Relation: "owner",
-					Types: []string{
-						"tenant",
+					Types: []types.TargetType{
+						{Name: "tenant"},
+					},
+				},
+				{
+					Relation: "loadbalancer_get_rel",
+					Types: []types.TargetType{
+						{Name: "role", SubjectRelation: "subject"},
 					},
 				},
 			},
@@ -130,6 +172,9 @@ func TestSchema(t *testing.T) {
 					Name: "loadbalancer_get",
 					Conditions: []types.Condition{
 						{
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation: "loadbalancer_get_rel",
+							},
 							RoleBinding: &types.ConditionRoleBinding{},
 						},
 						{
@@ -147,8 +192,14 @@ func TestSchema(t *testing.T) {
 			Relationships: []types.ResourceTypeRelationship{
 				{
 					Relation: "owner",
-					Types: []string{
-						"tenant",
+					Types: []types.TargetType{
+						{Name: "tenant"},
+					},
+				},
+				{
+					Relation: "port_get_rel",
+					Types: []types.TargetType{
+						{Name: "role", SubjectRelation: "subject"},
 					},
 				},
 			},
@@ -157,6 +208,9 @@ func TestSchema(t *testing.T) {
 					Name: "port_get",
 					Conditions: []types.Condition{
 						{
+							RelationshipAction: &types.ConditionRelationshipAction{
+								Relation: "port_get_rel",
+							},
 							RoleBinding: &types.ConditionRoleBinding{},
 						},
 						{

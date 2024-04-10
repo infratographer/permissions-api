@@ -75,8 +75,8 @@ func testPolicy() iapl.Policy {
 			Relationships: []iapl.Relationship{
 				{
 					Relation: "parent",
-					TargetTypeNames: []string{
-						"tenant",
+					TargetTypes: []types.TargetType{
+						{Name: "tenant"},
 					},
 				},
 			},
