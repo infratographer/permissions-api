@@ -3,10 +3,7 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"text/template"
-
-	"gopkg.in/yaml.v3"
 
 	"go.infratographer.com/permissions-api/internal/iapl"
 )
@@ -70,23 +67,15 @@ type mermaidContext struct {
 }
 
 func outputPolicyMermaid(filePaths []string, markdown bool) {
-	policy := iapl.PolicyDocument{}
+	var (
+		policy iapl.PolicyDocument
+		err    error
+	)
 
 	if len(filePaths) > 0 {
-		for _, filePath := range filePaths {
-			file, err := os.Open(filePath)
-			if err != nil {
-				logger.Fatalw("failed to open policy document file", "error", err)
-			}
-			defer file.Close()
-
-			var filePolicy iapl.PolicyDocument
-
-			if err := yaml.NewDecoder(file).Decode(&filePolicy); err != nil {
-				logger.Fatalw("failed to open policy document file", "error", err)
-			}
-
-			policy = policy.MergeWithPolicyDocument(filePolicy)
+		policy, err = iapl.LoadPolicyDocumentFromFiles(filePaths...)
+		if err != nil {
+			logger.Fatalw("failed to load policy documents", "error", err)
 		}
 	} else {
 		policy = iapl.DefaultPolicyDocument()
