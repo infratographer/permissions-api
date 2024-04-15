@@ -53,7 +53,7 @@ func TestErrorMiddleware(t *testing.T) {
 			Input: testinput{
 				path: "/test",
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[*httptest.ResponseRecorder]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[*httptest.ResponseRecorder]) {
 				require.NoError(t, res.Err)
 				require.NotNil(t, res.Success)
 
@@ -65,7 +65,7 @@ func TestErrorMiddleware(t *testing.T) {
 			Input: testinput{
 				path: "/test?error=echo",
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[*httptest.ResponseRecorder]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[*httptest.ResponseRecorder]) {
 				require.NoError(t, res.Err)
 				require.NotNil(t, res.Success)
 
@@ -77,7 +77,7 @@ func TestErrorMiddleware(t *testing.T) {
 			Input: testinput{
 				path: "/test?error=other",
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[*httptest.ResponseRecorder]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[*httptest.ResponseRecorder]) {
 				require.NoError(t, res.Err)
 				require.NotNil(t, res.Success)
 
@@ -90,7 +90,7 @@ func TestErrorMiddleware(t *testing.T) {
 				path:  "/test",
 				delay: time.Second / 2,
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[*httptest.ResponseRecorder]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[*httptest.ResponseRecorder]) {
 				require.NoError(t, res.Err)
 				require.NotNil(t, res.Success)
 

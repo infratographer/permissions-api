@@ -20,3 +20,11 @@ func newRole(name string, actions []string) types.Role {
 		Actions: actions,
 	}
 }
+
+func newRoleWithPrefix(prefix string, name string, actions []string) types.Role {
+	return types.Role{
+		ID:      gidx.MustNewID(prefix),
+		Name:    name,
+		Actions: actions,
+	}
+}

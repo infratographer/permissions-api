@@ -15,7 +15,7 @@ import (
 func TestConsistency(t *testing.T) {
 	namespace := "testconsistency"
 	ctx := context.Background()
-	e := testEngine(ctx, t, namespace)
+	e := testEngine(ctx, t, namespace, testPolicy())
 
 	tenantID, err := gidx.NewID("tnntten")
 	require.NoError(t, err)

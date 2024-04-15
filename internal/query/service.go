@@ -39,6 +39,21 @@ type Engine interface {
 	NewResourceFromID(id gidx.PrefixedID) (types.Resource, error)
 	GetResourceType(name string) *types.ResourceType
 	SubjectHasPermission(ctx context.Context, subject types.Resource, action string, resource types.Resource) error
+
+	// v2 functions, add role bindings support
+
+	// CreateRoleV2 creates a v2 role scoped to the given owner resource with the given actions.
+	CreateRoleV2(ctx context.Context, actor, owner types.Resource, roleName string, actions []string) (types.Role, error)
+	// ListRolesV2 returns all V2 roles owned by the given resource.
+	ListRolesV2(ctx context.Context, owner types.Resource) ([]types.Role, error)
+	// GetRoleV2 returns a V2 role
+	GetRoleV2(ctx context.Context, role types.Resource) (types.Role, error)
+	// UpdateRoleV2 updates a V2 role with the given name and actions.
+	UpdateRoleV2(ctx context.Context, actor, roleResource types.Resource, newName string, newActions []string) (types.Role, error)
+	// DeleteRoleV2 deletes a V2 role.
+	DeleteRoleV2(ctx context.Context, roleResource types.Resource) error
+
+	AllActions() []string
 }
 
 type engine struct {
@@ -55,6 +70,12 @@ type engine struct {
 	schemaRoleables          []types.ResourceType
 
 	rbac iapl.RBAC
+	// rolebindingSubjectsMap maps the name of the role-binding subject to the target type
+	// and provide quick lookups for the role-binding subjects.
+	rolebindingSubjectsMap map[string]types.TargetType
+	// rbacV2ResourceTypes is a list of resource types that had rbac V2 enabled,
+	// role-binding only works with resource types that are in this list
+	rbacV2ResourceTypes []types.ResourceType
 }
 
 func (e *engine) cacheSchemaResources() {
@@ -62,6 +83,8 @@ func (e *engine) cacheSchemaResources() {
 	e.schemaTypeMap = make(map[string]types.ResourceType, len(e.schema))
 	e.schemaSubjectRelationMap = make(map[string]map[string][]string)
 	e.schemaRoleables = []types.ResourceType{}
+	e.rolebindingSubjectsMap = make(map[string]types.TargetType, len(e.rbac.RoleBindingSubjects))
+	e.rbacV2ResourceTypes = []types.ResourceType{}
 
 	for _, res := range e.schema {
 		e.schemaPrefixMap[res.IDPrefix] = res
@@ -80,6 +103,14 @@ func (e *engine) cacheSchemaResources() {
 		if resourceHasRoleBindings(res) {
 			e.schemaRoleables = append(e.schemaRoleables, res)
 		}
+
+		if rb := resourceHasRoleBindingV2(res); rb != nil {
+			e.rbacV2ResourceTypes = append(e.rbacV2ResourceTypes, res)
+		}
+	}
+
+	for _, subj := range e.rbac.RoleBindingSubjects {
+		e.rolebindingSubjectsMap[subj.Name] = subj
 	}
 }
 
@@ -93,6 +124,18 @@ func resourceHasRoleBindings(resType types.ResourceType) bool {
 	}
 
 	return false
+}
+
+func resourceHasRoleBindingV2(resType types.ResourceType) *types.ConditionRoleBindingV2 {
+	for _, action := range resType.Actions {
+		for _, cond := range action.Conditions {
+			if cond.RoleBindingV2 != nil {
+				return cond.RoleBindingV2
+			}
+		}
+	}
+
+	return nil
 }
 
 // NewEngine returns a new client for making permissions queries.
