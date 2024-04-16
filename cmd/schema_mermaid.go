@@ -66,14 +66,14 @@ type mermaidContext struct {
 	RBAC           *iapl.RBAC
 }
 
-func outputPolicyMermaid(filePaths []string, markdown bool) {
+func outputPolicyMermaid(dirPath string, markdown bool) {
 	var (
 		policy iapl.PolicyDocument
 		err    error
 	)
 
-	if len(filePaths) > 0 {
-		policy, err = iapl.LoadPolicyDocumentFromFiles(filePaths...)
+	if dirPath != "" {
+		policy, err = iapl.LoadPolicyDocumentFromDirectory(dirPath)
 		if err != nil {
 			logger.Fatalw("failed to load policy documents", "error", err)
 		}

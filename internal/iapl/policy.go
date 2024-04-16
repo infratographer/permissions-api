@@ -207,6 +207,35 @@ func LoadPolicyDocumentFromFiles(filePaths ...string) (PolicyDocument, error) {
 	return policyDocument, nil
 }
 
+// LoadPolicyDocumentFromDirectory reads the provided directory path, reads all files in the directory, merges them, and returns a new merged PolicyDocument.
+func LoadPolicyDocumentFromDirectory(directoryPath string) (PolicyDocument, error) {
+	var filePaths []string
+
+	err := filepath.WalkDir(directoryPath, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if entry.IsDir() {
+			return nil
+		}
+
+		ext := filepath.Ext(entry.Name())
+
+		if strings.EqualFold(ext, ".yml") || strings.EqualFold(ext, ".yaml") {
+			filePaths = append(filePaths, path)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return PolicyDocument{}, err
+	}
+
+	return LoadPolicyDocumentFromFiles(filePaths...)
+}
+
 // NewPolicyFromFile reads the provided file path and returns a new Policy.
 func NewPolicyFromFile(filePath string) (Policy, error) {
 	policyDocument, err := LoadPolicyDocumentFromFiles(filePath)
@@ -229,31 +258,12 @@ func NewPolicyFromFiles(filePaths []string) (Policy, error) {
 
 // NewPolicyFromDirectory reads the provided directory path, reads all files in the directory, merges them, and returns a new Policy.
 func NewPolicyFromDirectory(directoryPath string) (Policy, error) {
-	var filePaths []string
-
-	err := filepath.WalkDir(directoryPath, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if entry.IsDir() {
-			return nil
-		}
-
-		ext := filepath.Ext(entry.Name())
-
-		if strings.EqualFold(ext, ".yml") || strings.EqualFold(ext, ".yaml") {
-			filePaths = append(filePaths, path)
-		}
-
-		return nil
-	})
-
+	policyDocument, err := LoadPolicyDocumentFromDirectory(directoryPath)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewPolicyFromFiles(filePaths)
+	return NewPolicy(policyDocument), nil
 }
 
 func (v *policy) validateUnions() error {
