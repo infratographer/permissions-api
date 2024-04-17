@@ -1,7 +1,10 @@
 package iapl
 
 import (
+	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -151,65 +154,116 @@ func (p PolicyDocument) MergeWithPolicyDocument(other PolicyDocument) PolicyDocu
 	return p
 }
 
+func loadPolicyDocumentFromFile(filePath string) (PolicyDocument, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return PolicyDocument{}, fmt.Errorf("%s: %w", filePath, err)
+	}
+
+	defer file.Close()
+
+	var (
+		finalPolicyDocument = PolicyDocument{}
+		decoder             = yaml.NewDecoder(file)
+		documentIndex       int
+	)
+
+	for {
+		var policyDocument PolicyDocument
+
+		if err = decoder.Decode(&policyDocument); err != nil {
+			if !errors.Is(err, io.EOF) {
+				return PolicyDocument{}, fmt.Errorf("%s document %d: %w", filePath, documentIndex, err)
+			}
+
+			break
+		}
+
+		if finalPolicyDocument.RBAC != nil && policyDocument.RBAC != nil {
+			return PolicyDocument{}, fmt.Errorf("%s document %d: %w", filePath, documentIndex, ErrorDuplicateRBACDefinition)
+		}
+
+		finalPolicyDocument = finalPolicyDocument.MergeWithPolicyDocument(policyDocument)
+
+		documentIndex++
+	}
+
+	return finalPolicyDocument, nil
+}
+
+// LoadPolicyDocumentFromFiles loads all policy documents in the order provided and returns a merged PolicyDocument.
+func LoadPolicyDocumentFromFiles(filePaths ...string) (PolicyDocument, error) {
+	var policyDocument PolicyDocument
+
+	for _, filePath := range filePaths {
+		filePolicyDocument, err := loadPolicyDocumentFromFile(filePath)
+		if err != nil {
+			return PolicyDocument{}, err
+		}
+
+		policyDocument = policyDocument.MergeWithPolicyDocument(filePolicyDocument)
+	}
+
+	return policyDocument, nil
+}
+
+// LoadPolicyDocumentFromDirectory reads the provided directory path, reads all files in the directory, merges them, and returns a new merged PolicyDocument.
+func LoadPolicyDocumentFromDirectory(directoryPath string) (PolicyDocument, error) {
+	var filePaths []string
+
+	err := filepath.WalkDir(directoryPath, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if entry.IsDir() {
+			return nil
+		}
+
+		ext := filepath.Ext(entry.Name())
+
+		if strings.EqualFold(ext, ".yml") || strings.EqualFold(ext, ".yaml") {
+			filePaths = append(filePaths, path)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return PolicyDocument{}, err
+	}
+
+	return LoadPolicyDocumentFromFiles(filePaths...)
+}
+
 // NewPolicyFromFile reads the provided file path and returns a new Policy.
 func NewPolicyFromFile(filePath string) (Policy, error) {
-	file, err := os.Open(filePath)
+	policyDocument, err := LoadPolicyDocumentFromFiles(filePath)
 	if err != nil {
 		return nil, err
 	}
 
-	var policy PolicyDocument
-
-	if err := yaml.NewDecoder(file).Decode(&policy); err != nil {
-		return nil, err
-	}
-
-	return NewPolicy(policy), nil
+	return NewPolicy(policyDocument), nil
 }
 
 // NewPolicyFromFiles reads the provided file paths, merges them, and returns a new Policy.
 func NewPolicyFromFiles(filePaths []string) (Policy, error) {
-	mergedPolicy := PolicyDocument{}
-
-	for _, filePath := range filePaths {
-		file, err := os.Open(filePath)
-		if err != nil {
-			return nil, err
-		}
-		defer file.Close()
-
-		var filePolicy PolicyDocument
-
-		if err := yaml.NewDecoder(file).Decode(&filePolicy); err != nil {
-			return nil, err
-		}
-
-		if mergedPolicy.RBAC != nil && filePolicy.RBAC != nil {
-			return nil, ErrorDuplicateRBACDefinition
-		}
-
-		mergedPolicy = mergedPolicy.MergeWithPolicyDocument(filePolicy)
-	}
-
-	return NewPolicy(mergedPolicy), nil
-}
-
-// NewPolicyFromDirectory reads the provided directory path, reads all files in the directory, merges them, and returns a new Policy.
-func NewPolicyFromDirectory(directoryPath string) (Policy, error) {
-	files, err := os.ReadDir(directoryPath)
+	policyDocument, err := LoadPolicyDocumentFromFiles(filePaths...)
 	if err != nil {
 		return nil, err
 	}
 
-	filePaths := make([]string, 0, len(files))
+	return NewPolicy(policyDocument), nil
+}
 
-	for _, file := range files {
-		if !file.IsDir() && (strings.EqualFold(filepath.Ext(file.Name()), ".yml") || strings.EqualFold(filepath.Ext(file.Name()), ".yaml")) {
-			filePaths = append(filePaths, directoryPath+"/"+file.Name())
-		}
+// NewPolicyFromDirectory reads the provided directory path, reads all files in the directory, merges them, and returns a new Policy.
+func NewPolicyFromDirectory(directoryPath string) (Policy, error) {
+	policyDocument, err := LoadPolicyDocumentFromDirectory(directoryPath)
+	if err != nil {
+		return nil, err
 	}
 
-	return NewPolicyFromFiles(filePaths)
+	return NewPolicy(policyDocument), nil
 }
 
 func (v *policy) validateUnions() error {

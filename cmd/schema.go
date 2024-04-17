@@ -3,9 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
 
 	v1 "github.com/authzed/authzed-go/proto/authzed/api/v1"
 	"github.com/spf13/cobra"
@@ -73,21 +70,8 @@ func writeSchema(_ context.Context, dryRun bool, cfg *config.AppConfig) {
 	}
 
 	if viper.GetBool("mermaid") || viper.GetBool("mermaid-markdown") {
-		if cfg.SpiceDB.PolicyDir != "" {
-			files, err := os.ReadDir(cfg.SpiceDB.PolicyDir)
-			if err != nil {
-				logger.Fatalw("failed to read policy files from directory", "error", err)
-			}
-
-			filePaths := make([]string, 0, len(files))
-
-			for _, file := range files {
-				if !file.IsDir() && (strings.EqualFold(filepath.Ext(file.Name()), ".yml") || strings.EqualFold(filepath.Ext(file.Name()), ".yaml")) {
-					filePaths = append(filePaths, cfg.SpiceDB.PolicyDir+"/"+file.Name())
-				}
-			}
-
-			outputPolicyMermaid(filePaths, viper.GetBool("mermaid-markdown"))
+		if policyDir := cfg.SpiceDB.PolicyDir; policyDir != "" {
+			outputPolicyMermaid(policyDir, viper.GetBool("mermaid-markdown"))
 		}
 
 		return
