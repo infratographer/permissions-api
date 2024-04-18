@@ -19,6 +19,7 @@ type RoleService interface {
 	UpdateRole(ctx context.Context, actorID, roleID gidx.PrefixedID, name string) (Role, error)
 	DeleteRole(ctx context.Context, roleID gidx.PrefixedID) (Role, error)
 	LockRoleForUpdate(ctx context.Context, roleID gidx.PrefixedID) error
+	BatchGetRoleByID(ctx context.Context, ids []gidx.PrefixedID) ([]Role, error)
 }
 
 // Role represents a role in the database.
@@ -63,7 +64,6 @@ func (e *engine) GetRoleByID(ctx context.Context, id gidx.PrefixedID) (Role, err
 		&role.CreatedAt,
 		&role.UpdatedAt,
 	)
-
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Role{}, fmt.Errorf("%w: %s", ErrNoRoleFound, id.String())
@@ -135,7 +135,6 @@ func (e *engine) GetResourceRoleByName(ctx context.Context, resourceID gidx.Pref
 		&role.CreatedAt,
 		&role.UpdatedAt,
 	)
-
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Role{}, fmt.Errorf("%w: %s", ErrNoRoleFound, name)
@@ -170,7 +169,6 @@ func (e *engine) ListResourceRoles(ctx context.Context, resourceID gidx.Prefixed
 		`,
 		resourceID.String(),
 	)
-
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +217,6 @@ func (e *engine) CreateRole(ctx context.Context, actorID, roleID gidx.PrefixedID
 		&role.CreatedAt,
 		&role.UpdatedAt,
 	)
-
 	if err != nil {
 		if pqIsRoleAlreadyExistsError(err) {
 			return Role{}, fmt.Errorf("%w: %s", ErrRoleAlreadyExists, roleID.String())
@@ -261,7 +258,6 @@ func (e *engine) UpdateRole(ctx context.Context, actorID, roleID gidx.PrefixedID
 		&role.CreatedAt,
 		&role.UpdatedAt,
 	)
-
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Role{}, fmt.Errorf("%w: %s", ErrNoRoleFound, roleID.String())
@@ -307,4 +303,54 @@ func (e *engine) DeleteRole(ctx context.Context, roleID gidx.PrefixedID) (Role, 
 	}
 
 	return role, nil
+}
+
+// BatchGetRoleByID retrieves multiple roles from the database by the provided prefixed IDs.
+// If no roles are found an empty slice is returned.
+func (e *engine) BatchGetRoleByID(ctx context.Context, ids []gidx.PrefixedID) ([]Role, error) {
+	db, err := getContextDBQuery(ctx, e)
+	if err != nil {
+		return nil, err
+	}
+
+	inClause := ""
+	args := make([]any, len(ids))
+
+	for i, id := range ids {
+		fmtStr := "$%d"
+
+		if i > 0 {
+			fmtStr = ", $%d"
+		}
+
+		inClause += fmt.Sprintf(fmtStr, i+1)
+		args[i] = id.String()
+	}
+
+	q := fmt.Sprintf(`
+		SELECT
+			id, name, resource_id,
+			created_by, updated_by, created_at, updated_at
+		FROM roles
+		WHERE id IN (%s)
+	`, inClause)
+
+	rows, err := db.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	var roles []Role
+
+	for rows.Next() {
+		var role Role
+
+		if err := rows.Scan(&role.ID, &role.Name, &role.ResourceID, &role.CreatedBy, &role.UpdatedBy, &role.CreatedAt, &role.UpdatedAt); err != nil {
+			return nil, err
+		}
+
+		roles = append(roles, role)
+	}
+
+	return roles, nil
 }

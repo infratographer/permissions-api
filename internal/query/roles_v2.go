@@ -6,15 +6,14 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"sync"
 
 	pb "github.com/authzed/authzed-go/proto/authzed/api/v1"
+	"go.infratographer.com/x/gidx"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
 	"go.infratographer.com/permissions-api/internal/iapl"
-	"go.infratographer.com/permissions-api/internal/storage"
 	"go.infratographer.com/permissions-api/internal/types"
 )
 
@@ -31,9 +30,22 @@ func (e *engine) CreateRoleV2(ctx context.Context, actor, owner types.Resource, 
 
 	roleName = strings.TrimSpace(roleName)
 
-	role := newRoleWithPrefix(e.schemaTypeMap[e.rbac.RoleResource.Name].IDPrefix, roleName, actions)
-	roleRels := e.roleV2Relationships(role)
-	roleRels = append(roleRels, e.roleV2OwnerRelationship(role, owner)...)
+	role, err := newRoleWithPrefix(e.schemaTypeMap[e.rbac.RoleResource.Name].IDPrefix, roleName, actions)
+	if err != nil {
+		return types.Role{}, err
+	}
+
+	roleRels, err := e.roleV2Relationships(role)
+	if err != nil {
+		return types.Role{}, err
+	}
+
+	ownerRels, err := e.roleV2OwnerRelationship(role, owner)
+	if err != nil {
+		return types.Role{}, err
+	}
+
+	roleRels = append(roleRels, ownerRels...)
 
 	dbCtx, err := e.store.BeginContext(ctx)
 	if err != nil {
@@ -117,7 +129,7 @@ func (e *engine) ListRolesV2(ctx context.Context, owner types.Resource) ([]types
 		return nil, err
 	}
 
-	roleIDs := []string{}
+	roleIDs := []gidx.PrefixedID{}
 
 	for {
 		lookup, err := lookupClient.Recv()
@@ -131,47 +143,32 @@ func (e *engine) ListRolesV2(ctx context.Context, owner types.Resource) ([]types
 		}
 
 		subj := lookup.GetSubject()
-		roleIDs = append(roleIDs, subj.SubjectObjectId)
-	}
 
-	roles := make([]types.Role, len(roleIDs))
-	errsChan := make(chan error, len(roleIDs))
-	wg := &sync.WaitGroup{}
-
-	for i, id := range roleIDs {
-		wg.Add(1)
-
-		roleRes, err := e.NewResourceFromIDString(id)
+		id, err := gidx.Parse(subj.SubjectObjectId)
 		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
-			e.logger.Error(err.Error())
-
-			wg.Done()
 
 			continue
 		}
 
-		go func(ctx context.Context, res types.Resource, i int) {
-			defer wg.Done()
-
-			role, err := e.GetRoleV2(ctx, res)
-			if err != nil {
-				errsChan <- err
-				return
-			}
-
-			roles[i] = role
-		}(ctx, roleRes, i)
+		roleIDs = append(roleIDs, id)
 	}
 
-	wg.Wait()
-	close(errsChan)
+	storageRoles, err := e.store.BatchGetRoleByID(ctx, roleIDs)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 
-	for err := range errsChan {
-		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
+		return nil, err
+	}
+
+	roles := make([]types.Role, len(storageRoles))
+
+	for i, r := range storageRoles {
+		roles[i] = types.Role{
+			Name: r.Name,
+			ID:   r.ID,
 		}
 	}
 
@@ -179,16 +176,6 @@ func (e *engine) ListRolesV2(ctx context.Context, owner types.Resource) ([]types
 }
 
 func (e *engine) GetRoleV2(ctx context.Context, role types.Resource) (types.Role, error) {
-	const ReadRolesErrBufLen = 2
-
-	var (
-		actions []string
-		dbrole  storage.Role
-		err     error
-		errs    = make(chan error, ReadRolesErrBufLen)
-		wg      = &sync.WaitGroup{}
-	)
-
 	ctx, span := e.tracer.Start(
 		ctx,
 		"engine.GetRoleV2",
@@ -206,48 +193,32 @@ func (e *engine) GetRoleV2(ctx context.Context, role types.Resource) (types.Role
 	}
 
 	// 1. Get role actions from spice DB
-	wg.Add(1)
+	spicedbctx, listRoleV2ActionsSpan := e.tracer.Start(ctx, "listRoleV2Actions")
+	defer listRoleV2ActionsSpan.End()
 
-	go func() {
-		defer wg.Done()
+	actions, err := e.listRoleV2Actions(spicedbctx, types.Role{ID: role.ID})
+	if err != nil {
+		listRoleV2ActionsSpan.RecordError(err)
+		listRoleV2ActionsSpan.SetStatus(codes.Error, err.Error())
 
-		spicedbctx, span := e.tracer.Start(ctx, "listRoleV2Actions")
-		defer span.End()
+		return types.Role{}, err
+	}
 
-		actions, err = e.listRoleV2Actions(spicedbctx, types.Role{ID: role.ID})
-		if err != nil {
-			errs <- err
-			return
-		}
-	}()
+	listRoleV2ActionsSpan.End()
 
 	// 2. Get role info (name, created_by, etc.) from permissions API DB
-	wg.Add(1)
+	apidbctx, getRoleFromPermissionAPISpan := e.tracer.Start(ctx, "getRoleFromPermissionAPI")
+	defer getRoleFromPermissionAPISpan.End()
 
-	go func() {
-		defer wg.Done()
+	dbrole, err := e.store.GetRoleByID(apidbctx, role.ID)
+	if err != nil {
+		getRoleFromPermissionAPISpan.RecordError(err)
+		getRoleFromPermissionAPISpan.SetStatus(codes.Error, err.Error())
 
-		apidbctx, span := e.tracer.Start(ctx, "getRoleFromPermissionAPI")
-		defer span.End()
-
-		dbrole, err = e.store.GetRoleByID(apidbctx, role.ID)
-		if err != nil {
-			errs <- err
-			return
-		}
-	}()
-
-	wg.Wait()
-	close(errs)
-
-	for err := range errs {
-		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
-
-			return types.Role{}, err
-		}
+		return types.Role{}, err
 	}
+
+	getRoleFromPermissionAPISpan.End()
 
 	resp := types.Role{
 		ID:      dbrole.ID,
@@ -391,22 +362,6 @@ func (e *engine) DeleteRoleV2(ctx context.Context, roleResource types.Resource) 
 	ctx, span := e.tracer.Start(ctx, "engine.DeleteRoleV2")
 	defer span.End()
 
-	dbRole, err := e.store.GetRoleByID(ctx, roleResource.ID)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-
-		return err
-	}
-
-	roleOwner, err := e.NewResourceFromID(dbRole.ResourceID)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-
-		return err
-	}
-
 	dbCtx, err := e.store.BeginContext(ctx)
 	if err != nil {
 		span.RecordError(err)
@@ -427,6 +382,22 @@ func (e *engine) DeleteRoleV2(ctx context.Context, roleResource types.Resource) 
 		return err
 	}
 
+	dbRole, err := e.store.GetRoleByID(dbCtx, roleResource.ID)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		return err
+	}
+
+	roleOwner, err := e.NewResourceFromID(dbRole.ResourceID)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		return err
+	}
+
 	// 1. delete role from permission-api DB
 	if _, err = e.store.DeleteRole(dbCtx, roleResource.ID); err != nil {
 		span.RecordError(err)
@@ -438,56 +409,40 @@ func (e *engine) DeleteRoleV2(ctx context.Context, roleResource types.Resource) 
 	}
 
 	// 2. delete role relationships from spice db
-	const deleteErrsBufferSize = 2
-
-	wg := &sync.WaitGroup{}
-	errs := make(chan error, deleteErrsBufferSize)
+	errs := []error{}
 
 	// 2.a remove all relationships from this role
-	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
+	delRoleRelationshipReq := &pb.DeleteRelationshipsRequest{
+		RelationshipFilter: &pb.RelationshipFilter{
+			ResourceType:       e.namespaced(e.rbac.RoleResource.Name),
+			OptionalResourceId: roleResource.ID.String(),
+		},
+	}
 
-		delRoleRelationshipReq := &pb.DeleteRelationshipsRequest{
-			RelationshipFilter: &pb.RelationshipFilter{
-				ResourceType:       e.namespaced(e.rbac.RoleResource.Name),
-				OptionalResourceId: roleResource.ID.String(),
-			},
-		}
-
-		if _, err := e.client.DeleteRelationships(ctx, delRoleRelationshipReq); err != nil {
-			errs <- err
-		}
-	}()
+	if _, err := e.client.DeleteRelationships(ctx, delRoleRelationshipReq); err != nil {
+		errs = append(errs, err)
+	}
 
 	// 2.b remove all relationships to this role from its owner
-	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
-
-		ownerRelReq := &pb.DeleteRelationshipsRequest{
-			RelationshipFilter: &pb.RelationshipFilter{
-				ResourceType: e.namespaced(roleOwner.Type),
-				OptionalSubjectFilter: &pb.SubjectFilter{
-					SubjectType:       e.namespaced(e.rbac.RoleResource.Name),
-					OptionalSubjectId: roleResource.ID.String(),
-				},
+	ownerRelReq := &pb.DeleteRelationshipsRequest{
+		RelationshipFilter: &pb.RelationshipFilter{
+			ResourceType: e.namespaced(roleOwner.Type),
+			OptionalSubjectFilter: &pb.SubjectFilter{
+				SubjectType:       e.namespaced(e.rbac.RoleResource.Name),
+				OptionalSubjectId: roleResource.ID.String(),
 			},
-		}
+		},
+	}
 
-		if _, err := e.client.DeleteRelationships(ctx, ownerRelReq); err != nil {
-			errs <- err
-		}
-	}()
+	if _, err := e.client.DeleteRelationships(ctx, ownerRelReq); err != nil {
+		errs = append(errs, err)
+	}
 
 	// 2.c TODO remove all role relationships in role bindings associated with this role
 
-	wg.Wait()
-	close(errs)
-
-	for err := range errs {
+	for _, err := range errs {
 		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
@@ -516,15 +471,15 @@ func (e *engine) DeleteRoleV2(ctx context.Context, roleResource types.Resource) 
 }
 
 // roleV2OwnerRelationship creates a relationships between a V2 role and its owner.
-func (e *engine) roleV2OwnerRelationship(role types.Role, owner types.Resource) []*pb.RelationshipUpdate {
+func (e *engine) roleV2OwnerRelationship(role types.Role, owner types.Resource) ([]*pb.RelationshipUpdate, error) {
 	roleResource, err := e.NewResourceFromID(role.ID)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	roleResourceType := e.GetResourceType(e.rbac.RoleResource.Name)
 	if roleResourceType == nil {
-		return nil
+		return nil, nil
 	}
 
 	roleRef := resourceToSpiceDBRef(e.namespace, roleResource)
@@ -554,7 +509,7 @@ func (e *engine) roleV2OwnerRelationship(role types.Role, owner types.Resource) 
 		},
 	}
 
-	return []*pb.RelationshipUpdate{ownerRel, memberRel}
+	return []*pb.RelationshipUpdate{ownerRel, memberRel}, nil
 }
 
 // createRoleV2RelationshipUpdatesForAction creates permission relationship lines in role
@@ -586,17 +541,17 @@ func (e *engine) createRoleV2RelationshipUpdatesForAction(
 }
 
 // roleV2Relationships creates relationships between a V2 role and its permissions.
-func (e *engine) roleV2Relationships(role types.Role) []*pb.RelationshipUpdate {
+func (e *engine) roleV2Relationships(role types.Role) ([]*pb.RelationshipUpdate, error) {
 	var rels []*pb.RelationshipUpdate
 
 	roleResource, err := e.NewResourceFromID(role.ID)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	roleResourceType := e.GetResourceType(e.rbac.RoleResource.Name)
 	if roleResourceType == nil {
-		return rels
+		return rels, ErrRoleV2ResourceNotDefined
 	}
 
 	roleRef := resourceToSpiceDBRef(e.namespace, roleResource)
@@ -611,7 +566,7 @@ func (e *engine) roleV2Relationships(role types.Role) []*pb.RelationshipUpdate {
 		)
 	}
 
-	return rels
+	return rels, nil
 }
 
 func (e *engine) listRoleV2Actions(ctx context.Context, role types.Role) ([]string, error) {
@@ -619,7 +574,7 @@ func (e *engine) listRoleV2Actions(ctx context.Context, role types.Role) ([]stri
 		return nil, nil
 	}
 
-	// there could be multiple subjects for a permission,
+	// there could be multiple subject types for a permission,
 	// e.g.
 	//   infratographer/rolev2:lb_viewer#loadbalancer_get_rel@infratographer/user:*
 	//   infratographer/rolev2:lb_viewer#loadbalancer_get_rel@infratographer/client:*

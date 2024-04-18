@@ -6,6 +6,7 @@ import (
 
 	"go.infratographer.com/x/gidx"
 
+	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/permissions-api/internal/types"
 
@@ -62,7 +63,7 @@ func (r *Router) assignmentCreate(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "error getting role").SetInternal(err)
 	}
 
-	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleUpdate, resource); err != nil {
+	if err := r.checkActionWithResponse(ctx, subjectResource, string(iapl.RoleActionUpdate), resource); err != nil {
 		return err
 	}
 
@@ -112,7 +113,7 @@ func (r *Router) assignmentsList(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "error getting role").SetInternal(err)
 	}
 
-	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleGet, resource); err != nil {
+	if err := r.checkActionWithResponse(ctx, subjectResource, string(iapl.RoleActionGet), resource); err != nil {
 		return err
 	}
 
@@ -190,7 +191,7 @@ func (r *Router) assignmentDelete(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "error getting role").SetInternal(err)
 	}
 
-	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleUpdate, resource); err != nil {
+	if err := r.checkActionWithResponse(ctx, subjectResource, string(iapl.RoleActionUpdate), resource); err != nil {
 		return err
 	}
 

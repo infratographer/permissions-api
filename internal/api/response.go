@@ -36,9 +36,11 @@ func (r *Router) errorResponse(basemsg string, err error) *echo.HTTPError {
 
 	switch {
 	case
-		errors.Is(err, storage.ErrRoleNameTaken),
 		errors.Is(err, query.ErrInvalidType),
 		errors.Is(err, query.ErrInvalidArgument),
+		errors.Is(err, query.ErrInvalidAction),
+		errors.Is(err, query.ErrInvalidNamespace),
+		errors.Is(err, ErrInvalidID),
 		status.Code(err) == codes.InvalidArgument,
 		status.Code(err) == codes.FailedPrecondition:
 		httpstatus = http.StatusBadRequest
@@ -47,6 +49,10 @@ func (r *Router) errorResponse(basemsg string, err error) *echo.HTTPError {
 		errors.Is(err, query.ErrRoleNotFound),
 		errors.Is(err, query.ErrRoleBindingNotFound):
 		httpstatus = http.StatusNotFound
+	case
+		errors.Is(err, storage.ErrRoleAlreadyExists),
+		errors.Is(err, storage.ErrRoleNameTaken):
+		httpstatus = http.StatusConflict
 	default:
 		msg = basemsg
 	}

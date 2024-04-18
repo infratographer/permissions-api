@@ -71,3 +71,12 @@ type assignmentItem struct {
 type listAssignmentsResponse struct {
 	Data []assignmentItem `json:"data"`
 }
+
+type listRolesV2Response struct {
+	Data []listRolesV2Role `json:"data"`
+}
+
+type listRolesV2Role struct {
+	ID   gidx.PrefixedID `json:"id"`
+	Name string          `json:"name"`
+}

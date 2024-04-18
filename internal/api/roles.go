@@ -10,16 +10,9 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
+	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/permissions-api/internal/storage"
-)
-
-const (
-	actionRoleCreate = "role_create"
-	actionRoleGet    = "role_get"
-	actionRoleList   = "role_list"
-	actionRoleUpdate = "role_update"
-	actionRoleDelete = "role_delete"
 )
 
 func (r *Router) roleCreate(c echo.Context) error {
@@ -50,7 +43,7 @@ func (r *Router) roleCreate(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "error creating resource").SetInternal(err)
 	}
 
-	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleCreate, resource); err != nil {
+	if err := r.checkActionWithResponse(ctx, subjectResource, string(iapl.RoleActionCreate), resource); err != nil {
 		return err
 	}
 
@@ -120,7 +113,7 @@ func (r *Router) roleUpdate(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "error getting resource").SetInternal(err)
 	}
 
-	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleUpdate, resource); err != nil {
+	if err := r.checkActionWithResponse(ctx, subjectResource, string(iapl.RoleActionUpdate), resource); err != nil {
 		return err
 	}
 
@@ -185,7 +178,7 @@ func (r *Router) roleGet(c echo.Context) error {
 
 	// TODO: This shows an error for the role's resource, not the role. Determine if that
 	// matters.
-	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleGet, resource); err != nil {
+	if err := r.checkActionWithResponse(ctx, subjectResource, string(iapl.RoleActionGet), resource); err != nil {
 		return err
 	}
 
@@ -234,7 +227,7 @@ func (r *Router) rolesList(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "error creating resource").SetInternal(err)
 	}
 
-	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleList, resource); err != nil {
+	if err := r.checkActionWithResponse(ctx, subjectResource, string(iapl.RoleActionList), resource); err != nil {
 		return err
 	}
 
@@ -297,7 +290,7 @@ func (r *Router) roleDelete(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "error getting resource").SetInternal(err)
 	}
 
-	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleDelete, resource); err != nil {
+	if err := r.checkActionWithResponse(ctx, subjectResource, string(iapl.RoleActionDelete), resource); err != nil {
 		return err
 	}
 
@@ -351,7 +344,7 @@ func (r *Router) roleGetResource(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "error getting role").SetInternal(err)
 	}
 
-	if err := r.checkActionWithResponse(ctx, subjectResource, actionRoleGet, resource); err != nil {
+	if err := r.checkActionWithResponse(ctx, subjectResource, string(iapl.RoleActionGet), resource); err != nil {
 		return err
 	}
 

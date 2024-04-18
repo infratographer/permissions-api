@@ -2,13 +2,17 @@ package query
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	pb "github.com/authzed/authzed-go/proto/authzed/api/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.infratographer.com/permissions-api/internal/iapl"
+	"go.infratographer.com/permissions-api/internal/storage"
 	"go.infratographer.com/permissions-api/internal/testingx"
 	"go.infratographer.com/permissions-api/internal/types"
 )
@@ -80,7 +84,7 @@ func TestCreateRolesV2(t *testing.T) {
 		owner   types.Resource
 	}
 
-	tc := []testingx.TestCase[input, []types.Role]{
+	tc := []testingx.TestCase[input, types.Role]{
 		{
 			Name: "InvalidActions",
 			Input: input{
@@ -88,9 +92,8 @@ func TestCreateRolesV2(t *testing.T) {
 				actions: []string{"action1", "action2"},
 				owner:   tenant,
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				require.Error(t, res.Err)
-				assert.Len(t, res.Success, 0)
 			},
 		},
 		{
@@ -103,10 +106,9 @@ func TestCreateRolesV2(t *testing.T) {
 					"loadbalancer_get",
 				},
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				require.Error(t, res.Err)
 				assert.ErrorContains(t, res.Err, "not allowed on relation")
-				assert.Len(t, res.Success, 0)
 			},
 		},
 		{
@@ -119,25 +121,30 @@ func TestCreateRolesV2(t *testing.T) {
 					"loadbalancer_get",
 				},
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				require.NoError(t, res.Err)
-				require.Len(t, res.Success, 1)
 
-				role := res.Success[0]
+				role := res.Success
 				require.Equal(t, "lb_viewer", role.Name)
 				require.Len(t, role.Actions, 2)
 			},
 		},
 	}
 
-	testFn := func(ctx context.Context, in input) testingx.TestResult[[]types.Role] {
-		if _, err := e.CreateRoleV2(ctx, actor, in.owner, in.name, in.actions); err != nil {
-			return testingx.TestResult[[]types.Role]{Err: err}
+	testFn := func(ctx context.Context, in input) testingx.TestResult[types.Role] {
+		r, err := e.CreateRoleV2(ctx, actor, in.owner, in.name, in.actions)
+		if err != nil {
+			return testingx.TestResult[types.Role]{Err: err}
 		}
 
-		roles, err := e.ListRolesV2(ctx, tenant)
+		res, err := e.NewResourceFromID(r.ID)
+		if err != nil {
+			return testingx.TestResult[types.Role]{Err: err}
+		}
 
-		return testingx.TestResult[[]types.Role]{Success: roles, Err: err}
+		role, err := e.GetRoleV2(ctx, res)
+
+		return testingx.TestResult[types.Role]{Success: role, Err: err}
 	}
 
 	testingx.RunTests(ctx, t, tc, testFn)
@@ -170,14 +177,14 @@ func TestGetRoleV2(t *testing.T) {
 			Name:  "GetRoleNotFound",
 			Input: missingRes,
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
-				assert.ErrorContains(t, res.Err, ErrRoleNotFound.Error())
+				assert.ErrorIs(t, res.Err, storage.ErrNoRoleFound)
 			},
 		},
 		{
 			Name:  "GetRoleInvalidInput",
 			Input: invalidInput,
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
-				assert.ErrorContains(t, res.Err, ErrInvalidType.Error())
+				assert.ErrorIs(t, res.Err, ErrInvalidType)
 			},
 		},
 		{
@@ -243,7 +250,7 @@ func TestListRolesV2(t *testing.T) {
 			Name:  "InvalidOwner",
 			Input: invalidOwner,
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
-				assert.ErrorContains(t, res.Err, ErrInvalidType.Error())
+				assert.ErrorIs(t, res.Err, ErrInvalidType)
 			},
 		},
 		{
@@ -318,7 +325,7 @@ func TestUpdateRolesV2(t *testing.T) {
 				role:    notfoundRes,
 			},
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
-				assert.ErrorContains(t, res.Err, ErrRoleNotFound.Error())
+				assert.ErrorIs(t, res.Err, storage.ErrNoRoleFound)
 			},
 			Sync: true,
 		},
@@ -342,6 +349,8 @@ func TestUpdateRolesV2(t *testing.T) {
 				role:    roleRes,
 			},
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+				fmt.Printf("err: %v\n", res.Err)
+				assert.Equal(t, status.Code(res.Err), codes.FailedPrecondition)
 				assert.ErrorContains(t, res.Err, "not found")
 			},
 			Sync: true,

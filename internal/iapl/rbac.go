@@ -26,6 +26,22 @@ const (
 	GrantRelationship = "grant"
 )
 
+// RoleAction is the list of actions that can be performed on a role resource
+type RoleAction string
+
+const (
+	// RoleActionCreate is the action name to create a role
+	RoleActionCreate RoleAction = "role_create"
+	// RoleActionGet is the action name to get a role
+	RoleActionGet RoleAction = "role_get"
+	// RoleActionList is the action name to list roles
+	RoleActionList RoleAction = "role_list"
+	// RoleActionUpdate is the action name to update a role
+	RoleActionUpdate RoleAction = "role_update"
+	// RoleActionDelete is the action name to delete a role
+	RoleActionDelete RoleAction = "role_delete"
+)
+
 // RoleBindingAction is the list of actions that can be performed on a role-binding resource
 type RoleBindingAction string
 

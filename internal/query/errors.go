@@ -40,6 +40,10 @@ var (
 	// ErrInvalidArgument represents an error when there is an invalid argument passed to a function
 	ErrInvalidArgument = errors.New("invalid argument")
 
+	// ErrRoleV2ResourceNotDefined is returned when a role v2 resource is not defined
+	// in the policy
+	ErrRoleV2ResourceNotDefined = errors.New("role v2 resource not defined")
+
 	// ErrRoleAlreadyExists represents an error when a role already exists
 	ErrRoleAlreadyExists = fmt.Errorf("%w: role already exists", ErrInvalidArgument)
 
