@@ -47,15 +47,15 @@ type RoleBindingAction string
 
 const (
 	// RoleBindingActionCreate is the action name to create a role binding
-	RoleBindingActionCreate RoleBindingAction = "rolebinding_create"
+	RoleBindingActionCreate RoleBindingAction = "iam_rolebinding_create"
 	// RoleBindingActionUpdate is the action name to update a role binding
-	RoleBindingActionUpdate RoleBindingAction = "rolebinding_update"
+	RoleBindingActionUpdate RoleBindingAction = "iam_rolebinding_update"
 	// RoleBindingActionDelete is the action name to delete a role binding
-	RoleBindingActionDelete RoleBindingAction = "rolebinding_delete"
+	RoleBindingActionDelete RoleBindingAction = "iam_rolebinding_delete"
 	// RoleBindingActionGet is the action name to get a role binding
-	RoleBindingActionGet RoleBindingAction = "rolebinding_get"
+	RoleBindingActionGet RoleBindingAction = "iam_rolebinding_get"
 	// RoleBindingActionList is the action name to list role bindings
-	RoleBindingActionList RoleBindingAction = "rolebinding_list"
+	RoleBindingActionList RoleBindingAction = "iam_rolebinding_list"
 )
 
 // ResourceRoleBindingV2 describes the relationships that will be created

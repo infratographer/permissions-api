@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"go.infratographer.com/permissions-api/internal/iapl"
@@ -45,7 +46,10 @@ func (r *Router) roleV2Create(c echo.Context) error {
 		return err
 	}
 
-	role, err := r.engine.CreateRoleV2(ctx, subjectResource, resource, reqBody.Name, reqBody.Actions)
+	role, err := r.engine.CreateRoleV2(
+		ctx, subjectResource, resource,
+		strings.TrimSpace(reqBody.Name), reqBody.Actions,
+	)
 	if err != nil {
 		return r.errorResponse("error creating resource", err)
 	}
@@ -98,7 +102,10 @@ func (r *Router) roleV2Update(c echo.Context) error {
 		return err
 	}
 
-	role, err := r.engine.UpdateRoleV2(ctx, subjectResource, roleResource, reqBody.Name, reqBody.Actions)
+	role, err := r.engine.UpdateRoleV2(
+		ctx, subjectResource, roleResource,
+		strings.TrimSpace(reqBody.Name), reqBody.Actions,
+	)
 	if err != nil {
 		return r.errorResponse("error updating role", err)
 	}

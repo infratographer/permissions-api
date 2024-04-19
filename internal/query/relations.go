@@ -313,8 +313,6 @@ func (e *engine) CreateRole(ctx context.Context, actor, res types.Resource, role
 		return types.Role{}, err
 	}
 
-	roleName = strings.TrimSpace(roleName)
-
 	role := newRole(roleName, actions)
 	roleRels := e.roleRelationships(role, res)
 
@@ -442,8 +440,6 @@ func (e *engine) UpdateRole(ctx context.Context, actor, roleResource types.Resou
 
 		return types.Role{}, err
 	}
-
-	newName = strings.TrimSpace(newName)
 
 	if newName == "" {
 		newName = role.Name

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 
 	pb "github.com/authzed/authzed-go/proto/authzed/api/v1"
 	"go.infratographer.com/x/gidx"
@@ -27,8 +26,6 @@ func (e *engine) CreateRoleV2(ctx context.Context, actor, owner types.Resource, 
 	ctx, span := e.tracer.Start(ctx, "engine.CreateRoleV2")
 
 	defer span.End()
-
-	roleName = strings.TrimSpace(roleName)
 
 	role, err := newRoleWithPrefix(e.schemaTypeMap[e.rbac.RoleResource.Name].IDPrefix, roleName, actions)
 	if err != nil {
@@ -142,9 +139,7 @@ func (e *engine) ListRolesV2(ctx context.Context, owner types.Resource) ([]types
 			break
 		}
 
-		subj := lookup.GetSubject()
-
-		id, err := gidx.Parse(subj.SubjectObjectId)
+		id, err := gidx.Parse(lookup.Subject.SubjectObjectId)
 		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
@@ -179,7 +174,7 @@ func (e *engine) GetRoleV2(ctx context.Context, role types.Resource) (types.Role
 	ctx, span := e.tracer.Start(
 		ctx,
 		"engine.GetRoleV2",
-		trace.WithAttributes(attribute.Stringer("role", role.ID)),
+		trace.WithAttributes(attribute.Stringer("permissions.role_id", role.ID)),
 	)
 	defer span.End()
 
@@ -193,32 +188,23 @@ func (e *engine) GetRoleV2(ctx context.Context, role types.Resource) (types.Role
 	}
 
 	// 1. Get role actions from spice DB
-	spicedbctx, listRoleV2ActionsSpan := e.tracer.Start(ctx, "listRoleV2Actions")
-	defer listRoleV2ActionsSpan.End()
 
-	actions, err := e.listRoleV2Actions(spicedbctx, types.Role{ID: role.ID})
+	actions, err := e.listRoleV2Actions(ctx, types.Role{ID: role.ID})
 	if err != nil {
-		listRoleV2ActionsSpan.RecordError(err)
-		listRoleV2ActionsSpan.SetStatus(codes.Error, err.Error())
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 
 		return types.Role{}, err
 	}
-
-	listRoleV2ActionsSpan.End()
 
 	// 2. Get role info (name, created_by, etc.) from permissions API DB
-	apidbctx, getRoleFromPermissionAPISpan := e.tracer.Start(ctx, "getRoleFromPermissionAPI")
-	defer getRoleFromPermissionAPISpan.End()
-
-	dbrole, err := e.store.GetRoleByID(apidbctx, role.ID)
+	dbrole, err := e.store.GetRoleByID(ctx, role.ID)
 	if err != nil {
-		getRoleFromPermissionAPISpan.RecordError(err)
-		getRoleFromPermissionAPISpan.SetStatus(codes.Error, err.Error())
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 
 		return types.Role{}, err
 	}
-
-	getRoleFromPermissionAPISpan.End()
 
 	resp := types.Role{
 		ID:      dbrole.ID,
@@ -266,8 +252,6 @@ func (e *engine) UpdateRoleV2(ctx context.Context, actor, roleResource types.Res
 		return types.Role{}, err
 	}
 
-	newName = strings.TrimSpace(newName)
-
 	if newName == "" {
 		newName = role.Name
 	}
@@ -279,12 +263,14 @@ func (e *engine) UpdateRoleV2(ctx context.Context, actor, roleResource types.Res
 		if err = e.store.CommitContext(dbCtx); err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
+
+			return types.Role{}, err
 		}
 
 		return role, nil
 	}
 
-	// 1. update role in permission-api DB
+	// 1. update role in permissions-api DB
 	dbRole, err := e.store.UpdateRole(dbCtx, actor.ID, role.ID, newName)
 	if err != nil {
 		span.RecordError(err)
@@ -295,7 +281,7 @@ func (e *engine) UpdateRoleV2(ctx context.Context, actor, roleResource types.Res
 		return types.Role{}, err
 	}
 
-	// 2. update permissions relationships in spice db
+	// 2. update permissions relationships in SpiceDB
 	updates := []*pb.RelationshipUpdate{}
 	roleRef := resourceToSpiceDBRef(e.namespace, roleResource)
 
@@ -321,7 +307,7 @@ func (e *engine) UpdateRoleV2(ctx context.Context, actor, roleResource types.Res
 		)
 	}
 
-	// 2.c write updates to spicedb
+	// 2.c write updates to SpiceDB
 	request := &pb.WriteRelationshipsRequest{Updates: updates}
 
 	if _, err := e.client.WriteRelationships(ctx, request); err != nil {
@@ -339,10 +325,10 @@ func (e *engine) UpdateRoleV2(ctx context.Context, actor, roleResource types.Res
 
 		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
 
-		// At this point, spicedb changes have already been applied.
+		// At this point, SpiceDB changes have already been applied.
 		// Attempting to rollback could result in failures that could result in the same situation.
 		//
-		// TODO: add spicedb rollback logic along with rollback failure scenarios.
+		// TODO: add SpiceDB rollback logic along with rollback failure scenarios.
 
 		return types.Role{}, err
 	}
@@ -461,6 +447,12 @@ func (e *engine) DeleteRoleV2(ctx context.Context, roleResource types.Resource) 
 
 		// At this point, spicedb changes have already been applied.
 		// Attempting to rollback could result in failures that could result in the same situation.
+		//
+		// In this particular case, in the absence of spiceDB rollback, the expected
+		// behavior in this case would be that the role only exists in the permissions-api
+		// DB and not in spiceDB. This would result in the role being "orphaned"
+		// (lack of ownership in spiceDB will prevent this role from being accessed or bind
+		// by any user), and would need to be cleaned up manually.
 		//
 		// TODO: add spicedb rollback logic along with rollback failure scenarios.
 

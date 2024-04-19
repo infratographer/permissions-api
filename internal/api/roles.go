@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -47,7 +48,10 @@ func (r *Router) roleCreate(c echo.Context) error {
 		return err
 	}
 
-	role, err := r.engine.CreateRole(ctx, subjectResource, resource, reqBody.Name, reqBody.Actions)
+	role, err := r.engine.CreateRole(
+		ctx, subjectResource, resource,
+		strings.TrimSpace(reqBody.Name), reqBody.Actions,
+	)
 
 	switch {
 	case err == nil:
@@ -117,7 +121,10 @@ func (r *Router) roleUpdate(c echo.Context) error {
 		return err
 	}
 
-	role, err := r.engine.UpdateRole(ctx, subjectResource, roleResource, reqBody.Name, reqBody.Actions)
+	role, err := r.engine.UpdateRole(
+		ctx, subjectResource, roleResource,
+		strings.TrimSpace(reqBody.Name), reqBody.Actions,
+	)
 
 	switch {
 	case err == nil:
