@@ -290,7 +290,7 @@ func (v *policy) validateResourceTypes() error {
 					return fmt.Errorf("%s: relationships: %s: %w", resourceType.Name, tt.Name, ErrorUnknownType)
 				}
 
-				if tt.SubjectRelation != "" && !v.findRelationship(v.rt[tt.Name].Relationships, tt.SubjectRelation) {
+				if tt.SubjectRelation != "" && !v.findRelationship(v.rt[tt.Name].Relationships, tt.SubjectRelation) && !v.findActionBinding(tt.SubjectRelation, tt.Name) {
 					return fmt.Errorf("%s: subject-relation: %s: %w", resourceType.Name, tt.SubjectRelation, ErrorUnknownRelation)
 				}
 			}
@@ -834,6 +834,16 @@ func (v *policy) RBAC() *RBAC {
 func (v *policy) findRelationship(rels []Relationship, name string) bool {
 	for _, rel := range rels {
 		if rel.Relation == name {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (v *policy) findActionBinding(actionName string, typeName string) bool {
+	for _, bn := range v.bn {
+		if bn.ActionName == actionName && bn.TypeName == typeName {
 			return true
 		}
 	}

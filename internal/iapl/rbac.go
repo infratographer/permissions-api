@@ -26,20 +26,36 @@ const (
 	GrantRelationship = "grant"
 )
 
+// RoleAction is the list of actions that can be performed on a role resource
+type RoleAction string
+
+const (
+	// RoleActionCreate is the action name to create a role
+	RoleActionCreate RoleAction = "role_create"
+	// RoleActionGet is the action name to get a role
+	RoleActionGet RoleAction = "role_get"
+	// RoleActionList is the action name to list roles
+	RoleActionList RoleAction = "role_list"
+	// RoleActionUpdate is the action name to update a role
+	RoleActionUpdate RoleAction = "role_update"
+	// RoleActionDelete is the action name to delete a role
+	RoleActionDelete RoleAction = "role_delete"
+)
+
 // RoleBindingAction is the list of actions that can be performed on a role-binding resource
 type RoleBindingAction string
 
 const (
 	// RoleBindingActionCreate is the action name to create a role binding
-	RoleBindingActionCreate RoleBindingAction = "rolebinding_create"
+	RoleBindingActionCreate RoleBindingAction = "iam_rolebinding_create"
 	// RoleBindingActionUpdate is the action name to update a role binding
-	RoleBindingActionUpdate RoleBindingAction = "rolebinding_update"
+	RoleBindingActionUpdate RoleBindingAction = "iam_rolebinding_update"
 	// RoleBindingActionDelete is the action name to delete a role binding
-	RoleBindingActionDelete RoleBindingAction = "rolebinding_delete"
+	RoleBindingActionDelete RoleBindingAction = "iam_rolebinding_delete"
 	// RoleBindingActionGet is the action name to get a role binding
-	RoleBindingActionGet RoleBindingAction = "rolebinding_get"
+	RoleBindingActionGet RoleBindingAction = "iam_rolebinding_get"
 	// RoleBindingActionList is the action name to list role bindings
-	RoleBindingActionList RoleBindingAction = "rolebinding_list"
+	RoleBindingActionList RoleBindingAction = "iam_rolebinding_list"
 )
 
 // ResourceRoleBindingV2 describes the relationships that will be created

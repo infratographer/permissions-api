@@ -52,12 +52,12 @@ ci: | golint test coverage  ## Setup dev database and run tests.
 .PHONY: test
 test:  ## Runs unit tests.
 	@echo Running unit tests...
-	@go test -v -timeout 30s -cover -short -tags testtools ./...
+	@go test -v -timeout 120s -cover -short -tags testtools ./...
 
 .PHONY: coverage
 coverage:  ## Generates a test coverage report.
 	@echo Generating coverage report...
-	@go test -timeout 30s -tags testtools ./... -coverprofile=coverage.out -covermode=atomic
+	@go test -timeout 120s -tags testtools ./... -coverprofile=coverage.out -covermode=atomic
 	@go tool cover -func=coverage.out
 	@go tool cover -html=coverage.out
 

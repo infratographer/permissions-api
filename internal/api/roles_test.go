@@ -50,7 +50,7 @@ func TestRoleCreate(t *testing.T) {
 					},
 				},
 			},
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
 				engine := mock.Engine{
 					Namespace: "test",
 				}
@@ -82,7 +82,7 @@ func TestRoleCreate(t *testing.T) {
 					},
 				},
 			},
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
 				engine := mock.Engine{
 					Namespace: "test",
 				}
@@ -114,7 +114,7 @@ func TestRoleCreate(t *testing.T) {
 					},
 				},
 			},
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
 				engine := mock.Engine{
 					Namespace: "test",
 				}
@@ -267,7 +267,7 @@ func TestRoleUpdate(t *testing.T) {
 					},
 				},
 			},
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
 				engine := mock.Engine{
 					Namespace: "test",
 				}
@@ -300,7 +300,7 @@ func TestRoleUpdate(t *testing.T) {
 					},
 				},
 			},
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
 				engine := mock.Engine{
 					Namespace: "test",
 				}
@@ -333,7 +333,7 @@ func TestRoleUpdate(t *testing.T) {
 					},
 				},
 			},
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
 				engine := mock.Engine{
 					Namespace: "test",
 				}
@@ -473,7 +473,7 @@ func TestRoleGet(t *testing.T) {
 		{
 			Name:  "RoleResourceNotFound",
 			Input: "/api/v1/roles/permrol-abc123",
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
 				engine := mock.Engine{
 					Namespace: "test",
 				}
@@ -593,7 +593,7 @@ func TestRoleDelete(t *testing.T) {
 		{
 			Name:  "UnknownError",
 			Input: "/api/v1/roles/permrol-abc123",
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
 				engine := mock.Engine{
 					Namespace: "test",
 				}
@@ -617,7 +617,7 @@ func TestRoleDelete(t *testing.T) {
 		{
 			Name:  "RoleResourceNotFound",
 			Input: "/api/v1/roles/permrol-abc123",
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
 				engine := mock.Engine{
 					Namespace: "test",
 				}
@@ -639,7 +639,7 @@ func TestRoleDelete(t *testing.T) {
 		{
 			Name:  "RoleDeleted",
 			Input: "/api/v1/roles/permrol-abc123",
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
 				engine := mock.Engine{
 					Namespace: "test",
 				}

@@ -21,9 +21,7 @@ import (
 	"go.infratographer.com/permissions-api/internal/storage"
 )
 
-var (
-	apiDefaultListen = "0.0.0.0:7602"
-)
+var apiDefaultListen = "0.0.0.0:7602"
 
 var serverCmd = &cobra.Command{
 	Use:   "server",
@@ -89,7 +87,7 @@ func serve(_ context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("invalid spicedb policy", "error", err)
 	}
 
-	engine, err := query.NewEngine("infratographer", spiceClient, kv, store, query.WithPolicy(policy))
+	engine, err := query.NewEngine("infratographer", spiceClient, kv, store, query.WithPolicy(policy), query.WithLogger(logger))
 	if err != nil {
 		logger.Fatalw("error creating engine", "error", err)
 	}

@@ -313,8 +313,6 @@ func (e *engine) CreateRole(ctx context.Context, actor, res types.Resource, role
 		return types.Role{}, err
 	}
 
-	roleName = strings.TrimSpace(roleName)
-
 	role := newRole(roleName, actions)
 	roleRels := e.roleRelationships(role, res)
 
@@ -362,34 +360,34 @@ func (e *engine) CreateRole(ctx context.Context, actor, res types.Resource, role
 	return role, nil
 }
 
-// actionsDiff determines which actions needs to be added and removed.
-// If no new actions are provided it is assumed no changes are requested.
-func actionsDiff(oldActions, newActions []string) ([]string, []string) {
-	if len(newActions) == 0 {
+// diff determines which entities needs to be added and removed.
+// If no new entity are provided it is assumed no changes are requested.
+func diff(current, incoming []string) ([]string, []string) {
+	if len(incoming) == 0 {
 		return nil, nil
 	}
 
-	old := make(map[string]struct{}, len(oldActions))
-	new := make(map[string]struct{}, len(newActions)) //nolint:revive // new makes sense in this context
+	curr := make(map[string]struct{}, len(current))
+	in := make(map[string]struct{}, len(incoming))
 
 	var add, rem []string
 
-	for _, action := range oldActions {
-		old[action] = struct{}{}
+	for _, entity := range current {
+		curr[entity] = struct{}{}
 	}
 
-	for _, action := range newActions {
-		new[action] = struct{}{}
+	for _, action := range incoming {
+		in[action] = struct{}{}
 
 		// If the new action is not in the old actions, then we need to add the action.
-		if _, ok := old[action]; !ok {
+		if _, ok := curr[action]; !ok {
 			add = append(add, action)
 		}
 	}
 
-	for _, action := range oldActions {
+	for _, action := range current {
 		// If the old action is not in the new actions, then we need to remove it.
-		if _, ok := new[action]; !ok {
+		if _, ok := in[action]; !ok {
 			rem = append(rem, action)
 		}
 	}
@@ -443,13 +441,11 @@ func (e *engine) UpdateRole(ctx context.Context, actor, roleResource types.Resou
 		return types.Role{}, err
 	}
 
-	newName = strings.TrimSpace(newName)
-
 	if newName == "" {
 		newName = role.Name
 	}
 
-	addActions, remActions := actionsDiff(role.Actions, newActions)
+	addActions, remActions := diff(role.Actions, newActions)
 
 	// If no changes, return existing role with no changes.
 	if newName == role.Name && len(addActions) == 0 && len(remActions) == 0 {
@@ -1219,4 +1215,19 @@ func (e *engine) GetResourceType(name string) *types.ResourceType {
 	}
 
 	return &rType
+}
+
+// NewResourceFromIDString creates a new resource from a string.
+func (e *engine) NewResourceFromIDString(id string) (types.Resource, error) {
+	subjID, err := gidx.Parse(id)
+	if err != nil {
+		return types.Resource{}, err
+	}
+
+	subject, err := e.NewResourceFromID(subjID)
+	if err != nil {
+		return types.Resource{}, err
+	}
+
+	return subject, nil
 }
