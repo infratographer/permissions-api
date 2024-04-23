@@ -398,7 +398,7 @@ func (e *engine) UpdateRoleBinding(ctx context.Context, rb types.Resource, subje
 }
 
 // isRoleBindable checks if a role is available for a resource. a role is not
-// be available to a resource if it is owner is not associated with the resource
+// available to a resource if its owner is not associated with the resource
 // in any way.
 func (e *engine) isRoleBindable(ctx context.Context, role, res types.Resource) error {
 	req := &pb.CheckPermissionRequest{
