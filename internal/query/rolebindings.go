@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"go.infratographer.com/permissions-api/internal/iapl"
+	"go.infratographer.com/permissions-api/internal/storage"
 	"go.infratographer.com/permissions-api/internal/types"
 )
 
@@ -21,6 +22,18 @@ func (e *engine) GetRoleBinding(ctx context.Context, roleBinding types.Resource)
 		trace.WithAttributes(attribute.Stringer("role_binding_id", roleBinding.ID)),
 	)
 	defer span.End()
+
+	rb, err := e.store.GetRoleBindingByID(ctx, roleBinding.ID)
+	if err != nil {
+		if errors.Is(err, storage.ErrRoleBindingNotFound) {
+			err = fmt.Errorf("%w: role-binding: %s", ErrRoleBindingNotFound, err)
+		}
+
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		return types.RoleBinding{}, err
+	}
 
 	// gather all relationships from this role-binding
 	rbRelFilter := &pb.RelationshipFilter{
@@ -45,10 +58,7 @@ func (e *engine) GetRoleBinding(ctx context.Context, roleBinding types.Resource)
 		return types.RoleBinding{}, err
 	}
 
-	rb := types.RoleBinding{
-		ID:       roleBinding.ID,
-		Subjects: make([]types.RoleBindingSubject, 0, len(rbRel)),
-	}
+	rb.Subjects = make([]types.RoleBindingSubject, 0, len(rbRel))
 
 	for _, rel := range rbRel {
 		// process subject relationships
@@ -92,7 +102,11 @@ func (e *engine) GetRoleBinding(ctx context.Context, roleBinding types.Resource)
 	return rb, nil
 }
 
-func (e *engine) CreateRoleBinding(ctx context.Context, resource, roleResource types.Resource, subjects []types.RoleBindingSubject) (types.RoleBinding, error) {
+func (e *engine) CreateRoleBinding(
+	ctx context.Context,
+	actor, resource, roleResource types.Resource,
+	subjects []types.RoleBindingSubject,
+) (types.RoleBinding, error) {
 	ctx, span := e.tracer.Start(
 		ctx, "engine.CreateRoleBinding",
 		trace.WithAttributes(
@@ -111,6 +125,10 @@ func (e *engine) CreateRoleBinding(ctx context.Context, resource, roleResource t
 
 	dbrole, err := e.store.GetRoleByID(ctx, roleResource.ID)
 	if err != nil {
+		if errors.Is(err, storage.ErrNoRoleFound) {
+			err = fmt.Errorf("%w: role %s", ErrRoleNotFound, roleResource.ID)
+		}
+
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 
@@ -122,6 +140,11 @@ func (e *engine) CreateRoleBinding(ctx context.Context, resource, roleResource t
 		Name: dbrole.Name,
 	}
 
+	dbCtx, err := e.store.BeginContext(ctx)
+	if err != nil {
+		return types.RoleBinding{}, nil
+	}
+
 	rbResourceType, ok := e.schemaTypeMap[e.rbac.RoleBindingResource.Name]
 	if !ok {
 		return types.RoleBinding{}, fmt.Errorf(
@@ -130,13 +153,33 @@ func (e *engine) CreateRoleBinding(ctx context.Context, resource, roleResource t
 		)
 	}
 
-	rb := newRoleBindingWithPrefix(rbResourceType.IDPrefix, role)
+	rbid, err := gidx.NewID(rbResourceType.IDPrefix)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return types.RoleBinding{}, err
+	}
+
+	rb, err := e.store.CreateRoleBinding(dbCtx, actor.ID, rbid, resource.ID)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return types.RoleBinding{}, err
+	}
+
+	rb.Role = role
+
 	roleRel := e.rolebindingRoleRelationship(role.ID.String(), rb.ID.String())
 
 	grantRel, err := e.rolebindingGrantResourceRelationship(resource, rb.ID.String())
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
 
 		return types.RoleBinding{}, err
 	}
@@ -160,6 +203,7 @@ func (e *engine) CreateRoleBinding(ctx context.Context, resource, roleResource t
 		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
+			logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
 
 			return types.RoleBinding{}, err
 		}
@@ -176,6 +220,16 @@ func (e *engine) CreateRoleBinding(ctx context.Context, resource, roleResource t
 	}); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return types.RoleBinding{}, err
+	}
+
+	if err := e.store.CommitContext(dbCtx); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+		logRollbackErr(e.logger, e.rollbackRoleBindingUpdates(ctx, updates))
 
 		return types.RoleBinding{}, err
 	}
@@ -183,7 +237,7 @@ func (e *engine) CreateRoleBinding(ctx context.Context, resource, roleResource t
 	return rb, nil
 }
 
-func (e *engine) DeleteRoleBinding(ctx context.Context, rb, res types.Resource) error {
+func (e *engine) DeleteRoleBinding(ctx context.Context, rb types.Resource) error {
 	ctx, span := e.tracer.Start(
 		ctx, "engine.DeleteRoleBinding",
 		trace.WithAttributes(
@@ -191,6 +245,38 @@ func (e *engine) DeleteRoleBinding(ctx context.Context, rb, res types.Resource) 
 		),
 	)
 	defer span.End()
+
+	dbCtx, err := e.store.BeginContext(ctx)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		return err
+	}
+
+	if err := e.store.LockRoleBindingForUpdate(dbCtx, rb.ID); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return err
+	}
+
+	rbFromDB, err := e.store.GetRoleBindingByID(dbCtx, rb.ID)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		return err
+	}
+
+	res, err := e.NewResourceFromID(rbFromDB.ResourceID)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		return err
+	}
 
 	// gather all relationships from the role-binding resource
 	fromRels, err := e.readRelationships(ctx, &pb.RelationshipFilter{
@@ -200,6 +286,7 @@ func (e *engine) DeleteRoleBinding(ctx context.Context, rb, res types.Resource) 
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
 
 		return err
 	}
@@ -216,6 +303,7 @@ func (e *engine) DeleteRoleBinding(ctx context.Context, rb, res types.Resource) 
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
 
 		return err
 	}
@@ -234,6 +322,25 @@ func (e *engine) DeleteRoleBinding(ctx context.Context, rb, res types.Resource) 
 	if _, err := e.client.WriteRelationships(ctx, &pb.WriteRelationshipsRequest{Updates: updates}); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return err
+	}
+
+	if err := e.store.DeleteRoleBinding(dbCtx, rb.ID); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+		logRollbackErr(e.logger, e.rollbackRoleBindingUpdates(ctx, updates))
+
+		return err
+	}
+
+	if err := e.store.CommitContext(dbCtx); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+		logRollbackErr(e.logger, e.rollbackRoleBindingUpdates(ctx, updates))
 
 		return err
 	}
@@ -264,6 +371,9 @@ func (e *engine) ListRoleBindings(ctx context.Context, resource types.Resource, 
 
 	grantRel, err := e.readRelationships(ctx, listRbFilter)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
 		return nil, err
 	}
 
@@ -311,6 +421,9 @@ func (e *engine) ListRoleBindings(ctx context.Context, resource types.Resource, 
 
 	for _, err := range errs {
 		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+
 			return nil, err
 		}
 	}
@@ -318,7 +431,7 @@ func (e *engine) ListRoleBindings(ctx context.Context, resource types.Resource, 
 	return bindings, nil
 }
 
-func (e *engine) UpdateRoleBinding(ctx context.Context, rb types.Resource, subjects []types.RoleBindingSubject) (types.RoleBinding, error) {
+func (e *engine) UpdateRoleBinding(ctx context.Context, actor, rb types.Resource, subjects []types.RoleBindingSubject) (types.RoleBinding, error) {
 	ctx, span := e.tracer.Start(
 		ctx, "engine.UpdateRoleBindings",
 		trace.WithAttributes(
@@ -327,10 +440,27 @@ func (e *engine) UpdateRoleBinding(ctx context.Context, rb types.Resource, subje
 	)
 	defer span.End()
 
-	rolebinding, err := e.GetRoleBinding(ctx, rb)
+	dbCtx, err := e.store.BeginContext(ctx)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
+
+		return types.RoleBinding{}, err
+	}
+
+	if err := e.store.LockRoleBindingForUpdate(dbCtx, rb.ID); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return types.RoleBinding{}, err
+	}
+
+	rolebinding, err := e.GetRoleBinding(dbCtx, rb)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
 
 		return types.RoleBinding{}, err
 	}
@@ -363,6 +493,7 @@ func (e *engine) UpdateRoleBinding(ctx context.Context, rb types.Resource, subje
 		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
+			logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
 
 			return types.RoleBinding{}, err
 		}
@@ -376,6 +507,7 @@ func (e *engine) UpdateRoleBinding(ctx context.Context, rb types.Resource, subje
 		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
+			logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
 
 			return types.RoleBinding{}, err
 		}
@@ -388,13 +520,47 @@ func (e *engine) UpdateRoleBinding(ctx context.Context, rb types.Resource, subje
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return types.RoleBinding{}, err
+	}
+
+	// 3. update the role-binding in the database to record latest `updatedBy` and `updatedAt`
+	rbFromDB, err := e.store.UpdateRoleBinding(dbCtx, actor.ID, rb.ID)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+		logRollbackErr(e.logger, e.rollbackRoleBindingUpdates(ctx, updates))
+	}
+
+	if err := e.store.CommitContext(dbCtx); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+		logRollbackErr(e.logger, e.rollbackRoleBindingUpdates(ctx, updates))
 
 		return types.RoleBinding{}, err
 	}
 
 	rolebinding.Subjects = subjects
+	rolebinding.UpdatedAt = rbFromDB.UpdatedAt
+	rolebinding.UpdatedBy = rbFromDB.UpdatedBy
 
 	return rolebinding, nil
+}
+
+func (e *engine) GetRoleBindingResource(ctx context.Context, rb types.Resource) (types.Resource, error) {
+	rbFromDB, err := e.store.GetRoleBindingByID(ctx, rb.ID)
+	if err != nil {
+		if errors.Is(err, storage.ErrRoleBindingNotFound) {
+			err = fmt.Errorf("%w: %s", ErrRoleBindingNotFound, err)
+		}
+
+		return types.Resource{}, err
+	}
+
+	return e.NewResourceFromID(rbFromDB.ResourceID)
 }
 
 // isRoleBindable checks if a role is available for a resource. a role is not
@@ -458,6 +624,40 @@ func (e *engine) deleteRoleBindingsForRole(ctx context.Context, roleResource typ
 		return err
 	}
 
+	if len(bindings) == 0 {
+		return nil
+	}
+
+	rbIDs := make([]gidx.PrefixedID, len(bindings))
+
+	for i, rel := range bindings {
+		id, err := gidx.Parse(rel.Resource.ObjectId)
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+
+			return err
+		}
+
+		rbIDs[i] = id
+	}
+
+	dbCtx, err := e.store.BeginContext(ctx)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		return err
+	}
+
+	if err := e.store.BatchLockRoleBindingForUpdate(dbCtx, rbIDs); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return err
+	}
+
 	// 2. Gather all the relationships to be deleted
 
 	// 2.1 build a list of requests to get all the subject, role and grant
@@ -492,6 +692,7 @@ func (e *engine) deleteRoleBindingsForRole(ctx context.Context, roleResource typ
 		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
+			logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
 
 			return err
 		}
@@ -511,10 +712,29 @@ func (e *engine) deleteRoleBindingsForRole(ctx context.Context, roleResource typ
 
 	e.logger.Debugf("%d relationships will be deleted", len(updates))
 
-	// 3. delete all the relationships
+	// 3.1 delete all records in permissions-api DB
+	if err := e.store.BatchDeleteRoleBindings(dbCtx, rbIDs); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return err
+	}
+
+	// 3.2 delete all the relationships
 	if _, err := e.client.WriteRelationships(ctx, &pb.WriteRelationshipsRequest{Updates: updates}); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return err
+	}
+
+	if err := e.store.CommitContext(dbCtx); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+		logRollbackErr(e.logger, e.rollbackRoleBindingUpdates(ctx, updates))
 
 		return err
 	}
@@ -614,11 +834,40 @@ func (e *engine) rolebindingRelationshipUpdateForSubject(
 	return &pb.RelationshipUpdate{Operation: op, Relationship: rel}, nil
 }
 
-func newRoleBindingWithPrefix(prefix string, role types.Role) types.RoleBinding {
-	rb := types.RoleBinding{
-		ID:   gidx.MustNewID(prefix),
-		Role: role,
+// rollbackRoleBindingUpdates is a helper function that rolls back a list of
+// relationship updates on spiceDB.
+func (e *engine) rollbackRoleBindingUpdates(ctx context.Context, updates []*pb.RelationshipUpdate) error {
+	updatesLen := len(updates)
+	rollbacks := make([]*pb.RelationshipUpdate, 0, updatesLen)
+
+	for i := range updates {
+		// reversed order
+		u := updates[updatesLen-i-1]
+
+		if u == nil {
+			continue
+		}
+
+		var op pb.RelationshipUpdate_Operation
+
+		switch u.Operation {
+		case pb.RelationshipUpdate_OPERATION_CREATE:
+			fallthrough
+		case pb.RelationshipUpdate_OPERATION_TOUCH:
+			op = pb.RelationshipUpdate_OPERATION_DELETE
+		case pb.RelationshipUpdate_OPERATION_DELETE:
+			op = pb.RelationshipUpdate_OPERATION_TOUCH
+		default:
+			continue
+		}
+
+		rollbacks = append(rollbacks, &pb.RelationshipUpdate{
+			Operation:    op,
+			Relationship: u.Relationship,
+		})
 	}
 
-	return rb
+	_, err := e.client.WriteRelationships(ctx, &pb.WriteRelationshipsRequest{Updates: rollbacks})
+
+	return err
 }

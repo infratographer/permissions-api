@@ -100,7 +100,13 @@ type Relationship struct {
 
 // RoleBinding represents a role binding between a role and a resource.
 type RoleBinding struct {
-	ID       gidx.PrefixedID
-	Role     Role
-	Subjects []RoleBindingSubject
+	ID         gidx.PrefixedID
+	ResourceID gidx.PrefixedID
+	Role       Role
+	Subjects   []RoleBindingSubject
+
+	CreatedBy gidx.PrefixedID
+	UpdatedBy gidx.PrefixedID
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }

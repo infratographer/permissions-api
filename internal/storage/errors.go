@@ -25,6 +25,9 @@ var (
 
 	// ErrorInvalidContextTx represents an error where the given context transaction is of the wrong type.
 	ErrorInvalidContextTx = errors.New("invalid type for transaction context")
+
+	// ErrRoleBindingNotFound is returned when no role binding is found when retrieving or deleting a role binding.
+	ErrRoleBindingNotFound = errors.New("role binding not found")
 )
 
 const (

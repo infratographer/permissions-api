@@ -313,20 +313,7 @@ func (e *engine) BatchGetRoleByID(ctx context.Context, ids []gidx.PrefixedID) ([
 		return nil, err
 	}
 
-	inClause := ""
-	args := make([]any, len(ids))
-
-	for i, id := range ids {
-		fmtStr := "$%d"
-
-		if i > 0 {
-			fmtStr = ", $%d"
-		}
-
-		inClause += fmt.Sprintf(fmtStr, i+1)
-		args[i] = id.String()
-	}
-
+	inClause, args := e.buildBatchInClauseWithIDs(ids)
 	q := fmt.Sprintf(`
 		SELECT
 			id, name, resource_id,

@@ -409,10 +409,12 @@ func TestDeleteRolesV2(t *testing.T) {
 	require.NoError(t, err)
 	theotherchild, err := e.NewResourceFromIDString("tnntten-theotherchild")
 	require.NoError(t, err)
+	subj, err := e.NewResourceFromIDString("idntusr-subj")
+	require.NoError(t, err)
 	actor, err := e.NewResourceFromIDString("idntusr-actor")
 	require.NoError(t, err)
 
-	role, err := e.CreateRoleV2(ctx, actor, root, "lb_viewer", []string{"loadbalancer_list", "loadbalancer_get"})
+	role, err := e.CreateRoleV2(ctx, subj, root, "lb_viewer", []string{"loadbalancer_list", "loadbalancer_get"})
 	require.NoError(t, err)
 
 	roleRes, err := e.NewResourceFromID(role.ID)
@@ -432,13 +434,13 @@ func TestDeleteRolesV2(t *testing.T) {
 	require.NoError(t, err)
 
 	// these bindings are expected to be deleted after the role is deleted
-	_, err = e.CreateRoleBinding(ctx, root, roleRes, []types.RoleBindingSubject{{SubjectResource: actor}})
+	_, err = e.CreateRoleBinding(ctx, actor, root, roleRes, []types.RoleBindingSubject{{SubjectResource: subj}})
 	require.NoError(t, err)
 
-	_, err = e.CreateRoleBinding(ctx, child, roleRes, []types.RoleBindingSubject{{SubjectResource: actor}})
+	_, err = e.CreateRoleBinding(ctx, actor, child, roleRes, []types.RoleBindingSubject{{SubjectResource: subj}})
 	require.NoError(t, err)
 
-	_, err = e.CreateRoleBinding(ctx, theotherchild, roleRes, []types.RoleBindingSubject{{SubjectResource: actor}})
+	_, err = e.CreateRoleBinding(ctx, actor, theotherchild, roleRes, []types.RoleBindingSubject{{SubjectResource: subj}})
 	require.NoError(t, err)
 
 	rb, err := e.ListRoleBindings(ctx, root, &roleRes)
@@ -464,7 +466,7 @@ func TestDeleteRolesV2(t *testing.T) {
 		},
 		{
 			Name:  "DeleteRoleInvalidInput",
-			Input: actor,
+			Input: subj,
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				assert.Error(t, res.Err)
 			},

@@ -61,16 +61,19 @@ type Engine interface {
 	// CreateRoleBinding creates all the necessary relationships for a role binding.
 	// role binding here establishes a three-way relationship between a role,
 	// a resource, and the subjects.
-	CreateRoleBinding(ctx context.Context, resource, role types.Resource, subjects []types.RoleBindingSubject) (types.RoleBinding, error)
+	CreateRoleBinding(ctx context.Context, actor, resource, role types.Resource, subjects []types.RoleBindingSubject) (types.RoleBinding, error)
 	// ListRoleBindings lists all role-bindings for a resource, an optional Role
 	// can be provided to filter the role-bindings.
 	ListRoleBindings(ctx context.Context, resource types.Resource, optionalRole *types.Resource) ([]types.RoleBinding, error)
 	// GetRoleBinding fetches a role-binding by its ID.
 	GetRoleBinding(ctx context.Context, rolebinding types.Resource) (types.RoleBinding, error)
 	// UpdateRoleBinding updates the subjects of a role-binding.
-	UpdateRoleBinding(ctx context.Context, rolebinding types.Resource, subjects []types.RoleBindingSubject) (types.RoleBinding, error)
+	UpdateRoleBinding(ctx context.Context, actor, rolebinding types.Resource, subjects []types.RoleBindingSubject) (types.RoleBinding, error)
 	// DeleteRoleBinding removes subjects from a role-binding.
-	DeleteRoleBinding(ctx context.Context, rolebinding, resource types.Resource) error
+	DeleteRoleBinding(ctx context.Context, rolebinding types.Resource) error
+	// GetRoleBindingResource fetches the resource to which a role-binding
+	// belongs
+	GetRoleBindingResource(ctx context.Context, rb types.Resource) (types.Resource, error)
 
 	AllActions() []string
 }

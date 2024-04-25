@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"go.infratographer.com/x/gidx"
@@ -52,13 +53,13 @@ func (r *Router) roleBindingCreate(c echo.Context) error {
 		return r.errorResponse("error creating resource", err)
 	}
 
-	subjectResource, err := r.currentSubject(c)
+	actor, err := r.currentSubject(c)
 	if err != nil {
 		return err
 	}
 
 	// permissions on role binding actions, similar to roles v1, are granted on the resources
-	if err := r.checkActionWithResponse(ctx, subjectResource, string(iapl.RoleBindingActionCreate), resource); err != nil {
+	if err := r.checkActionWithResponse(ctx, actor, string(iapl.RoleBindingActionCreate), resource); err != nil {
 		return err
 	}
 
@@ -86,7 +87,7 @@ func (r *Router) roleBindingCreate(c echo.Context) error {
 		}
 	}
 
-	rb, err := r.engine.CreateRoleBinding(ctx, resource, roleResource, subjects)
+	rb, err := r.engine.CreateRoleBinding(ctx, actor, resource, roleResource, subjects)
 	if err != nil {
 		return r.errorResponse("error creating role-binding", err)
 	}
@@ -94,12 +95,18 @@ func (r *Router) roleBindingCreate(c echo.Context) error {
 	return c.JSON(
 		http.StatusOK,
 		roleBindingResponse{
-			ID:       rb.ID,
-			Subjects: resourceToSubject(rb.Subjects),
+			ID:         rb.ID,
+			ResourceID: rb.ResourceID,
+			Subjects:   resourceToSubject(rb.Subjects),
 			Role: roleBindingResponseRole{
 				ID:   rb.Role.ID,
 				Name: rb.Role.Name,
 			},
+
+			CreatedBy: rb.CreatedBy,
+			UpdatedBy: rb.UpdatedBy,
+			CreatedAt: rb.CreatedAt.Format(time.RFC3339),
+			UpdatedAt: rb.UpdatedAt.Format(time.RFC3339),
 		},
 	)
 }
@@ -160,12 +167,18 @@ func (r *Router) roleBindingsList(c echo.Context) error {
 
 	for i, rb := range rbs {
 		resp.Data[i] = roleBindingResponse{
-			ID:       rb.ID,
-			Subjects: resourceToSubject(rb.Subjects),
+			ID:         rb.ID,
+			ResourceID: rb.ResourceID,
+			Subjects:   resourceToSubject(rb.Subjects),
 			Role: roleBindingResponseRole{
 				ID:   rb.Role.ID,
 				Name: rb.Role.Name,
 			},
+
+			CreatedBy: rb.CreatedBy,
+			UpdatedBy: rb.UpdatedBy,
+			CreatedAt: rb.CreatedAt.Format(time.RFC3339),
+			UpdatedAt: rb.UpdatedAt.Format(time.RFC3339),
 		}
 	}
 
@@ -173,7 +186,6 @@ func (r *Router) roleBindingsList(c echo.Context) error {
 }
 
 func (r *Router) roleBindingsDelete(c echo.Context) error {
-	resID := c.Param("id")
 	rbID := c.Param("rb_id")
 
 	ctx, span := tracer.Start(
@@ -181,17 +193,6 @@ func (r *Router) roleBindingsDelete(c echo.Context) error {
 		trace.WithAttributes(attribute.String("id", rbID)),
 	)
 	defer span.End()
-
-	// resource
-	resourceID, err := gidx.Parse(resID)
-	if err != nil {
-		return r.errorResponse("error parsing resource ID", fmt.Errorf("%w: %s", ErrInvalidID, err.Error()))
-	}
-
-	resource, err := r.engine.NewResourceFromID(resourceID)
-	if err != nil {
-		return r.errorResponse("error creating resource", err)
-	}
 
 	// role-binding
 	rolebindingID, err := gidx.Parse(rbID)
@@ -209,12 +210,18 @@ func (r *Router) roleBindingsDelete(c echo.Context) error {
 		return err
 	}
 
+	// resource
+	resource, err := r.engine.GetRoleBindingResource(ctx, rbRes)
+	if err != nil {
+		return r.errorResponse("error getting role-binding owner resource", err)
+	}
+
 	// permissions on role binding actions, similar to roles v1, are granted on the resources
 	if err := r.checkActionWithResponse(ctx, actor, string(iapl.RoleBindingActionDelete), resource); err != nil {
 		return err
 	}
 
-	if err := r.engine.DeleteRoleBinding(ctx, rbRes, resource); err != nil {
+	if err := r.engine.DeleteRoleBinding(ctx, rbRes); err != nil {
 		return r.errorResponse("error updating role-binding", err)
 	}
 
@@ -224,7 +231,6 @@ func (r *Router) roleBindingsDelete(c echo.Context) error {
 }
 
 func (r *Router) roleBindingGet(c echo.Context) error {
-	resID := c.Param("id")
 	rbID := c.Param("rb_id")
 
 	ctx, span := tracer.Start(
@@ -233,17 +239,6 @@ func (r *Router) roleBindingGet(c echo.Context) error {
 	)
 	defer span.End()
 
-	// resource
-	resourceID, err := gidx.Parse(resID)
-	if err != nil {
-		return r.errorResponse("error parsing resource ID", fmt.Errorf("%w: %s", ErrInvalidID, err.Error()))
-	}
-
-	resource, err := r.engine.NewResourceFromID(resourceID)
-	if err != nil {
-		return r.errorResponse("error creating resource", err)
-	}
-
 	// role-binding
 	rolebindingID, err := gidx.Parse(rbID)
 	if err != nil {
@@ -257,11 +252,6 @@ func (r *Router) roleBindingGet(c echo.Context) error {
 
 	actor, err := r.currentSubject(c)
 	if err != nil {
-		return err
-	}
-
-	// permissions on role binding actions, similar to roles v1, are granted on the resources
-	if err := r.checkActionWithResponse(ctx, actor, string(iapl.RoleBindingActionGet), resource); err != nil {
 		return err
 	}
 
@@ -270,40 +260,47 @@ func (r *Router) roleBindingGet(c echo.Context) error {
 		return r.errorResponse("error getting role-binding", err)
 	}
 
+	// permissions on role binding actions, similar to roles v1, are granted on the resources
+	// since the rolebinding is returning the resource ID that it belongs to, we
+	// will use this resource ID to check the permissions
+	resource, err := r.engine.NewResourceFromID(rb.ResourceID)
+	if err != nil {
+		return r.errorResponse("error creating resource", err)
+	}
+
+	if err := r.checkActionWithResponse(ctx, actor, string(iapl.RoleBindingActionGet), resource); err != nil {
+		return err
+	}
+
 	return c.JSON(
 		http.StatusOK,
 		roleBindingResponse{
-			ID:       rb.ID,
-			Subjects: resourceToSubject(rb.Subjects),
+			ID:         rb.ID,
+			ResourceID: rb.ResourceID,
+			Subjects:   resourceToSubject(rb.Subjects),
 			Role: roleBindingResponseRole{
 				ID:   rb.Role.ID,
 				Name: rb.Role.Name,
 			},
+
+			CreatedBy: rb.CreatedBy,
+			UpdatedBy: rb.UpdatedBy,
+			CreatedAt: rb.CreatedAt.Format(time.RFC3339),
+			UpdatedAt: rb.UpdatedAt.Format(time.RFC3339),
 		},
 	)
 }
 
 func (r *Router) roleBindingUpdate(c echo.Context) error {
-	resID := c.Param("id")
 	rbID := c.Param("rb_id")
 
 	ctx, span := tracer.Start(
 		c.Request().Context(), "api.roleBindingUpdate",
-		trace.WithAttributes(attribute.String("id", resID)),
 		trace.WithAttributes(attribute.String("rolebinding_id", rbID)),
 	)
 	defer span.End()
 
 	// resource
-	resourceID, err := gidx.Parse(resID)
-	if err != nil {
-		return r.errorResponse("error parsing resource ID", fmt.Errorf("%w: %s", ErrInvalidID, err.Error()))
-	}
-
-	resource, err := r.engine.NewResourceFromID(resourceID)
-	if err != nil {
-		return r.errorResponse("error creating resource", err)
-	}
 
 	// role-binding
 	rolebindingID, err := gidx.Parse(rbID)
@@ -319,6 +316,12 @@ func (r *Router) roleBindingUpdate(c echo.Context) error {
 	actor, err := r.currentSubject(c)
 	if err != nil {
 		return err
+	}
+
+	// resource
+	resource, err := r.engine.GetRoleBindingResource(ctx, rbRes)
+	if err != nil {
+		return r.errorResponse("error getting role-binding owner resource", err)
 	}
 
 	// permissions on role binding actions, similar to roles v1, are granted on the resources
@@ -347,7 +350,7 @@ func (r *Router) roleBindingUpdate(c echo.Context) error {
 		}
 	}
 
-	rb, err := r.engine.UpdateRoleBinding(ctx, rbRes, subjects)
+	rb, err := r.engine.UpdateRoleBinding(ctx, actor, rbRes, subjects)
 	if err != nil {
 		return r.errorResponse("error updating role-binding", err)
 	}
@@ -355,12 +358,19 @@ func (r *Router) roleBindingUpdate(c echo.Context) error {
 	return c.JSON(
 		http.StatusOK,
 		roleBindingResponse{
-			ID:       rb.ID,
-			Subjects: resourceToSubject(rb.Subjects),
+			ID:         rb.ID,
+			ResourceID: rb.ResourceID,
+			Subjects:   resourceToSubject(rb.Subjects),
+
 			Role: roleBindingResponseRole{
 				ID:   rb.Role.ID,
 				Name: rb.Role.Name,
 			},
+
+			CreatedBy: rb.CreatedBy,
+			UpdatedBy: rb.UpdatedBy,
+			CreatedAt: rb.CreatedAt.Format(time.RFC3339),
+			UpdatedAt: rb.UpdatedAt.Format(time.RFC3339),
 		},
 	)
 }

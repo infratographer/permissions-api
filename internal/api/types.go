@@ -106,9 +106,15 @@ type rolebindingUpdateRequest struct {
 }
 
 type roleBindingResponse struct {
-	ID       gidx.PrefixedID         `json:"id"`
-	Role     roleBindingResponseRole `json:"role"`
-	Subjects []roleBindingSubject    `json:"subjects"`
+	ID         gidx.PrefixedID         `json:"id"`
+	ResourceID gidx.PrefixedID         `json:"resource_id"`
+	Role       roleBindingResponseRole `json:"role"`
+	Subjects   []roleBindingSubject    `json:"subjects"`
+
+	CreatedBy gidx.PrefixedID `json:"created_by"`
+	UpdatedBy gidx.PrefixedID `json:"updated_by"`
+	CreatedAt string          `json:"created_at"`
+	UpdatedAt string          `json:"updated_at"`
 }
 
 type listRoleBindingsResponse struct {

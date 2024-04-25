@@ -204,7 +204,7 @@ func (e *Engine) SubjectHasPermission(context.Context, types.Resource, string, t
 }
 
 // CreateRoleBinding returns nothing but satisfies the Engine interface.
-func (e *Engine) CreateRoleBinding(context.Context, types.Resource, types.Resource, []types.RoleBindingSubject) (types.RoleBinding, error) {
+func (e *Engine) CreateRoleBinding(context.Context, types.Resource, types.Resource, types.Resource, []types.RoleBindingSubject) (types.RoleBinding, error) {
 	return types.RoleBinding{}, nil
 }
 
@@ -219,13 +219,18 @@ func (e *Engine) GetRoleBinding(context.Context, types.Resource) (types.RoleBind
 }
 
 // DeleteRoleBinding returns nothing but satisfies the Engine interface.
-func (e *Engine) DeleteRoleBinding(context.Context, types.Resource, types.Resource) error {
+func (e *Engine) DeleteRoleBinding(context.Context, types.Resource) error {
 	return nil
 }
 
 // UpdateRoleBinding returns nothing but satisfies the Engine interface.
-func (e *Engine) UpdateRoleBinding(context.Context, types.Resource, []types.RoleBindingSubject) (types.RoleBinding, error) {
+func (e *Engine) UpdateRoleBinding(context.Context, types.Resource, types.Resource, []types.RoleBindingSubject) (types.RoleBinding, error) {
 	return types.RoleBinding{}, nil
+}
+
+// GetRoleBindingResource returns nothing but satisfies the Engine interface.
+func (e *Engine) GetRoleBindingResource(context.Context, types.Resource) (types.Resource, error) {
+	return types.Resource{}, nil
 }
 
 // AllActions returns nothing but satisfies the Engine interface.

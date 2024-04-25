@@ -51,6 +51,10 @@ func (e *engine) CreateRoleV2(ctx context.Context, actor, owner types.Resource, 
 
 	dbRole, err := e.store.CreateRole(dbCtx, actor.ID, role.ID, roleName, owner.ID)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
 		return types.Role{}, err
 	}
 

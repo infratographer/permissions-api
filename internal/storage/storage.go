@@ -11,6 +11,7 @@ import (
 // Storage defines the interface the engine exposes.
 type Storage interface {
 	RoleService
+	RoleBindingService
 	TransactionManager
 
 	HealthCheck(ctx context.Context) error
