@@ -1231,3 +1231,59 @@ func (e *engine) NewResourceFromIDString(id string) (types.Resource, error) {
 
 	return subject, nil
 }
+
+// rollbackUpdates is a helper function that rolls back a list of
+// relationship updates on spiceDB.
+func (e *engine) rollbackUpdates(ctx context.Context, updates []*pb.RelationshipUpdate) error {
+	updatesLen := len(updates)
+	rollbacks := make([]*pb.RelationshipUpdate, 0, updatesLen)
+
+	for i := range updates {
+		// reversed order
+		u := updates[updatesLen-i-1]
+
+		if u == nil {
+			continue
+		}
+
+		var op pb.RelationshipUpdate_Operation
+
+		switch u.Operation {
+		case pb.RelationshipUpdate_OPERATION_CREATE:
+			fallthrough
+		case pb.RelationshipUpdate_OPERATION_TOUCH:
+			op = pb.RelationshipUpdate_OPERATION_DELETE
+		case pb.RelationshipUpdate_OPERATION_DELETE:
+			op = pb.RelationshipUpdate_OPERATION_TOUCH
+		default:
+			continue
+		}
+
+		rollbacks = append(rollbacks, &pb.RelationshipUpdate{
+			Operation:    op,
+			Relationship: u.Relationship,
+		})
+	}
+
+	return e.applyUpdates(ctx, rollbacks)
+}
+
+// applyUpdates is a wrapper function around the spiceDB WriteRelationships method
+// it applies the given relationship updates and store the zed token for each resource.
+func (e *engine) applyUpdates(ctx context.Context, updates []*pb.RelationshipUpdate) error {
+	resp, err := e.client.WriteRelationships(ctx, &pb.WriteRelationshipsRequest{Updates: updates})
+	if err != nil {
+		return err
+	}
+
+	t := resp.WrittenAt.Token
+
+	for _, u := range updates {
+		resID := u.Relationship.Resource.ObjectId
+		if err := e.upsertZedToken(ctx, resID, t); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

@@ -88,12 +88,9 @@ type roleBindingResponseRole struct {
 	Name string          `json:"name"`
 }
 
-type roleBindingSubjectCondition struct{}
-
 type roleBindingSubject struct {
-	ID        gidx.PrefixedID              `json:"id" binding:"required"`
-	Type      string                       `json:"type,omitempty"`
-	Condition *roleBindingSubjectCondition `json:"condition,omitempty"`
+	ID   gidx.PrefixedID `json:"id" binding:"required"`
+	Type string          `json:"type,omitempty"`
 }
 
 type roleBindingRequest struct {

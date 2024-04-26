@@ -888,7 +888,7 @@ paths:
         schema:
           type: string
           example: tnntten-root
-  /resources/{id}/role-bindings/{rb-id}:
+  /role-bindings/{rb-id}:
     get:
       tags:
         - role-bindings
@@ -1078,12 +1078,6 @@ paths:
                       - id: idntgrp-root-admins
                         type: group
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-          example: loadbal-lb1
       - name: rb-id
         in: path
         required: true

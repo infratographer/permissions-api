@@ -18,9 +18,8 @@ func resourceToSubject(subjects []types.RoleBindingSubject) []roleBindingSubject
 	resp := make([]roleBindingSubject, len(subjects))
 	for i, subj := range subjects {
 		resp[i] = roleBindingSubject{
-			ID:        subj.SubjectResource.ID,
-			Type:      subj.SubjectResource.Type,
-			Condition: nil,
+			ID:   subj.SubjectResource.ID,
+			Type: subj.SubjectResource.Type,
 		}
 	}
 
@@ -113,7 +112,6 @@ func (r *Router) roleBindingCreate(c echo.Context) error {
 
 func (r *Router) roleBindingsList(c echo.Context) error {
 	resourceIDStr := c.Param("id")
-	roleIDStr := c.QueryParam("role_id")
 
 	ctx, span := tracer.Start(
 		c.Request().Context(), "api.roleBindingList",
@@ -140,23 +138,7 @@ func (r *Router) roleBindingsList(c echo.Context) error {
 		return err
 	}
 
-	roleFilter := (*types.Resource)(nil)
-
-	if roleIDStr != "" {
-		roleID, err := gidx.Parse(roleIDStr)
-		if err != nil {
-			return r.errorResponse("error parsing role ID", fmt.Errorf("%w: %s", ErrInvalidID, err.Error()))
-		}
-
-		roleResource, err := r.engine.NewResourceFromID(roleID)
-		if err != nil {
-			return r.errorResponse("error creating role resource", err)
-		}
-
-		roleFilter = &roleResource
-	}
-
-	rbs, err := r.engine.ListRoleBindings(ctx, resource, roleFilter)
+	rbs, err := r.engine.ListRoleBindings(ctx, resource, nil)
 	if err != nil {
 		return r.errorResponse("error listing role-binding", err)
 	}

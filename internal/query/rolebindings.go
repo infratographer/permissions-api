@@ -60,6 +60,8 @@ func (e *engine) GetRoleBinding(ctx context.Context, roleBinding types.Resource)
 
 	rb.Subjects = make([]types.RoleBindingSubject, 0, len(rbRel))
 
+	var roleID gidx.PrefixedID
+
 	for _, rel := range rbRel {
 		// process subject relationships
 		if rel.Relation == iapl.RolebindingSubjectRelation {
@@ -77,26 +79,26 @@ func (e *engine) GetRoleBinding(ctx context.Context, roleBinding types.Resource)
 		}
 
 		// process role relationships
-		roleID, err := gidx.Parse(rel.Subject.Object.ObjectId)
+		roleID, err = gidx.Parse(rel.Subject.Object.ObjectId)
 		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
 
 			return types.RoleBinding{}, err
 		}
+	}
 
-		dbRole, err := e.store.GetRoleByID(ctx, roleID)
-		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
+	dbRole, err := e.store.GetRoleByID(ctx, roleID)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 
-			return types.RoleBinding{}, err
-		}
+		return types.RoleBinding{}, err
+	}
 
-		rb.Role = types.Role{
-			ID:   roleID,
-			Name: dbRole.Name,
-		}
+	rb.Role = types.Role{
+		ID:   roleID,
+		Name: dbRole.Name,
 	}
 
 	return rb, nil
@@ -142,15 +144,24 @@ func (e *engine) CreateRoleBinding(
 
 	dbCtx, err := e.store.BeginContext(ctx)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
 		return types.RoleBinding{}, nil
 	}
 
 	rbResourceType, ok := e.schemaTypeMap[e.rbac.RoleBindingResource.Name]
 	if !ok {
-		return types.RoleBinding{}, fmt.Errorf(
+		err := fmt.Errorf(
 			"%w: invalid role-binding resource type: %s",
 			ErrInvalidType, e.rbac.RoleBindingResource.Name,
 		)
+
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return types.RoleBinding{}, err
 	}
 
 	rbid, err := gidx.NewID(rbResourceType.IDPrefix)
@@ -215,9 +226,7 @@ func (e *engine) CreateRoleBinding(
 		}
 	}
 
-	if _, err := e.client.WriteRelationships(ctx, &pb.WriteRelationshipsRequest{
-		Updates: append(updates, subjUpdates...),
-	}); err != nil {
+	if err := e.applyUpdates(ctx, append(updates, subjUpdates...)); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
@@ -229,7 +238,7 @@ func (e *engine) CreateRoleBinding(
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
-		logRollbackErr(e.logger, e.rollbackRoleBindingUpdates(ctx, updates))
+		logRollbackErr(e.logger, e.rollbackUpdates(ctx, updates))
 
 		return types.RoleBinding{}, err
 	}
@@ -319,7 +328,7 @@ func (e *engine) DeleteRoleBinding(ctx context.Context, rb types.Resource) error
 	}
 
 	// apply changes
-	if _, err := e.client.WriteRelationships(ctx, &pb.WriteRelationshipsRequest{Updates: updates}); err != nil {
+	if err := e.applyUpdates(ctx, updates); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
@@ -331,7 +340,7 @@ func (e *engine) DeleteRoleBinding(ctx context.Context, rb types.Resource) error
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
-		logRollbackErr(e.logger, e.rollbackRoleBindingUpdates(ctx, updates))
+		logRollbackErr(e.logger, e.rollbackUpdates(ctx, updates))
 
 		return err
 	}
@@ -340,7 +349,7 @@ func (e *engine) DeleteRoleBinding(ctx context.Context, rb types.Resource) error
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
-		logRollbackErr(e.logger, e.rollbackRoleBindingUpdates(ctx, updates))
+		logRollbackErr(e.logger, e.rollbackUpdates(ctx, updates))
 
 		return err
 	}
@@ -400,6 +409,7 @@ func (e *engine) ListRoleBindings(ctx context.Context, resource types.Resource, 
 				err := fmt.Errorf("%w: dangling grant relationship: %s", err, rel.String())
 
 				span.RecordError(err)
+				span.SetStatus(codes.Error, err.Error())
 				e.logger.Warnf(err.Error())
 			}
 
@@ -516,8 +526,7 @@ func (e *engine) UpdateRoleBinding(ctx context.Context, actor, rb types.Resource
 		i++
 	}
 
-	_, err = e.client.WriteRelationships(ctx, &pb.WriteRelationshipsRequest{Updates: updates})
-	if err != nil {
+	if err := e.applyUpdates(ctx, updates); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
@@ -531,14 +540,14 @@ func (e *engine) UpdateRoleBinding(ctx context.Context, actor, rb types.Resource
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
-		logRollbackErr(e.logger, e.rollbackRoleBindingUpdates(ctx, updates))
+		logRollbackErr(e.logger, e.rollbackUpdates(ctx, updates))
 	}
 
 	if err := e.store.CommitContext(dbCtx); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
-		logRollbackErr(e.logger, e.rollbackRoleBindingUpdates(ctx, updates))
+		logRollbackErr(e.logger, e.rollbackUpdates(ctx, updates))
 
 		return types.RoleBinding{}, err
 	}
@@ -722,7 +731,7 @@ func (e *engine) deleteRoleBindingsForRole(ctx context.Context, roleResource typ
 	}
 
 	// 3.2 delete all the relationships
-	if _, err := e.client.WriteRelationships(ctx, &pb.WriteRelationshipsRequest{Updates: updates}); err != nil {
+	if err := e.applyUpdates(ctx, updates); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
@@ -734,7 +743,7 @@ func (e *engine) deleteRoleBindingsForRole(ctx context.Context, roleResource typ
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
-		logRollbackErr(e.logger, e.rollbackRoleBindingUpdates(ctx, updates))
+		logRollbackErr(e.logger, e.rollbackUpdates(ctx, updates))
 
 		return err
 	}
@@ -832,42 +841,4 @@ func (e *engine) rolebindingRelationshipUpdateForSubject(
 	}
 
 	return &pb.RelationshipUpdate{Operation: op, Relationship: rel}, nil
-}
-
-// rollbackRoleBindingUpdates is a helper function that rolls back a list of
-// relationship updates on spiceDB.
-func (e *engine) rollbackRoleBindingUpdates(ctx context.Context, updates []*pb.RelationshipUpdate) error {
-	updatesLen := len(updates)
-	rollbacks := make([]*pb.RelationshipUpdate, 0, updatesLen)
-
-	for i := range updates {
-		// reversed order
-		u := updates[updatesLen-i-1]
-
-		if u == nil {
-			continue
-		}
-
-		var op pb.RelationshipUpdate_Operation
-
-		switch u.Operation {
-		case pb.RelationshipUpdate_OPERATION_CREATE:
-			fallthrough
-		case pb.RelationshipUpdate_OPERATION_TOUCH:
-			op = pb.RelationshipUpdate_OPERATION_DELETE
-		case pb.RelationshipUpdate_OPERATION_DELETE:
-			op = pb.RelationshipUpdate_OPERATION_TOUCH
-		default:
-			continue
-		}
-
-		rollbacks = append(rollbacks, &pb.RelationshipUpdate{
-			Operation:    op,
-			Relationship: u.Relationship,
-		})
-	}
-
-	_, err := e.client.WriteRelationships(ctx, &pb.WriteRelationshipsRequest{Updates: rollbacks})
-
-	return err
 }
