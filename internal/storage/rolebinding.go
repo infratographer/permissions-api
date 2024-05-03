@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"go.infratographer.com/permissions-api/internal/types"
 
@@ -40,17 +41,9 @@ type RoleBindingService interface {
 	// CommitContext or RollbackContext must be called afterwards if this method returns no error.
 	DeleteRoleBinding(ctx context.Context, id gidx.PrefixedID) error
 
-	// BatchDeleteRoleBinding deletes multiple role bindings from the database
-	// This method must be called with a context returned from BeginContext.
-	// CommitContext or RollbackContext must be called afterwards if this method returns no error.
-	BatchDeleteRoleBindings(ctx context.Context, ids []gidx.PrefixedID) error
-
 	// LockRoleBindingForUpdate locks a role binding record to be updated to ensure consistency.
 	// If the role binding is not found, an ErrRoleBindingNotFound error is returned.
 	LockRoleBindingForUpdate(ctx context.Context, id gidx.PrefixedID) error
-
-	// BatchLockRoleBindingForUpdate locks multiple role binding records to be updated to ensure consistency.
-	BatchLockRoleBindingForUpdate(ctx context.Context, ids []gidx.PrefixedID) error
 }
 
 func (e *engine) GetRoleBindingByID(ctx context.Context, id gidx.PrefixedID) (types.RoleBinding, error) {
@@ -133,9 +126,9 @@ func (e *engine) CreateRoleBinding(ctx context.Context, actorID, rbID, resourceI
 
 	err = tx.QueryRowContext(ctx, `
 		INSERT INTO rolebindings (id, resource_id, created_by, updated_by, created_at, updated_at)
-		VALUES ($1, $2, $3, $3, now(), now())
+		VALUES ($1, $2, $3, $3, $4, $4)
 		RETURNING id, resource_id, created_by, updated_by, created_at, updated_at
-		`, rbID.String(), resourceID.String(), actorID.String(),
+		`, rbID.String(), resourceID.String(), actorID.String(), time.Now(),
 	).Scan(
 		&rb.ID,
 		&rb.ResourceID,
@@ -211,23 +204,6 @@ func (e *engine) DeleteRoleBinding(ctx context.Context, id gidx.PrefixedID) erro
 	return nil
 }
 
-func (e *engine) BatchDeleteRoleBindings(ctx context.Context, ids []gidx.PrefixedID) error {
-	tx, err := getContextTx(ctx)
-	if err != nil {
-		return err
-	}
-
-	inClause, args := e.buildBatchInClauseWithIDs(ids)
-	q := fmt.Sprintf("DELETE FROM rolebindings WHERE id IN (%s)", inClause)
-
-	_, err = tx.ExecContext(ctx, q, args...)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (e *engine) LockRoleBindingForUpdate(ctx context.Context, id gidx.PrefixedID) error {
 	db, err := getContextDBQuery(ctx, e)
 	if err != nil {
@@ -246,32 +222,6 @@ func (e *engine) LockRoleBindingForUpdate(ctx context.Context, id gidx.PrefixedI
 
 	if rowsAffected == 0 {
 		return ErrRoleBindingNotFound
-	}
-
-	return nil
-}
-
-func (e *engine) BatchLockRoleBindingForUpdate(ctx context.Context, ids []gidx.PrefixedID) error {
-	db, err := getContextDBQuery(ctx, e)
-	if err != nil {
-		return err
-	}
-
-	inClause, args := e.buildBatchInClauseWithIDs(ids)
-	q := fmt.Sprintf("SELECT 1 FROM rolebindings WHERE id IN (%s) FOR UPDATE", inClause)
-
-	result, err := db.ExecContext(ctx, q, args...)
-	if err != nil {
-		return err
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if int(rowsAffected) != len(ids) {
-		return fmt.Errorf("%w: %d of role-bindings not found", ErrRoleBindingNotFound, len(ids)-int(rowsAffected))
 	}
 
 	return nil

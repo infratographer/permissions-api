@@ -1234,6 +1234,9 @@ func (e *engine) NewResourceFromIDString(id string) (types.Resource, error) {
 
 // rollbackUpdates is a helper function that rolls back a list of
 // relationship updates on spiceDB.
+// Note that we can only rollback spiceDB writes that are serialized,
+// that is, there should only be one write (`client.WriteRelationships` or
+// `e.ApplyUpdates`) over the course of the transaction.
 func (e *engine) rollbackUpdates(ctx context.Context, updates []*pb.RelationshipUpdate) error {
 	updatesLen := len(updates)
 	rollbacks := make([]*pb.RelationshipUpdate, 0, updatesLen)

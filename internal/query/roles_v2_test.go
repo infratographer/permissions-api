@@ -434,13 +434,13 @@ func TestDeleteRolesV2(t *testing.T) {
 	require.NoError(t, err)
 
 	// these bindings are expected to be deleted after the role is deleted
-	_, err = e.CreateRoleBinding(ctx, actor, root, roleRes, []types.RoleBindingSubject{{SubjectResource: subj}})
+	rbRoot, err := e.CreateRoleBinding(ctx, actor, root, roleRes, []types.RoleBindingSubject{{SubjectResource: subj}})
 	require.NoError(t, err)
 
-	_, err = e.CreateRoleBinding(ctx, actor, child, roleRes, []types.RoleBindingSubject{{SubjectResource: subj}})
+	rbChild, err := e.CreateRoleBinding(ctx, actor, child, roleRes, []types.RoleBindingSubject{{SubjectResource: subj}})
 	require.NoError(t, err)
 
-	_, err = e.CreateRoleBinding(ctx, actor, theotherchild, roleRes, []types.RoleBindingSubject{{SubjectResource: subj}})
+	rbTheOtherChild, err := e.CreateRoleBinding(ctx, actor, theotherchild, roleRes, []types.RoleBindingSubject{{SubjectResource: subj}})
 	require.NoError(t, err)
 
 	rb, err := e.ListRoleBindings(ctx, root, &roleRes)
@@ -460,7 +460,7 @@ func TestDeleteRolesV2(t *testing.T) {
 			Name:  "DeleteRoleNotFound",
 			Input: notfoundRes,
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
-				assert.ErrorContains(t, res.Err, ErrRoleNotFound.Error())
+				assert.ErrorIs(t, res.Err, storage.ErrNoRoleFound)
 			},
 			Sync: true,
 		},
@@ -472,26 +472,45 @@ func TestDeleteRolesV2(t *testing.T) {
 			},
 		},
 		{
+			Name:  "DeleteRoleWithExistingBindings",
+			Input: roleRes,
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+				assert.ErrorIs(t, res.Err, ErrDeleteRoleInUse)
+			},
+			Sync: true,
+		},
+		{
 			Name:  "DeleteRoleSuccess",
 			Input: roleRes,
+			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+				var (
+					err error
+					rb  types.Resource
+				)
+
+				// delete the role bindings first
+				rb, err = e.NewResourceFromID(rbRoot.ID)
+				require.NoError(t, err)
+				err = e.DeleteRoleBinding(ctx, rb)
+				require.NoError(t, err)
+
+				rb, err = e.NewResourceFromID(rbChild.ID)
+				require.NoError(t, err)
+				err = e.DeleteRoleBinding(ctx, rb)
+				assert.NoError(t, err)
+
+				rb, err = e.NewResourceFromID(rbTheOtherChild.ID)
+				require.NoError(t, err)
+				err = e.DeleteRoleBinding(ctx, rb)
+				assert.NoError(t, err)
+
+				return ctx
+			},
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				assert.NoError(t, res.Err)
 
 				_, err := e.GetRoleV2(ctx, roleRes)
-				assert.ErrorContains(t, err, ErrRoleNotFound.Error())
-
-				// make sure the role bindings are also deleted
-				rb, err := e.ListRoleBindings(ctx, root, &roleRes)
-				assert.NoError(t, err)
-				assert.Len(t, rb, 0)
-
-				rb, err = e.ListRoleBindings(ctx, child, &roleRes)
-				assert.NoError(t, err)
-				assert.Len(t, rb, 0)
-
-				rb, err = e.ListRoleBindings(ctx, theotherchild, &roleRes)
-				assert.NoError(t, err)
-				assert.Len(t, rb, 0)
+				assert.ErrorIs(t, err, storage.ErrNoRoleFound)
 			},
 			Sync: true,
 		},

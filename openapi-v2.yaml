@@ -498,7 +498,33 @@ paths:
       operationId: deleteRole
       responses:
         "200":
-          description: ""
+          description: delete-role
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+              examples:
+                delete-role:
+                  value:
+                    success: true
+        "400":
+          description: delete-role-with-existing-bindings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: 'error deleting role: invalid argument: role is in use: cannot delete role'
+              examples:
+                delete-role-with-existing-bindings:
+                  value:
+                    message: 'error deleting role: invalid argument: role is in use: cannot delete role'
     patch:
       tags:
         - roles
@@ -662,7 +688,7 @@ paths:
         required: true
         schema:
           type: string
-          example: permrv2-zNYOpdL1RGyiSp0hgaIYB
+          example: permrv2-l9XgxtA6EUkwNSCTGlmgF
   /resources/{id}/role-bindings:
     get:
       tags:
@@ -691,92 +717,108 @@ paths:
                     items:
                       type: object
                       properties:
+                        created_at:
+                          type: string
+                          example: "2024-05-03T19:35:23Z"
+                        created_by:
+                          type: string
+                          example: idntusr-bailin
                         id:
                           type: string
-                          example: permrbn-r7WU4juT0p-76JW-sJwzQ
-                        role:
-                          type: object
-                          properties:
-                            id:
-                              type: string
-                              example: permrv2-nDw3bVXYwHysvZDFyxh2C
-                            name:
-                              type: string
-                              example: super_user
-                        subjects:
+                          example: permrbn-IYH19GIbDGZ9n2xR0yHvW
+                        resource_id:
+                          type: string
+                          example: tnntten-root
+                        role_id:
+                          type: string
+                          example: permrv2-PLjILDwe8kG_t42tMCDiB
+                        subject_ids:
                           type: array
                           items:
-                            type: object
-                            properties:
-                              id:
-                                type: string
-                                example: idntusr-bailin
-                              type:
-                                type: string
-                                example: user
+                            type: string
+                            example: idntusr-bailin
                           example:
-                            - id: idntusr-bailin
-                              type: user
+                            - idntusr-bailin
+                        updated_at:
+                          type: string
+                          example: "2024-05-03T19:35:23Z"
+                        updated_by:
+                          type: string
+                          example: idntusr-bailin
                     example:
-                      - id: permrbn-r7WU4juT0p-76JW-sJwzQ
-                        role:
-                          id: permrv2-nDw3bVXYwHysvZDFyxh2C
-                          name: super_user
-                        subjects:
-                          - id: idntusr-bailin
-                            type: user
-                      - id: permrbn-wNpgDB-ajBTyR6nB-WBcY
-                        role:
-                          id: permrv2-nDw3bVXYwHysvZDFyxh2C
-                          name: super_user
-                        subjects:
-                          - id: idntusr-bailin
-                            type: user
-                          - id: idntusr-bailin-1
-                            type: user
-                          - id: idntusr-bailin-2
-                            type: user
-                          - id: idntusr-bailin-3
-                            type: user
-                          - id: idntusr-bailin-4
-                            type: user
-                          - id: idntusr-bailin-5
-                            type: user
+                      - created_at: "2024-05-03T19:35:23Z"
+                        created_by: idntusr-bailin
+                        id: permrbn-IYH19GIbDGZ9n2xR0yHvW
+                        resource_id: tnntten-root
+                        role_id: permrv2-PLjILDwe8kG_t42tMCDiB
+                        subject_ids:
+                          - idntusr-bailin
+                        updated_at: "2024-05-03T19:35:23Z"
+                        updated_by: idntusr-bailin
+                      - created_at: "2024-05-06T16:04:08Z"
+                        created_by: idntusr-bailin
+                        id: permrbn-K652x2XPJO1mGJFUE4hEu
+                        resource_id: tnntten-root
+                        role_id: permrv2-PLjILDwe8kG_t42tMCDiB
+                        subject_ids:
+                          - idntgrp-my-subgroup
+                        updated_at: "2024-05-06T16:04:08Z"
+                        updated_by: idntusr-bailin
+                      - created_at: "2024-05-06T16:00:46Z"
+                        created_by: idntusr-bailin
+                        id: permrbn-lr5s4g6g1shmDL_htEAR_
+                        resource_id: tnntten-root
+                        role_id: permrv2-PLjILDwe8kG_t42tMCDiB
+                        subject_ids:
+                          - idntusr-bailin
+                          - idntusr-bailin-1
+                          - idntusr-bailin-2
+                          - idntusr-bailin-3
+                          - idntusr-bailin-4
+                          - idntusr-bailin-5
+                        updated_at: "2024-05-06T16:00:46Z"
+                        updated_by: idntusr-bailin
               examples:
                 list-role-bindings:
                   value:
                     data:
-                      - id: permrbn-r7WU4juT0p-76JW-sJwzQ
-                        role:
-                          id: permrv2-nDw3bVXYwHysvZDFyxh2C
-                          name: super_user
-                        subjects:
-                          - id: idntusr-bailin
-                            type: user
-                      - id: permrbn-wNpgDB-ajBTyR6nB-WBcY
-                        role:
-                          id: permrv2-nDw3bVXYwHysvZDFyxh2C
-                          name: super_user
-                        subjects:
-                          - id: idntusr-bailin
-                            type: user
-                          - id: idntusr-bailin-1
-                            type: user
-                          - id: idntusr-bailin-2
-                            type: user
-                          - id: idntusr-bailin-3
-                            type: user
-                          - id: idntusr-bailin-4
-                            type: user
-                          - id: idntusr-bailin-5
-                            type: user
+                      - created_at: "2024-05-03T19:35:23Z"
+                        created_by: idntusr-bailin
+                        id: permrbn-IYH19GIbDGZ9n2xR0yHvW
+                        resource_id: tnntten-root
+                        role_id: permrv2-PLjILDwe8kG_t42tMCDiB
+                        subject_ids:
+                          - idntusr-bailin
+                        updated_at: "2024-05-03T19:35:23Z"
+                        updated_by: idntusr-bailin
+                      - created_at: "2024-05-06T16:04:08Z"
+                        created_by: idntusr-bailin
+                        id: permrbn-K652x2XPJO1mGJFUE4hEu
+                        resource_id: tnntten-root
+                        role_id: permrv2-PLjILDwe8kG_t42tMCDiB
+                        subject_ids:
+                          - idntgrp-my-subgroup
+                        updated_at: "2024-05-06T16:04:08Z"
+                        updated_by: idntusr-bailin
+                      - created_at: "2024-05-06T16:00:46Z"
+                        created_by: idntusr-bailin
+                        id: permrbn-lr5s4g6g1shmDL_htEAR_
+                        resource_id: tnntten-root
+                        role_id: permrv2-PLjILDwe8kG_t42tMCDiB
+                        subject_ids:
+                          - idntusr-bailin
+                          - idntusr-bailin-1
+                          - idntusr-bailin-2
+                          - idntusr-bailin-3
+                          - idntusr-bailin-4
+                          - idntusr-bailin-5
+                        updated_at: "2024-05-06T16:00:46Z"
+                        updated_by: idntusr-bailin
     post:
       tags:
         - role-bindings
       summary: create-role-binding
-      description: |
-        create a role-binding for a resource. The role-binding will grant the
-        specified role to the specified subjects.
+      description: create-role-binding
       operationId: createRoleBinding
       requestBody:
         content:
@@ -786,28 +828,20 @@ paths:
               properties:
                 role_id:
                   type: string
-                  example: permrv2-hoN9DD27g1tfKzjF8kj42
-                subjects:
+                  example: permrv2-PLjILDwe8kG_t42tMCDiB
+                subject_ids:
                   type: array
                   items:
-                    type: object
-                    properties:
-                      conditions:
-                        type: object
-                        properties: {}
-                      id:
-                        type: string
-                        example: idntgrp-my-subgroup
+                    type: string
+                    example: idntgrp-my-subgroup
                   example:
-                    - conditions: {}
-                      id: idntgrp-my-subgroup
+                    - idntgrp-my-subgroup
             examples:
               create-role-binding:
                 value:
-                  role_id: permrv2-hoN9DD27g1tfKzjF8kj42
-                  subjects:
-                    - conditions: {}
-                      id: idntgrp-my-subgroup
+                  role_id: permrv2-PLjILDwe8kG_t42tMCDiB
+                  subject_ids:
+                    - idntgrp-my-subgroup
       responses:
         "200":
           description: root-super-user / create-role-binding-group
@@ -816,71 +850,81 @@ paths:
               schema:
                 type: object
                 properties:
+                  created_at:
+                    type: string
+                    example: "2024-05-06T16:00:46Z"
+                  created_by:
+                    type: string
+                    example: idntusr-bailin
                   id:
                     type: string
-                    example: permrbn-wNpgDB-ajBTyR6nB-WBcY
-                  role:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                        example: permrv2-nDw3bVXYwHysvZDFyxh2C
-                      name:
-                        type: string
-                        example: super_user
-                  subjects:
+                    example: permrbn-lr5s4g6g1shmDL_htEAR_
+                  resource_id:
+                    type: string
+                    example: tnntten-root
+                  role_id:
+                    type: string
+                    example: permrv2-PLjILDwe8kG_t42tMCDiB
+                  subject_ids:
                     type: array
                     items:
-                      type: object
-                      properties:
-                        id:
-                          type: string
-                          example: idntusr-bailin
-                        type:
-                          type: string
-                          example: user
+                      type: string
+                      example: idntusr-bailin
                     example:
-                      - id: idntusr-bailin
-                        type: user
-                      - id: idntusr-bailin-1
-                        type: user
-                      - id: idntusr-bailin-2
-                        type: user
-                      - id: idntusr-bailin-3
-                        type: user
-                      - id: idntusr-bailin-4
-                        type: user
-                      - id: idntusr-bailin-5
-                        type: user
+                      - idntusr-bailin
+                      - idntusr-bailin-1
+                      - idntusr-bailin-2
+                      - idntusr-bailin-3
+                      - idntusr-bailin-4
+                      - idntusr-bailin-5
+                  updated_at:
+                    type: string
+                    example: "2024-05-06T16:00:46Z"
+                  updated_by:
+                    type: string
+                    example: idntusr-bailin
               examples:
                 create-role-binding-group:
                   value:
-                    id: permrbn-96Cy2kTlt3jtZwjEF9gaO
-                    role:
-                      id: permrv2-hoN9DD27g1tfKzjF8kj42
-                      name: my_proj_doc_viewer
-                    subjects:
-                      - id: idntgrp-my-subgroup
-                        type: group
+                    created_at: "2024-05-06T16:04:08Z"
+                    created_by: idntusr-bailin
+                    id: permrbn-K652x2XPJO1mGJFUE4hEu
+                    resource_id: tnntten-root
+                    role_id: permrv2-PLjILDwe8kG_t42tMCDiB
+                    subject_ids:
+                      - idntgrp-my-subgroup
+                    updated_at: "2024-05-06T16:04:08Z"
+                    updated_by: idntusr-bailin
                 root-super-user:
                   value:
-                    id: permrbn-wNpgDB-ajBTyR6nB-WBcY
-                    role:
-                      id: permrv2-nDw3bVXYwHysvZDFyxh2C
-                      name: super_user
-                    subjects:
-                      - id: idntusr-bailin
-                        type: user
-                      - id: idntusr-bailin-1
-                        type: user
-                      - id: idntusr-bailin-2
-                        type: user
-                      - id: idntusr-bailin-3
-                        type: user
-                      - id: idntusr-bailin-4
-                        type: user
-                      - id: idntusr-bailin-5
-                        type: user
+                    created_at: "2024-05-06T16:00:46Z"
+                    created_by: idntusr-bailin
+                    id: permrbn-lr5s4g6g1shmDL_htEAR_
+                    resource_id: tnntten-root
+                    role_id: permrv2-PLjILDwe8kG_t42tMCDiB
+                    subject_ids:
+                      - idntusr-bailin
+                      - idntusr-bailin-1
+                      - idntusr-bailin-2
+                      - idntusr-bailin-3
+                      - idntusr-bailin-4
+                      - idntusr-bailin-5
+                    updated_at: "2024-05-06T16:00:46Z"
+                    updated_by: idntusr-bailin
+        "400":
+          description: create-role-binding-empty-subject
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: 'error creating role-binding: invalid argument: role binding must have at least one subject'
+              examples:
+                create-role-binding-empty-subject:
+                  value:
+                    message: 'error creating role-binding: invalid argument: role binding must have at least one subject'
     parameters:
       - name: id
         in: path
@@ -903,58 +947,56 @@ paths:
               schema:
                 type: object
                 properties:
+                  created_at:
+                    type: string
+                    example: "2024-05-06T16:00:46Z"
+                  created_by:
+                    type: string
+                    example: idntusr-bailin
                   id:
                     type: string
-                    example: permrbn-pQByAAcMGUfS-ZvXPlrxp
-                  role:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                        example: permrv2-pUuZKw25TbCjoPnOYkA4w
-                      name:
-                        type: string
-                        example: super-admin
-                  subjects:
+                    example: permrbn-lr5s4g6g1shmDL_htEAR_
+                  resource_id:
+                    type: string
+                    example: tnntten-root
+                  role_id:
+                    type: string
+                    example: permrv2-PLjILDwe8kG_t42tMCDiB
+                  subject_ids:
                     type: array
                     items:
-                      type: object
-                      properties:
-                        id:
-                          type: string
-                          example: idntclt-xT33dia6DUHdcDXsGRUes
-                        type:
-                          type: string
-                          example: client
+                      type: string
+                      example: idntusr-bailin
                     example:
-                      - id: idntclt-xT33dia6DUHdcDXsGRUes
-                        type: client
-                      - id: idntgrp-root-admins
-                        type: group
-                      - id: idntusr-DUrM80Cg2VzLVEhpmQb7ovmW1EG1isBnmIFpLTA5N2k
-                        type: user
-                      - id: idntusr-FYfXJww0qhW1XrF-WKupOQCQ9Q84d-ieEamjxz1Hzhs
-                        type: user
-                      - id: idntusr-bailin
-                        type: user
+                      - idntusr-bailin
+                      - idntusr-bailin-1
+                      - idntusr-bailin-2
+                      - idntusr-bailin-3
+                      - idntusr-bailin-4
+                      - idntusr-bailin-5
+                  updated_at:
+                    type: string
+                    example: "2024-05-06T16:00:46Z"
+                  updated_by:
+                    type: string
+                    example: idntusr-bailin
               examples:
                 get-role-binding:
                   value:
-                    id: permrbn-pQByAAcMGUfS-ZvXPlrxp
-                    role:
-                      id: permrv2-pUuZKw25TbCjoPnOYkA4w
-                      name: super-admin
-                    subjects:
-                      - id: idntclt-xT33dia6DUHdcDXsGRUes
-                        type: client
-                      - id: idntgrp-root-admins
-                        type: group
-                      - id: idntusr-DUrM80Cg2VzLVEhpmQb7ovmW1EG1isBnmIFpLTA5N2k
-                        type: user
-                      - id: idntusr-FYfXJww0qhW1XrF-WKupOQCQ9Q84d-ieEamjxz1Hzhs
-                        type: user
-                      - id: idntusr-bailin
-                        type: user
+                    created_at: "2024-05-06T16:00:46Z"
+                    created_by: idntusr-bailin
+                    id: permrbn-lr5s4g6g1shmDL_htEAR_
+                    resource_id: tnntten-root
+                    role_id: permrv2-PLjILDwe8kG_t42tMCDiB
+                    subject_ids:
+                      - idntusr-bailin
+                      - idntusr-bailin-1
+                      - idntusr-bailin-2
+                      - idntusr-bailin-3
+                      - idntusr-bailin-4
+                      - idntusr-bailin-5
+                    updated_at: "2024-05-06T16:00:46Z"
+                    updated_by: idntusr-bailin
     delete:
       tags:
         - role-bindings
@@ -972,118 +1014,95 @@ paths:
         update a role-binding, this will replace the subjects with the new
         subjects. note that role_id is immutable
       operationId: updateRoleBinding
-      parameters:
-        - name: id
-          in: query
-          schema:
-            type: string
-            example: loadbal-test-1
       requestBody:
         content:
           application/json:
             schema:
               type: object
               properties:
-                subjects:
+                subject_ids:
                   type: array
                   items:
-                    type: object
-                    properties:
-                      conditions:
-                        type: object
-                        properties: {}
-                      id:
-                        type: string
-                        example: idntclt-xT33dia6DUHdcDXsGRUes
+                    type: string
+                    example: idntclt-xT33dia6DUHdcDXsGRUes
                   example:
-                    - id: idntclt-xT33dia6DUHdcDXsGRUes
-                    - id: idntusr-DUrM80Cg2VzLVEhpmQb7ovmW1EG1isBnmIFpLTA5N2k
-                    - id: idntusr-FYfXJww0qhW1XrF-WKupOQCQ9Q84d-ieEamjxz1Hzhs
-                    - id: idntgrp-root-admins
+                    - idntclt-xT33dia6DUHdcDXsGRUes
+                    - idntusr-DUrM80Cg2VzLVEhpmQb7ovmW1EG1isBnmIFpLTA5N2k
+                    - idntusr-FYfXJww0qhW1XrF-WKupOQCQ9Q84d-ieEamjxz1Hzhs
+                    - idntgrp-root-admins
+                    - idntusr-bailin
             examples:
               update-role-binding:
                 value:
-                  subjects:
-                    - id: idntclt-xT33dia6DUHdcDXsGRUes
-                    - id: idntusr-DUrM80Cg2VzLVEhpmQb7ovmW1EG1isBnmIFpLTA5N2k
-                    - id: idntusr-FYfXJww0qhW1XrF-WKupOQCQ9Q84d-ieEamjxz1Hzhs
-                    - id: idntgrp-root-admins
+                  subject_ids:
+                    - idntclt-xT33dia6DUHdcDXsGRUes
+                    - idntusr-DUrM80Cg2VzLVEhpmQb7ovmW1EG1isBnmIFpLTA5N2k
+                    - idntusr-FYfXJww0qhW1XrF-WKupOQCQ9Q84d-ieEamjxz1Hzhs
+                    - idntgrp-root-admins
+                    - idntusr-bailin
       responses:
         "200":
           description: update-role-binding
-          headers:
-            Content-Length:
-              schema:
-                type: string
-                example: "368"
-            Date:
-              schema:
-                type: string
-                example: Mon, 22 Apr 2024 21:52:22 GMT
-            X-Request-Id:
-              schema:
-                type: string
-                example: NzmFDigPmfVANuPeLMlMFtpykGKhGwvj
           content:
             application/json:
               schema:
                 type: object
                 properties:
+                  created_at:
+                    type: string
+                    example: "2024-05-06T16:00:46Z"
+                  created_by:
+                    type: string
+                    example: idntusr-bailin
                   id:
                     type: string
-                    example: permrbn-pQByAAcMGUfS-ZvXPlrxp
-                  role:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                        example: permrv2-pUuZKw25TbCjoPnOYkA4w
-                      name:
-                        type: string
-                        example: super-admin
-                  subjects:
+                    example: permrbn-lr5s4g6g1shmDL_htEAR_
+                  resource_id:
+                    type: string
+                    example: tnntten-root
+                  role_id:
+                    type: string
+                    example: permrv2-PLjILDwe8kG_t42tMCDiB
+                  subject_ids:
                     type: array
                     items:
-                      type: object
-                      properties:
-                        id:
-                          type: string
-                          example: idntclt-xT33dia6DUHdcDXsGRUes
-                        type:
-                          type: string
-                          example: client
+                      type: string
+                      example: idntclt-xT33dia6DUHdcDXsGRUes
                     example:
-                      - id: idntclt-xT33dia6DUHdcDXsGRUes
-                        type: client
-                      - id: idntusr-DUrM80Cg2VzLVEhpmQb7ovmW1EG1isBnmIFpLTA5N2k
-                        type: user
-                      - id: idntusr-FYfXJww0qhW1XrF-WKupOQCQ9Q84d-ieEamjxz1Hzhs
-                        type: user
-                      - id: idntgrp-root-admins
-                        type: group
+                      - idntclt-xT33dia6DUHdcDXsGRUes
+                      - idntgrp-root-admins
+                      - idntusr-DUrM80Cg2VzLVEhpmQb7ovmW1EG1isBnmIFpLTA5N2k
+                      - idntusr-FYfXJww0qhW1XrF-WKupOQCQ9Q84d-ieEamjxz1Hzhs
+                      - idntusr-bailin
+                  updated_at:
+                    type: string
+                    example: "2024-05-06T16:09:14Z"
+                  updated_by:
+                    type: string
+                    example: idntusr-bailin
               examples:
                 update-role-binding:
                   value:
-                    id: permrbn-pQByAAcMGUfS-ZvXPlrxp
-                    role:
-                      id: permrv2-pUuZKw25TbCjoPnOYkA4w
-                      name: super-admin
-                    subjects:
-                      - id: idntclt-xT33dia6DUHdcDXsGRUes
-                        type: client
-                      - id: idntusr-DUrM80Cg2VzLVEhpmQb7ovmW1EG1isBnmIFpLTA5N2k
-                        type: user
-                      - id: idntusr-FYfXJww0qhW1XrF-WKupOQCQ9Q84d-ieEamjxz1Hzhs
-                        type: user
-                      - id: idntgrp-root-admins
-                        type: group
+                    created_at: "2024-05-06T16:00:46Z"
+                    created_by: idntusr-bailin
+                    id: permrbn-lr5s4g6g1shmDL_htEAR_
+                    resource_id: tnntten-root
+                    role_id: permrv2-PLjILDwe8kG_t42tMCDiB
+                    subject_ids:
+                      - idntclt-xT33dia6DUHdcDXsGRUes
+                      - idntgrp-root-admins
+                      - idntusr-DUrM80Cg2VzLVEhpmQb7ovmW1EG1isBnmIFpLTA5N2k
+                      - idntusr-FYfXJww0qhW1XrF-WKupOQCQ9Q84d-ieEamjxz1Hzhs
+                      - idntusr-bailin
+                    updated_at: "2024-05-06T16:09:14Z"
+                    updated_by: idntusr-bailin
     parameters:
       - name: rb-id
         in: path
         required: true
         schema:
           type: string
-          example: permrbn-uRNlQEo6yh9DinKhSxL2z
+          example: permrbn-lr5s4g6g1shmDL_htEAR_
   /actions:
     get:
       summary: list-actions

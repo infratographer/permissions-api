@@ -102,8 +102,8 @@ func TestCreateRoleBinding(t *testing.T) {
 			},
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.RoleBinding]) {
 				assert.NoError(t, res.Err)
-				assert.Equal(t, role.ID, res.Success.Role.ID)
-				assert.Len(t, res.Success.Subjects, 1)
+				assert.Equal(t, role.ID, res.Success.RoleID)
+				assert.Len(t, res.Success.SubjectIDs, 1)
 
 				rb, err := e.ListRoleBindings(ctx, child, nil)
 				assert.NoError(t, err)
@@ -122,6 +122,17 @@ func TestCreateRoleBinding(t *testing.T) {
 			},
 		},
 		{
+			Name: "CreateRoleBindingWithNoSubjects",
+			Input: input{
+				resource: root,
+				role:     roleRes,
+			},
+			CheckFn: func(ctx context.Context, t *testing.T, tr testingx.TestResult[types.RoleBinding]) {
+				assert.ErrorIs(t, tr.Err, ErrInvalidArgument)
+				assert.ErrorIs(t, tr.Err, ErrCreateRoleBindingWithNoSubjects)
+			},
+		},
+		{
 			Name: "CreateRoleBindingSuccess",
 			Input: input{
 				resource: root,
@@ -131,10 +142,10 @@ func TestCreateRoleBinding(t *testing.T) {
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.RoleBinding]) {
 				assert.NoError(t, res.Err)
 
-				assert.Len(t, res.Success.Subjects, 1)
-				assert.Equal(t, role.ID, res.Success.Role.ID)
+				assert.Len(t, res.Success.SubjectIDs, 1)
+				assert.Equal(t, role.ID, res.Success.RoleID)
 				assert.Equal(t, root.ID, res.Success.ResourceID)
-				assert.Equal(t, subj.ID, res.Success.Subjects[0].SubjectResource.ID)
+				assert.Equal(t, subj.ID, res.Success.SubjectIDs[0])
 				assert.Equal(t, actor.ID, res.Success.CreatedBy)
 
 				rbs, err := e.ListRoleBindings(ctx, root, nil)
@@ -215,7 +226,7 @@ func TestListRoleBindings(t *testing.T) {
 			},
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.RoleBinding]) {
 				assert.Len(t, res.Success, 1)
-				assert.Equal(t, viewer.ID, res.Success[0].Role.ID)
+				assert.Equal(t, viewer.ID, res.Success[0].RoleID)
 			},
 		},
 		{
@@ -226,7 +237,7 @@ func TestListRoleBindings(t *testing.T) {
 			},
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.RoleBinding]) {
 				assert.Len(t, res.Success, 1)
-				assert.Equal(t, editor.ID, res.Success[0].Role.ID)
+				assert.Equal(t, editor.ID, res.Success[0].RoleID)
 			},
 		},
 		{
@@ -291,9 +302,9 @@ func TestGetRoleBinding(t *testing.T) {
 			Input: rbRes,
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.RoleBinding]) {
 				assert.NoError(t, res.Err)
-				assert.Equal(t, viewer.ID, res.Success.Role.ID)
-				assert.Len(t, res.Success.Subjects, 1)
-				assert.Equal(t, subj.ID, res.Success.Subjects[0].SubjectResource.ID)
+				assert.Equal(t, viewer.ID, res.Success.RoleID)
+				assert.Len(t, res.Success.SubjectIDs, 1)
+				assert.Equal(t, subj.ID, res.Success.SubjectIDs[0])
 				assert.Equal(t, actor.ID, res.Success.CreatedBy)
 				assert.Equal(t, root.ID, res.Success.ResourceID)
 			},
@@ -383,10 +394,10 @@ func TestUpdateRoleBinding(t *testing.T) {
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.RoleBinding]) {
 				assert.NoError(t, res.Err)
 
-				assert.Len(t, res.Success.Subjects, 2)
-				assert.Contains(t, res.Success.Subjects, types.RoleBindingSubject{SubjectResource: user1})
-				assert.Contains(t, res.Success.Subjects, types.RoleBindingSubject{SubjectResource: group1})
-				assert.NotContains(t, res.Success.Subjects, types.RoleBindingSubject{SubjectResource: subj})
+				assert.Len(t, res.Success.SubjectIDs, 2)
+				assert.Contains(t, res.Success.SubjectIDs, user1.ID)
+				assert.Contains(t, res.Success.SubjectIDs, group1.ID)
+				assert.NotContains(t, res.Success.SubjectIDs, subj.ID)
 
 				assert.Equal(t, actor.ID, res.Success.UpdatedBy)
 				assert.Equal(t, root.ID, res.Success.ResourceID)
@@ -493,6 +504,9 @@ func TestPermissions(t *testing.T) {
 	require.NoError(t, err)
 	group1, err := e.NewResourceFromIDString("idntgrp-group1")
 	require.NoError(t, err)
+
+	// rolebinding
+	var rb types.RoleBinding
 
 	err = e.CreateRelationships(ctx, []types.Relationship{{
 		Resource: group1,
@@ -633,7 +647,7 @@ func TestPermissions(t *testing.T) {
 				})
 				require.Error(t, err)
 
-				_, err = e.CreateRoleBinding(ctx, user1, root, viewerRes, []types.RoleBindingSubject{{SubjectResource: group1}})
+				rb, err = e.CreateRoleBinding(ctx, user1, root, viewerRes, []types.RoleBindingSubject{{SubjectResource: group1}})
 				require.NoError(t, err)
 
 				return ctx
@@ -719,7 +733,7 @@ func TestPermissions(t *testing.T) {
 			Sync: true,
 		},
 		{
-			Name: "RoleRemoval",
+			Name: "DeleteRoleBinding",
 			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
 				err := e.checkPermission(ctx, &pb.CheckPermissionRequest{
 					Consistency: fullconsistency,
@@ -729,7 +743,9 @@ func TestPermissions(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				err = e.DeleteRoleV2(ctx, viewerRes)
+				rbRes, err := e.NewResourceFromID(rb.ID)
+				require.NoError(t, err)
+				err = e.DeleteRoleBinding(ctx, rbRes)
 				require.NoError(t, err)
 
 				return ctx

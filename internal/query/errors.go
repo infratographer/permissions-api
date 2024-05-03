@@ -44,6 +44,9 @@ var (
 	// in the policy
 	ErrRoleV2ResourceNotDefined = errors.New("role v2 resource not defined")
 
+	// ErrDeleteRoleInUse represents an error when a role is in use and cannot be deleted
+	ErrDeleteRoleInUse = fmt.Errorf("%w: role is in use", ErrInvalidArgument)
+
 	// ErrRoleAlreadyExists represents an error when a role already exists
 	ErrRoleAlreadyExists = fmt.Errorf("%w: role already exists", ErrInvalidArgument)
 
@@ -53,4 +56,12 @@ var (
 	// ErrResourceDoesNotSupportRoleBindingV2 represents an error when a role binding
 	// request attempts to use a resource that does not support role binding v2
 	ErrResourceDoesNotSupportRoleBindingV2 = fmt.Errorf("%w: resource does not support role binding v2", ErrInvalidArgument)
+
+	// ErrCreateRoleBindingWithNoSubjects represents an error when a role
+	// binding is created with no subjects
+	ErrCreateRoleBindingWithNoSubjects = fmt.Errorf("%w: role binding must have at least one subject", ErrInvalidArgument)
+
+	// ErrRoleBindingHasNoRelationships represents an internal error when a
+	// role binding has no relationships
+	ErrRoleBindingHasNoRelationships = errors.New("role binding has no relationships")
 )

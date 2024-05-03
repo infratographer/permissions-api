@@ -83,30 +83,20 @@ type listRolesV2Role struct {
 
 // RoleBindings
 
-type roleBindingResponseRole struct {
-	ID   gidx.PrefixedID `json:"id"`
-	Name string          `json:"name"`
-}
-
-type roleBindingSubject struct {
-	ID   gidx.PrefixedID `json:"id" binding:"required"`
-	Type string          `json:"type,omitempty"`
-}
-
 type roleBindingRequest struct {
-	RoleID   string               `json:"role_id" binding:"required"`
-	Subjects []roleBindingSubject `json:"subjects" binding:"required"`
+	RoleID     string            `json:"role_id" binding:"required"`
+	SubjectIDs []gidx.PrefixedID `json:"subject_ids" binding:"required"`
 }
 
 type rolebindingUpdateRequest struct {
-	Subjects []roleBindingSubject `json:"subjects" binding:"required"`
+	SubjectIDs []gidx.PrefixedID `json:"subject_ids" binding:"required"`
 }
 
 type roleBindingResponse struct {
-	ID         gidx.PrefixedID         `json:"id"`
-	ResourceID gidx.PrefixedID         `json:"resource_id"`
-	Role       roleBindingResponseRole `json:"role"`
-	Subjects   []roleBindingSubject    `json:"subjects"`
+	ID         gidx.PrefixedID   `json:"id"`
+	ResourceID gidx.PrefixedID   `json:"resource_id"`
+	RoleID     gidx.PrefixedID   `json:"role_id"`
+	SubjectIDs []gidx.PrefixedID `json:"subject_ids"`
 
 	CreatedBy gidx.PrefixedID `json:"created_by"`
 	UpdatedBy gidx.PrefixedID `json:"updated_by"`

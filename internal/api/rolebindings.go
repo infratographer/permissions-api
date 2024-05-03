@@ -14,18 +14,6 @@ import (
 	"go.infratographer.com/permissions-api/internal/types"
 )
 
-func resourceToSubject(subjects []types.RoleBindingSubject) []roleBindingSubject {
-	resp := make([]roleBindingSubject, len(subjects))
-	for i, subj := range subjects {
-		resp[i] = roleBindingSubject{
-			ID:   subj.SubjectResource.ID,
-			Type: subj.SubjectResource.Type,
-		}
-	}
-
-	return resp
-}
-
 func (r *Router) roleBindingCreate(c echo.Context) error {
 	resourceIDStr := c.Param("id")
 
@@ -72,17 +60,16 @@ func (r *Router) roleBindingCreate(c echo.Context) error {
 		return r.errorResponse("error creating role resource", err)
 	}
 
-	subjects := make([]types.RoleBindingSubject, len(body.Subjects))
+	subjects := make([]types.RoleBindingSubject, len(body.SubjectIDs))
 
-	for i, s := range body.Subjects {
-		subj, err := r.engine.NewResourceFromID(s.ID)
+	for i, sid := range body.SubjectIDs {
+		subj, err := r.engine.NewResourceFromID(sid)
 		if err != nil {
 			return r.errorResponse("error creating subject resource", err)
 		}
 
 		subjects[i] = types.RoleBindingSubject{
 			SubjectResource: subj,
-			Condition:       nil,
 		}
 	}
 
@@ -96,11 +83,8 @@ func (r *Router) roleBindingCreate(c echo.Context) error {
 		roleBindingResponse{
 			ID:         rb.ID,
 			ResourceID: rb.ResourceID,
-			Subjects:   resourceToSubject(rb.Subjects),
-			Role: roleBindingResponseRole{
-				ID:   rb.Role.ID,
-				Name: rb.Role.Name,
-			},
+			SubjectIDs: rb.SubjectIDs,
+			RoleID:     rb.RoleID,
 
 			CreatedBy: rb.CreatedBy,
 			UpdatedBy: rb.UpdatedBy,
@@ -151,11 +135,8 @@ func (r *Router) roleBindingsList(c echo.Context) error {
 		resp.Data[i] = roleBindingResponse{
 			ID:         rb.ID,
 			ResourceID: rb.ResourceID,
-			Subjects:   resourceToSubject(rb.Subjects),
-			Role: roleBindingResponseRole{
-				ID:   rb.Role.ID,
-				Name: rb.Role.Name,
-			},
+			SubjectIDs: rb.SubjectIDs,
+			RoleID:     rb.RoleID,
 
 			CreatedBy: rb.CreatedBy,
 			UpdatedBy: rb.UpdatedBy,
@@ -167,7 +148,7 @@ func (r *Router) roleBindingsList(c echo.Context) error {
 	return c.JSON(http.StatusOK, resp)
 }
 
-func (r *Router) roleBindingsDelete(c echo.Context) error {
+func (r *Router) roleBindingDelete(c echo.Context) error {
 	rbID := c.Param("rb_id")
 
 	ctx, span := tracer.Start(
@@ -259,11 +240,8 @@ func (r *Router) roleBindingGet(c echo.Context) error {
 		roleBindingResponse{
 			ID:         rb.ID,
 			ResourceID: rb.ResourceID,
-			Subjects:   resourceToSubject(rb.Subjects),
-			Role: roleBindingResponseRole{
-				ID:   rb.Role.ID,
-				Name: rb.Role.Name,
-			},
+			SubjectIDs: rb.SubjectIDs,
+			RoleID:     rb.RoleID,
 
 			CreatedBy: rb.CreatedBy,
 			UpdatedBy: rb.UpdatedBy,
@@ -318,17 +296,16 @@ func (r *Router) roleBindingUpdate(c echo.Context) error {
 		return r.errorResponse(err.Error(), ErrParsingRequestBody)
 	}
 
-	subjects := make([]types.RoleBindingSubject, len(body.Subjects))
+	subjects := make([]types.RoleBindingSubject, len(body.SubjectIDs))
 
-	for i, s := range body.Subjects {
-		subj, err := r.engine.NewResourceFromID(s.ID)
+	for i, sid := range body.SubjectIDs {
+		subj, err := r.engine.NewResourceFromID(sid)
 		if err != nil {
 			return r.errorResponse("error creating subject resource", err)
 		}
 
 		subjects[i] = types.RoleBindingSubject{
 			SubjectResource: subj,
-			Condition:       nil,
 		}
 	}
 
@@ -342,12 +319,8 @@ func (r *Router) roleBindingUpdate(c echo.Context) error {
 		roleBindingResponse{
 			ID:         rb.ID,
 			ResourceID: rb.ResourceID,
-			Subjects:   resourceToSubject(rb.Subjects),
-
-			Role: roleBindingResponseRole{
-				ID:   rb.Role.ID,
-				Name: rb.Role.Name,
-			},
+			SubjectIDs: rb.SubjectIDs,
+			RoleID:     rb.RoleID,
 
 			CreatedBy: rb.CreatedBy,
 			UpdatedBy: rb.UpdatedBy,
