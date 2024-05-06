@@ -1252,9 +1252,7 @@ func (e *engine) rollbackUpdates(ctx context.Context, updates []*pb.Relationship
 		var op pb.RelationshipUpdate_Operation
 
 		switch u.Operation {
-		case pb.RelationshipUpdate_OPERATION_CREATE:
-			fallthrough
-		case pb.RelationshipUpdate_OPERATION_TOUCH:
+		case pb.RelationshipUpdate_OPERATION_CREATE, pb.RelationshipUpdate_OPERATION_TOUCH:
 			op = pb.RelationshipUpdate_OPERATION_DELETE
 		case pb.RelationshipUpdate_OPERATION_DELETE:
 			op = pb.RelationshipUpdate_OPERATION_TOUCH

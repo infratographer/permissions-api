@@ -352,33 +352,6 @@ func (e *engine) DeleteRoleV2(ctx context.Context, roleResource types.Resource) 
 	ctx, span := e.tracer.Start(ctx, "engine.DeleteRoleV2")
 	defer span.End()
 
-	// find all the bindings for the role
-	findBindingsFilter := &pb.RelationshipFilter{
-		ResourceType:     e.namespaced(e.rbac.RoleBindingResource.Name),
-		OptionalRelation: iapl.RolebindingRoleRelation,
-		OptionalSubjectFilter: &pb.SubjectFilter{
-			SubjectType:       e.namespaced(e.rbac.RoleResource.Name),
-			OptionalSubjectId: roleResource.ID.String(),
-		},
-	}
-
-	bindings, err := e.readRelationships(ctx, findBindingsFilter)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-
-		return err
-	}
-
-	// reject delete if role is in use
-	if len(bindings) > 0 {
-		err := fmt.Errorf("%w: cannot delete role", ErrDeleteRoleInUse)
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-
-		return err
-	}
-
 	dbCtx, err := e.store.BeginContext(ctx)
 	if err != nil {
 		span.RecordError(err)
@@ -395,6 +368,33 @@ func (e *engine) DeleteRoleV2(ctx context.Context, roleResource types.Resource) 
 		span.SetStatus(codes.Error, sErr.Error())
 
 		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+		return err
+	}
+
+	// find all the bindings for the role
+	findBindingsFilter := &pb.RelationshipFilter{
+		ResourceType:     e.namespaced(e.rbac.RoleBindingResource.Name),
+		OptionalRelation: iapl.RolebindingRoleRelation,
+		OptionalSubjectFilter: &pb.SubjectFilter{
+			SubjectType:       e.namespaced(e.rbac.RoleResource.Name),
+			OptionalSubjectId: roleResource.ID.String(),
+		},
+	}
+
+	bindings, err := e.readRelationships(dbCtx, findBindingsFilter)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		return err
+	}
+
+	// reject delete if role is in use
+	if len(bindings) > 0 {
+		err := fmt.Errorf("%w: cannot delete role", ErrDeleteRoleInUse)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 
 		return err
 	}

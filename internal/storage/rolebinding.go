@@ -85,7 +85,7 @@ func (e *engine) ListResourceRoleBindings(ctx context.Context, resourceID gidx.P
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT id, resource_id, created_by, updated_by, created_at, updated_at
-		FROM rolebindings WHERE resource_id = $1
+		FROM rolebindings WHERE resource_id = $1 ORDER BY created_at ASC
 		`, resourceID.String(),
 	)
 	if err != nil {
