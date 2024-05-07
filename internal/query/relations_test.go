@@ -90,7 +90,7 @@ func testPolicy() iapl.Policy {
 }
 
 func cleanDB(ctx context.Context, t *testing.T, client *authzed.Client, namespace string) {
-	for _, dbType := range []string{"user", "client", "role", "tenant"} {
+	for _, dbType := range []string{"user", "client", "role", "tenant", "group", "loadbalancer", "rolev2", "tenant", "rolebinding"} {
 		namespacedType := namespace + "/" + dbType
 		delRequest := &pb.DeleteRelationshipsRequest{
 			RelationshipFilter: &pb.RelationshipFilter{
