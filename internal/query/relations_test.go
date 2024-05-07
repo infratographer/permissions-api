@@ -51,7 +51,7 @@ func testEngine(ctx context.Context, t *testing.T, namespace string, policy iapl
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		cleanDB(ctx, t, client, namespace)
+		cleanDB(ctx, t, client, namespace, policy)
 		cleanStore()
 	})
 
@@ -89,8 +89,9 @@ func testPolicy() iapl.Policy {
 	return policy
 }
 
-func cleanDB(ctx context.Context, t *testing.T, client *authzed.Client, namespace string) {
-	for _, dbType := range []string{"user", "client", "role", "tenant", "group", "loadbalancer", "rolev2", "tenant", "rolebinding"} {
+func cleanDB(ctx context.Context, t *testing.T, client *authzed.Client, namespace string, p iapl.Policy) {
+	for _, resourceType := range p.Schema() {
+		dbType := resourceType.Name
 		namespacedType := namespace + "/" + dbType
 		delRequest := &pb.DeleteRelationshipsRequest{
 			RelationshipFilter: &pb.RelationshipFilter{
