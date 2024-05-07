@@ -98,7 +98,7 @@ func (r *Router) roleV2Update(c echo.Context) error {
 		return r.errorResponse("error creating resource", err)
 	}
 
-	if err := r.checkActionWithResponse(ctx, subjectResource, string(iapl.RoleActionGet), roleResource); err != nil {
+	if err := r.checkActionWithResponse(ctx, subjectResource, string(iapl.RoleActionUpdate), roleResource); err != nil {
 		return err
 	}
 

@@ -17,47 +17,24 @@ rbac:
       subjectrelation: member
 
 unions:
-  - name: group_member
-    resourcetypes:
-      - name: user
-      - name: client
-      - name: group
-        subjectrelation: member
-  - name: tenant_member
-    resourcetypes:
-      - name: user
-      - name: client
-      - name: group
-        subjectrelation: member
-      - name: tenant
-        subjectrelation: member
   - name: resourceowner
     resourcetypes:
       - name: tenant
-  - name: resourceowner_relationship
+  - name: resourcemanager
     resourcetypes:
       - name: tenant
-      - name: tenant
-        subjectrelation: parent
+      - name: group
   - name: subject
     resourcetypes:
       - name: user
       - name: client
-  - name: group_parent
-    resourcetypes:
-      - name: group
-      - name: group
-        subjectrelation: parent
-      - name: tenant
-      - name: tenant
-        subjectrelation: parent
-  - name: tenant_parent
-    resourcetypes:
-      - name: tenant
-      - name: tenant
-        subjectrelation: parent
 
 resourcetypes:
+  - name: user
+    idprefix: idntusr
+  - name: client
+    idprefix: idntclt
+
   - name: role
     idprefix: permrol
     relationships:
@@ -65,42 +42,38 @@ resourcetypes:
         targettypes:
           - name: subject
 
-  - name: user
-    idprefix: idntusr
-  - name: client
-    idprefix: idntclt
-
-  - name: group
-    idprefix: idntgrp
+  - name: tenant
+    idprefix: tnntten
     rolebindingv2:
-      &rolesFromParent
+      &permsFromParent
       inheritpermissionsfrom:
         - parent
     relationships:
       - relation: parent
         targettypes:
-          - name: group_parent
-      - relation: member
-        targettypes:
-          - name: group_member
-      - relation: grant
+          - name: tenant
+      - &grantRel
+        relation: grant
         targettypes:
           - name: rolebinding
 
-  - name: tenant
-    idprefix: tnntten
+  - name: group
+    idprefix: idntgrp
     rolebindingv2:
-      *rolesFromParent
+      *permsFromParent
     relationships:
+      - *grantRel
       - relation: parent
         targettypes:
-          - name: tenant_parent
-      - relation: member
+          - name: group
+          - name: tenant
+      - relation: direct_member
         targettypes:
-          - name: tenant_member
-      - relation: grant
+          - name: user
+          - name: client
+      - relation: subgroup
         targettypes:
-          - name: rolebinding
+          - name: group
 
   - name: loadbalancer
     idprefix: loadbal
@@ -110,7 +83,7 @@ resourcetypes:
     relationships:
       - relation: owner
         targettypes:
-          - name: resourceowner_relationship
+          - name: resourceowner
       - relation: grant
         targettypes:
           - name: rolebinding
@@ -126,8 +99,19 @@ actions:
   - name: loadbalancer_list
   - name: loadbalancer_update
   - name: loadbalancer_delete
+  - name: member
 
 actionbindings:
+  # subgroup and group members
+  - actionname: member
+    typename: group
+    conditions:
+      - relationshipaction:
+          relation: direct_member
+      - relationshipaction:
+          relation: subgroup
+          actionname: member
+
   # role management - permissions on role
   - actionname: role_get
     typename: rolev2
@@ -147,56 +131,37 @@ actionbindings:
       - relationshipaction:
           relation: owner
           actionname: role_delete
-  # role management - permissions on owner
+
+  # role management - permissions on owners and managers
   - actionname: role_create
-    typename: resourceowner
+    typename: resourcemanager
     conditions:
       - rolebindingv2: {}
       - rolebinding: {}
-  - actionname: role_create
-    typename: group
-    conditions:
-      - rolebindingv2: {}
 
   - actionname: role_get
-    typename: resourceowner
+    typename: resourcemanager
     conditions:
       - rolebindingv2: {}
       - rolebinding: {}
-  - actionname: role_get
-    typename: group
-    conditions:
-      - rolebindingv2: {}
 
   - actionname: role_list
-    typename: resourceowner
+    typename: resourcemanager
     conditions:
       - rolebindingv2: {}
       - rolebinding: {}
-  - actionname: role_list
-    typename: group
-    conditions:
-      - rolebindingv2: {}
 
   - actionname: role_update
-    typename: resourceowner
+    typename: resourcemanager
     conditions:
       - rolebindingv2: {}
       - rolebinding: {}
-  - actionname: role_update
-    typename: group
-    conditions:
-      - rolebindingv2: {}
 
   - actionname: role_delete
-    typename: resourceowner
+    typename: resourcemanager
     conditions:
       - rolebindingv2: {}
       - rolebinding: {}
-  - actionname: role_delete
-    typename: group
-    conditions:
-      - rolebindingv2: {}
 
   # loadbalancer management - permissions on loadbalancer
   - actionname: loadbalancer_get
@@ -215,53 +180,33 @@ actionbindings:
       - rolebinding: {}
       - rolebindingv2: {}
 
-  # loadbalancer management - permissions on owner
+  # loadbalancer management - permissions on owners and managers
   - actionname: loadbalancer_create
-    typename: resourceowner
+    typename: resourcemanager
     conditions:
       - rolebindingv2: {}
       - rolebinding: {}
-  - actionname: loadbalancer_create
-    typename: group
-    conditions:
-      - rolebindingv2: {}
   
   - actionname: loadbalancer_get
-    typename: resourceowner
+    typename: resourcemanager
     conditions:
       - rolebindingv2: {}
       - rolebinding: {}
-  - actionname: loadbalancer_get
-    typename: group
-    conditions:
-      - rolebindingv2: {}
 
   - actionname: loadbalancer_list
-    typename: resourceowner
+    typename: resourcemanager
     conditions:
       - rolebindingv2: {}
       - rolebinding: {}
-  - actionname: loadbalancer_list
-    typename: group
-    conditions:
-      - rolebindingv2: {}
 
   - actionname: loadbalancer_update
-    typename: resourceowner
+    typename: resourcemanager
     conditions:
       - rolebindingv2: {}
       - rolebinding: {}
-  - actionname: loadbalancer_update
-    typename: group
-    conditions:
-      - rolebindingv2: {}
 
   - actionname: loadbalancer_delete
-    typename: resourceowner
+    typename: resourcemanager
     conditions:
       - rolebindingv2: {}
       - rolebinding: {}
-  - actionname: loadbalancer_delete
-    typename: group
-    conditions:
-      - rolebindingv2: {}

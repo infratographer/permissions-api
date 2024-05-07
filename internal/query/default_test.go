@@ -23,7 +23,7 @@ func DefaultPolicyDocumentV2() iapl.PolicyDocument {
 				IDPrefix: "permrv2",
 			},
 			RoleBindingResource: iapl.RBACResourceDefinition{
-				Name:     "role_binding",
+				Name:     "rolebinding",
 				IDPrefix: "permrbn",
 			},
 			RoleSubjectTypes: []string{"user", "client"},
@@ -88,7 +88,7 @@ func DefaultPolicyDocumentV2() iapl.PolicyDocument {
 		},
 		ResourceTypes: []iapl.ResourceType{
 			{Name: "rolev2", IDPrefix: "permrv2"},
-			{Name: "role_binding", IDPrefix: "permrbn"},
+			{Name: "rolebinding", IDPrefix: "permrbn"},
 			{Name: "user", IDPrefix: "idntusr"},
 			{Name: "client", IDPrefix: "idntclt"},
 			{
@@ -100,7 +100,7 @@ func DefaultPolicyDocumentV2() iapl.PolicyDocument {
 				Relationships: []iapl.Relationship{
 					{Relation: "parent", TargetTypes: []types.TargetType{{Name: "group_parent"}}},
 					{Relation: "member", TargetTypes: []types.TargetType{{Name: "group_member"}}},
-					{Relation: "grant", TargetTypes: []types.TargetType{{Name: "role_binding"}}},
+					{Relation: "grant", TargetTypes: []types.TargetType{{Name: "rolebinding"}}},
 				},
 			},
 			{
@@ -112,7 +112,7 @@ func DefaultPolicyDocumentV2() iapl.PolicyDocument {
 				Relationships: []iapl.Relationship{
 					{Relation: "parent", TargetTypes: []types.TargetType{{Name: "tenant_parent"}}},
 					{Relation: "member", TargetTypes: []types.TargetType{{Name: "tenant_member"}}},
-					{Relation: "grant", TargetTypes: []types.TargetType{{Name: "role_binding"}}},
+					{Relation: "grant", TargetTypes: []types.TargetType{{Name: "rolebinding"}}},
 				},
 			},
 			{
@@ -123,7 +123,7 @@ func DefaultPolicyDocumentV2() iapl.PolicyDocument {
 				},
 				Relationships: []iapl.Relationship{
 					{Relation: "owner", TargetTypes: []types.TargetType{{Name: "resourceowner_relationship"}}},
-					{Relation: "grant", TargetTypes: []types.TargetType{{Name: "role_binding"}}},
+					{Relation: "grant", TargetTypes: []types.TargetType{{Name: "rolebinding"}}},
 				},
 			},
 		},

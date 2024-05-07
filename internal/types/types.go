@@ -81,14 +81,9 @@ type Resource struct {
 	ID   gidx.PrefixedID
 }
 
-// RoleBindingSubjectCondition is the object that represents the condition of a
-// role binding subject.
-type RoleBindingSubjectCondition struct{}
-
 // RoleBindingSubject is the object that represents the subject of a role binding.
 type RoleBindingSubject struct {
 	SubjectResource Resource
-	Condition       *RoleBindingSubjectCondition
 }
 
 // Relationship represents a named association between a resource and a subject.
@@ -100,7 +95,13 @@ type Relationship struct {
 
 // RoleBinding represents a role binding between a role and a resource.
 type RoleBinding struct {
-	ID       gidx.PrefixedID
-	Role     Role
-	Subjects []RoleBindingSubject
+	ID         gidx.PrefixedID
+	ResourceID gidx.PrefixedID
+	RoleID     gidx.PrefixedID
+	SubjectIDs []gidx.PrefixedID
+
+	CreatedBy gidx.PrefixedID
+	UpdatedBy gidx.PrefixedID
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }

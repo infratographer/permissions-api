@@ -51,6 +51,10 @@ func (e *engine) CreateRoleV2(ctx context.Context, actor, owner types.Resource, 
 
 	dbRole, err := e.store.CreateRole(dbCtx, actor.ID, role.ID, roleName, owner.ID)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
 		return types.Role{}, err
 	}
 
@@ -368,6 +372,33 @@ func (e *engine) DeleteRoleV2(ctx context.Context, roleResource types.Resource) 
 		return err
 	}
 
+	// find all the bindings for the role
+	findBindingsFilter := &pb.RelationshipFilter{
+		ResourceType:     e.namespaced(e.rbac.RoleBindingResource.Name),
+		OptionalRelation: iapl.RolebindingRoleRelation,
+		OptionalSubjectFilter: &pb.SubjectFilter{
+			SubjectType:       e.namespaced(e.rbac.RoleResource.Name),
+			OptionalSubjectId: roleResource.ID.String(),
+		},
+	}
+
+	bindings, err := e.readRelationships(dbCtx, findBindingsFilter)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		return err
+	}
+
+	// reject delete if role is in use
+	if len(bindings) > 0 {
+		err := fmt.Errorf("%w: cannot delete role", ErrDeleteRoleInUse)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		return err
+	}
+
 	dbRole, err := e.store.GetRoleByID(dbCtx, roleResource.ID)
 	if err != nil {
 		span.RecordError(err)
@@ -425,8 +456,6 @@ func (e *engine) DeleteRoleV2(ctx context.Context, roleResource types.Resource) 
 	if _, err := e.client.DeleteRelationships(ctx, ownerRelReq); err != nil {
 		errs = append(errs, err)
 	}
-
-	// 2.c TODO remove all role relationships in role bindings associated with this role
 
 	for _, err := range errs {
 		if err != nil {

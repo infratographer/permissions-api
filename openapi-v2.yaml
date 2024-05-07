@@ -1,0 +1,1172 @@
+openapi: 3.0.3
+info:
+  version: 0.0.1
+  title: Permissions API V2
+  contact:
+    name: Infratographer Authors
+    url: http://github.com/infratographer
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+servers:
+  - url: http://localhost:7603/api/v2
+paths:
+  /resources/{id}/roles:
+    get:
+      tags:
+        - roles
+      summary: list-roles
+      description: |
+        list all available roles for a resource, including roles that are
+        inherited from parent resources
+      operationId: listRoles
+      responses:
+        "200":
+          description: tnntten-root
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        actions:
+                          type: array
+                          items:
+                            type: string
+                            example: avail_role
+                          example:
+                            - avail_role
+                            - doc_create
+                            - doc_delete
+                            - doc_get
+                            - doc_list
+                            - doc_update
+                            - role_create
+                            - role_delete
+                            - role_get
+                            - role_list
+                            - role_update
+                            - rolebinding_create
+                            - rolebinding_delete
+                            - rolebinding_get
+                            - rolebinding_list
+                            - rolebinding_update
+                            - secret_create
+                            - secret_delete
+                            - secret_get
+                            - secret_list
+                            - secret_update
+                        created_at:
+                          type: string
+                          example: "2024-04-10T20:09:06Z"
+                        created_by:
+                          type: string
+                          example: idntusr-bailin
+                        id:
+                          type: string
+                          example: permrv2-_vKIY7KTwIABD0V9Qpnef
+                        name:
+                          type: string
+                          example: super_user
+                        updated_at:
+                          type: string
+                          example: "2024-04-10T20:18:10Z"
+                        updated_by:
+                          type: string
+                          example: idntusr-bailin
+                    example:
+                      - actions:
+                          - avail_role
+                          - doc_create
+                          - doc_delete
+                          - doc_get
+                          - doc_list
+                          - doc_update
+                          - role_create
+                          - role_delete
+                          - role_get
+                          - role_list
+                          - role_update
+                          - rolebinding_create
+                          - rolebinding_delete
+                          - rolebinding_get
+                          - rolebinding_list
+                          - rolebinding_update
+                          - secret_create
+                          - secret_delete
+                          - secret_get
+                          - secret_list
+                          - secret_update
+                        created_at: "2024-04-10T20:09:06Z"
+                        created_by: idntusr-bailin
+                        id: permrv2-_vKIY7KTwIABD0V9Qpnef
+                        name: super_user
+                        updated_at: "2024-04-10T20:18:10Z"
+                        updated_by: idntusr-bailin
+              examples:
+                tnntten-root:
+                  value:
+                    data:
+                      - actions:
+                          - avail_role
+                          - doc_create
+                          - doc_delete
+                          - doc_get
+                          - doc_list
+                          - doc_update
+                          - role_create
+                          - role_delete
+                          - role_get
+                          - role_list
+                          - role_update
+                          - rolebinding_create
+                          - rolebinding_delete
+                          - rolebinding_get
+                          - rolebinding_list
+                          - rolebinding_update
+                          - secret_create
+                          - secret_delete
+                          - secret_get
+                          - secret_list
+                          - secret_update
+                        created_at: "2024-04-10T20:09:06Z"
+                        created_by: idntusr-bailin
+                        id: permrv2-_vKIY7KTwIABD0V9Qpnef
+                        name: super_user
+                        updated_at: "2024-04-10T20:18:10Z"
+                        updated_by: idntusr-bailin
+    post:
+      tags:
+        - roles
+      summary: create-role
+      description: |
+        create a role for a resource. The role will be available for use in
+        role-bindings for the resource
+      operationId: createRole
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                actions:
+                  type: array
+                  items:
+                    type: string
+                    example: loadbalancer_list
+                  example:
+                    - loadbalancer_list
+                    - loadbalancer_get
+                    - loadbalancer_update
+                    - loadbalancer_create
+                name:
+                  type: string
+                  example: lb_editor
+            examples:
+              create-role:
+                value:
+                  actions:
+                    - loadbalancer_list
+                    - loadbalancer_get
+                    - loadbalancer_update
+                    - loadbalancer_create
+                  name: lb_editor
+      responses:
+        "201":
+          description: "role object"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  actions:
+                    type: array
+                    items:
+                      type: string
+                      example: role_list
+                    example:
+                      - role_list
+                      - rolebinding_create
+                      - loadbalancer_list
+                      - loadbalancer_update
+                      - loadbalancer_delete
+                      - role_create
+                      - role_delete
+                      - loadbalancer_create
+                      - loadbalancer_get
+                      - rolebinding_list
+                      - rolebinding_delete
+                      - role_get
+                      - role_update
+                  created_at:
+                    type: string
+                    example: "2024-02-28T17:22:04Z"
+                  created_by:
+                    type: string
+                    example: idntusr-bailin
+                  id:
+                    type: string
+                    example: permrv2-ecBlNMsPrvVFgUUAUfmeY
+                  name:
+                    type: string
+                    example: super_admin
+                  resource_id:
+                    type: string
+                    example: tnntten-root
+                  updated_at:
+                    type: string
+                    example: "2024-02-28T17:22:04Z"
+                  updated_by:
+                    type: string
+                    example: idntusr-bailin
+              examples:
+                create-role:
+                  value:
+                    actions:
+                      - loadbalancer_list
+                      - loadbalancer_get
+                      - loadbalancer_update
+                      - loadbalancer_create
+                    created_at: "2024-02-29T18:18:18Z"
+                    created_by: idntusr-bailin
+                    id: permrv2-IG7RfsYhyga0EwEbY4BKs
+                    name: lb_editor
+                    resource_id: tnntten-a
+                    updated_at: "2024-02-29T18:18:18Z"
+                    updated_by: idntusr-bailin
+                lb-viwer:
+                  value:
+                    actions:
+                      - role_list
+                      - rolebinding_create
+                      - loadbalancer_list
+                      - loadbalancer_update
+                      - loadbalancer_delete
+                      - role_create
+                      - role_delete
+                      - loadbalancer_create
+                      - loadbalancer_get
+                      - rolebinding_list
+                      - rolebinding_delete
+                      - role_get
+                      - role_update
+                    created_at: "2024-02-28T17:22:04Z"
+                    created_by: idntusr-bailin
+                    id: permrv2-ecBlNMsPrvVFgUUAUfmeY
+                    name: super_admin
+                    resource_id: tnntten-root
+                    updated_at: "2024-02-28T17:22:04Z"
+                    updated_by: idntusr-bailin
+                super-admin:
+                  value:
+                    actions:
+                      - role_list
+                      - rolebinding_create
+                      - loadbalancer_list
+                      - loadbalancer_update
+                      - loadbalancer_delete
+                      - role_create
+                      - role_delete
+                      - loadbalancer_create
+                      - loadbalancer_get
+                      - rolebinding_list
+                      - rolebinding_delete
+                      - role_get
+                      - role_update
+                    created_at: "2024-02-28T17:22:04Z"
+                    created_by: idntusr-bailin
+                    id: permrv2-ecBlNMsPrvVFgUUAUfmeY
+                    name: super_admin
+                    resource_id: tnntten-root
+                    updated_at: "2024-02-28T17:22:04Z"
+                    updated_by: idntusr-bailin
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          example: tnntten-root
+  /roles/{role_id}:
+    get:
+      tags:
+        - roles
+      summary: get-role
+      description: get role by ID 
+      operationId: getRole
+      responses:
+        "200":
+          description: get-super-user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  actions:
+                    type: array
+                    items:
+                      type: string
+                      example: avail_role
+                    example:
+                      - avail_role
+                      - doc_create
+                      - doc_delete
+                      - doc_get
+                      - doc_list
+                      - doc_update
+                      - equinixwatch_streamconfig_create
+                      - equinixwatch_streamconfig_delete
+                      - equinixwatch_streamconfig_get
+                      - equinixwatch_streamconfig_update
+                      - iam_issuer_create
+                      - iam_issuer_delete
+                      - iam_issuer_get
+                      - iam_issuer_update
+                      - iam_oauthclient_create
+                      - iam_oauthclient_delete
+                      - iam_oauthclient_get
+                      - iam_user_get
+                      - iam_workload_federation_token_create
+                      - ipamblock_create
+                      - ipamblock_delete
+                      - ipamblock_get
+                      - ipamblock_update
+                      - ipamblocktype_create
+                      - ipamblocktype_delete
+                      - ipamblocktype_get
+                      - ipamblocktype_update
+                      - loadbalancer_create
+                      - loadbalancer_delete
+                      - loadbalancer_get_history
+                      - loadbalancer_get
+                      - loadbalancer_update
+                      - loadbalancerpool_create
+                      - loadbalancerpool_delete
+                      - loadbalancerpool_get_history
+                      - loadbalancerpool_get
+                      - loadbalancerpool_update
+                      - loadbalancerprovider_create
+                      - loadbalancerprovider_delete
+                      - loadbalancerprovider_get_history
+                      - loadbalancerprovider_get
+                      - loadbalancerprovider_update
+                      - location_create
+                      - location_delete
+                      - location_get
+                      - location_update
+                      - member
+                      - metadata_annotationnamespace_update
+                      - metadata_statusnamespace_update
+                      - metal_organization_get
+                      - metal_project_get
+                      - owner
+                      - parent_perm
+                      - resource_provider_create
+                      - resource_provider_delete
+                      - resource_provider_get
+                      - resource_provider_update
+                      - role_create
+                      - role_delete
+                      - role_get
+                      - role_list
+                      - role_update
+                      - rolebinding_create
+                      - rolebinding_delete
+                      - rolebinding_get
+                      - rolebinding_list
+                      - rolebinding_update
+                      - tenant_create
+                      - tenant_delete
+                      - tenant_get
+                      - tenant_list
+                      - tenant_update
+                  created_at:
+                    type: string
+                    example: "2024-04-11T19:16:38Z"
+                  created_by:
+                    type: string
+                    example: idntusr-bailin
+                  id:
+                    type: string
+                    example: permrv2-nDw3bVXYwHysvZDFyxh2C
+                  name:
+                    type: string
+                    example: super_user
+                  resource_id:
+                    type: string
+                    example: tnntten-root
+                  updated_at:
+                    type: string
+                    example: "2024-04-11T19:18:22Z"
+                  updated_by:
+                    type: string
+                    example: idntusr-bailin
+              examples:
+                get-super-user:
+                  value:
+                    actions:
+                      - avail_role
+                      - doc_create
+                      - doc_delete
+                      - doc_get
+                      - doc_list
+                      - doc_update
+                      - equinixwatch_streamconfig_create
+                      - equinixwatch_streamconfig_delete
+                      - equinixwatch_streamconfig_get
+                      - equinixwatch_streamconfig_update
+                      - iam_issuer_create
+                      - iam_issuer_delete
+                      - iam_issuer_get
+                      - iam_issuer_update
+                      - iam_oauthclient_create
+                      - iam_oauthclient_delete
+                      - iam_oauthclient_get
+                      - iam_user_get
+                      - iam_workload_federation_token_create
+                      - ipamblock_create
+                      - ipamblock_delete
+                      - ipamblock_get
+                      - ipamblock_update
+                      - ipamblocktype_create
+                      - ipamblocktype_delete
+                      - ipamblocktype_get
+                      - ipamblocktype_update
+                      - loadbalancer_create
+                      - loadbalancer_delete
+                      - loadbalancer_get_history
+                      - loadbalancer_get
+                      - loadbalancer_update
+                      - loadbalancerpool_create
+                      - loadbalancerpool_delete
+                      - loadbalancerpool_get_history
+                      - loadbalancerpool_get
+                      - loadbalancerpool_update
+                      - loadbalancerprovider_create
+                      - loadbalancerprovider_delete
+                      - loadbalancerprovider_get_history
+                      - loadbalancerprovider_get
+                      - loadbalancerprovider_update
+                      - location_create
+                      - location_delete
+                      - location_get
+                      - location_update
+                      - member
+                      - metadata_annotationnamespace_update
+                      - metadata_statusnamespace_update
+                      - metal_organization_get
+                      - metal_project_get
+                      - owner
+                      - parent_perm
+                      - resource_provider_create
+                      - resource_provider_delete
+                      - resource_provider_get
+                      - resource_provider_update
+                      - role_create
+                      - role_delete
+                      - role_get
+                      - role_list
+                      - role_update
+                      - rolebinding_create
+                      - rolebinding_delete
+                      - rolebinding_get
+                      - rolebinding_list
+                      - rolebinding_update
+                      - tenant_create
+                      - tenant_delete
+                      - tenant_get
+                      - tenant_list
+                      - tenant_update
+                    created_at: "2024-04-11T19:16:38Z"
+                    created_by: idntusr-bailin
+                    id: permrv2-nDw3bVXYwHysvZDFyxh2C
+                    name: super_user
+                    resource_id: tnntten-root
+                    updated_at: "2024-04-11T19:18:22Z"
+                    updated_by: idntusr-bailin
+    delete:
+      tags:
+        - roles
+      summary: delete-role
+      description: |
+        delete role by ID, this will also remove any role-bindings that use
+        this role
+      operationId: deleteRole
+      responses:
+        "200":
+          description: delete-role
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+              examples:
+                delete-role:
+                  value:
+                    success: true
+        "400":
+          description: delete-role-with-existing-bindings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: 'error deleting role: invalid argument: role is in use: cannot delete role'
+              examples:
+                delete-role-with-existing-bindings:
+                  value:
+                    message: 'error deleting role: invalid argument: role is in use: cannot delete role'
+    patch:
+      tags:
+        - roles
+      summary: update-role
+      description: |
+        update role by ID, both name and actions can be modified
+      operationId: updateRole
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                actions:
+                  type: array
+                  items:
+                    type: string
+                    example: doc_list
+                  example:
+                    - doc_list
+                    - doc_update
+                    - doc_delete
+                    - secret_list
+                    - rolebinding_update
+                    - rolebinding_list
+                    - doc_create
+                    - role_update
+                    - doc_get
+                    - secret_get
+                    - secret_update
+                    - secret_delete
+                    - rolebinding_get
+                    - role_create
+                    - role_delete
+                    - role_list
+                    - secret_create
+                    - rolebinding_create
+                    - rolebinding_delete
+                    - avail_role
+                    - role_get
+                name:
+                  type: string
+                  example: super_user
+            examples:
+              update-role:
+                value:
+                  actions:
+                    - doc_list
+                    - doc_update
+                    - doc_delete
+                    - secret_list
+                    - rolebinding_update
+                    - rolebinding_list
+                    - doc_create
+                    - role_update
+                    - doc_get
+                    - secret_get
+                    - secret_update
+                    - secret_delete
+                    - rolebinding_get
+                    - role_create
+                    - role_delete
+                    - role_list
+                    - secret_create
+                    - rolebinding_create
+                    - rolebinding_delete
+                    - avail_role
+                    - role_get
+                  name: super_user
+      responses:
+        "200":
+          description: super-user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  actions:
+                    type: array
+                    items:
+                      type: string
+                      example: doc_list
+                    example:
+                      - doc_list
+                      - doc_update
+                      - doc_delete
+                      - secret_list
+                      - rolebinding_update
+                      - rolebinding_list
+                      - doc_create
+                      - role_update
+                      - doc_get
+                      - secret_get
+                      - secret_update
+                      - secret_delete
+                      - rolebinding_get
+                      - role_create
+                      - role_delete
+                      - role_list
+                      - secret_create
+                      - rolebinding_create
+                      - rolebinding_delete
+                      - avail_role
+                      - role_get
+                  created_at:
+                    type: string
+                    example: "2024-04-10T20:09:06Z"
+                  created_by:
+                    type: string
+                    example: idntusr-bailin
+                  id:
+                    type: string
+                    example: permrv2-_vKIY7KTwIABD0V9Qpnef
+                  name:
+                    type: string
+                    example: super_user
+                  resource_id:
+                    type: string
+                    example: tnntten-root
+                  updated_at:
+                    type: string
+                    example: "2024-04-10T20:18:10Z"
+                  updated_by:
+                    type: string
+                    example: idntusr-bailin
+              examples:
+                super-user:
+                  value:
+                    actions:
+                      - doc_list
+                      - doc_update
+                      - doc_delete
+                      - secret_list
+                      - rolebinding_update
+                      - rolebinding_list
+                      - doc_create
+                      - role_update
+                      - doc_get
+                      - secret_get
+                      - secret_update
+                      - secret_delete
+                      - rolebinding_get
+                      - role_create
+                      - role_delete
+                      - role_list
+                      - secret_create
+                      - rolebinding_create
+                      - rolebinding_delete
+                      - avail_role
+                      - role_get
+                    created_at: "2024-04-10T20:09:06Z"
+                    created_by: idntusr-bailin
+                    id: permrv2-_vKIY7KTwIABD0V9Qpnef
+                    name: super_user
+                    resource_id: tnntten-root
+                    updated_at: "2024-04-10T20:18:10Z"
+                    updated_by: idntusr-bailin
+    parameters:
+      - name: role_id
+        in: path
+        required: true
+        schema:
+          type: string
+          example: permrv2-l9XgxtA6EUkwNSCTGlmgF
+  /resources/{id}/role-bindings:
+    get:
+      tags:
+        - role-bindings
+      summary: list-role-bindings
+      description: |
+        list role-bindings for a resource.
+        an optional query parameter `role_id` can be used to filter the results.
+      operationId: listRoleBindings
+      parameters:
+        - name: role_id
+          in: query
+          schema:
+            type: string
+            example: permrv2-FQbFZMF74D0-WLNO-8MMb
+      responses:
+        "200":
+          description: list-role-bindings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        created_at:
+                          type: string
+                          example: "2024-05-03T19:35:23Z"
+                        created_by:
+                          type: string
+                          example: idntusr-bailin
+                        id:
+                          type: string
+                          example: permrbn-IYH19GIbDGZ9n2xR0yHvW
+                        resource_id:
+                          type: string
+                          example: tnntten-root
+                        role_id:
+                          type: string
+                          example: permrv2-PLjILDwe8kG_t42tMCDiB
+                        subject_ids:
+                          type: array
+                          items:
+                            type: string
+                            example: idntusr-bailin
+                          example:
+                            - idntusr-bailin
+                        updated_at:
+                          type: string
+                          example: "2024-05-03T19:35:23Z"
+                        updated_by:
+                          type: string
+                          example: idntusr-bailin
+                    example:
+                      - created_at: "2024-05-03T19:35:23Z"
+                        created_by: idntusr-bailin
+                        id: permrbn-IYH19GIbDGZ9n2xR0yHvW
+                        resource_id: tnntten-root
+                        role_id: permrv2-PLjILDwe8kG_t42tMCDiB
+                        subject_ids:
+                          - idntusr-bailin
+                        updated_at: "2024-05-03T19:35:23Z"
+                        updated_by: idntusr-bailin
+                      - created_at: "2024-05-06T16:04:08Z"
+                        created_by: idntusr-bailin
+                        id: permrbn-K652x2XPJO1mGJFUE4hEu
+                        resource_id: tnntten-root
+                        role_id: permrv2-PLjILDwe8kG_t42tMCDiB
+                        subject_ids:
+                          - idntgrp-my-subgroup
+                        updated_at: "2024-05-06T16:04:08Z"
+                        updated_by: idntusr-bailin
+                      - created_at: "2024-05-06T16:00:46Z"
+                        created_by: idntusr-bailin
+                        id: permrbn-lr5s4g6g1shmDL_htEAR_
+                        resource_id: tnntten-root
+                        role_id: permrv2-PLjILDwe8kG_t42tMCDiB
+                        subject_ids:
+                          - idntusr-bailin
+                          - idntusr-bailin-1
+                          - idntusr-bailin-2
+                          - idntusr-bailin-3
+                          - idntusr-bailin-4
+                          - idntusr-bailin-5
+                        updated_at: "2024-05-06T16:00:46Z"
+                        updated_by: idntusr-bailin
+              examples:
+                list-role-bindings:
+                  value:
+                    data:
+                      - created_at: "2024-05-03T19:35:23Z"
+                        created_by: idntusr-bailin
+                        id: permrbn-IYH19GIbDGZ9n2xR0yHvW
+                        resource_id: tnntten-root
+                        role_id: permrv2-PLjILDwe8kG_t42tMCDiB
+                        subject_ids:
+                          - idntusr-bailin
+                        updated_at: "2024-05-03T19:35:23Z"
+                        updated_by: idntusr-bailin
+                      - created_at: "2024-05-06T16:04:08Z"
+                        created_by: idntusr-bailin
+                        id: permrbn-K652x2XPJO1mGJFUE4hEu
+                        resource_id: tnntten-root
+                        role_id: permrv2-PLjILDwe8kG_t42tMCDiB
+                        subject_ids:
+                          - idntgrp-my-subgroup
+                        updated_at: "2024-05-06T16:04:08Z"
+                        updated_by: idntusr-bailin
+                      - created_at: "2024-05-06T16:00:46Z"
+                        created_by: idntusr-bailin
+                        id: permrbn-lr5s4g6g1shmDL_htEAR_
+                        resource_id: tnntten-root
+                        role_id: permrv2-PLjILDwe8kG_t42tMCDiB
+                        subject_ids:
+                          - idntusr-bailin
+                          - idntusr-bailin-1
+                          - idntusr-bailin-2
+                          - idntusr-bailin-3
+                          - idntusr-bailin-4
+                          - idntusr-bailin-5
+                        updated_at: "2024-05-06T16:00:46Z"
+                        updated_by: idntusr-bailin
+    post:
+      tags:
+        - role-bindings
+      summary: create-role-binding
+      description: create-role-binding
+      operationId: createRoleBinding
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role_id:
+                  type: string
+                  example: permrv2-PLjILDwe8kG_t42tMCDiB
+                subject_ids:
+                  type: array
+                  items:
+                    type: string
+                    example: idntgrp-my-subgroup
+                  example:
+                    - idntgrp-my-subgroup
+            examples:
+              create-role-binding:
+                value:
+                  role_id: permrv2-PLjILDwe8kG_t42tMCDiB
+                  subject_ids:
+                    - idntgrp-my-subgroup
+      responses:
+        "200":
+          description: root-super-user / create-role-binding-group
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  created_at:
+                    type: string
+                    example: "2024-05-06T16:00:46Z"
+                  created_by:
+                    type: string
+                    example: idntusr-bailin
+                  id:
+                    type: string
+                    example: permrbn-lr5s4g6g1shmDL_htEAR_
+                  resource_id:
+                    type: string
+                    example: tnntten-root
+                  role_id:
+                    type: string
+                    example: permrv2-PLjILDwe8kG_t42tMCDiB
+                  subject_ids:
+                    type: array
+                    items:
+                      type: string
+                      example: idntusr-bailin
+                    example:
+                      - idntusr-bailin
+                      - idntusr-bailin-1
+                      - idntusr-bailin-2
+                      - idntusr-bailin-3
+                      - idntusr-bailin-4
+                      - idntusr-bailin-5
+                  updated_at:
+                    type: string
+                    example: "2024-05-06T16:00:46Z"
+                  updated_by:
+                    type: string
+                    example: idntusr-bailin
+              examples:
+                create-role-binding-group:
+                  value:
+                    created_at: "2024-05-06T16:04:08Z"
+                    created_by: idntusr-bailin
+                    id: permrbn-K652x2XPJO1mGJFUE4hEu
+                    resource_id: tnntten-root
+                    role_id: permrv2-PLjILDwe8kG_t42tMCDiB
+                    subject_ids:
+                      - idntgrp-my-subgroup
+                    updated_at: "2024-05-06T16:04:08Z"
+                    updated_by: idntusr-bailin
+                root-super-user:
+                  value:
+                    created_at: "2024-05-06T16:00:46Z"
+                    created_by: idntusr-bailin
+                    id: permrbn-lr5s4g6g1shmDL_htEAR_
+                    resource_id: tnntten-root
+                    role_id: permrv2-PLjILDwe8kG_t42tMCDiB
+                    subject_ids:
+                      - idntusr-bailin
+                      - idntusr-bailin-1
+                      - idntusr-bailin-2
+                      - idntusr-bailin-3
+                      - idntusr-bailin-4
+                      - idntusr-bailin-5
+                    updated_at: "2024-05-06T16:00:46Z"
+                    updated_by: idntusr-bailin
+        "400":
+          description: create-role-binding-empty-subject
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: 'error creating role-binding: invalid argument: role binding must have at least one subject'
+              examples:
+                create-role-binding-empty-subject:
+                  value:
+                    message: 'error creating role-binding: invalid argument: role binding must have at least one subject'
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          example: tnntten-root
+  /role-bindings/{rb-id}:
+    get:
+      tags:
+        - role-bindings
+      summary: get-role-binding
+      description: get-role-binding
+      operationId: getRoleBinding
+      responses:
+        "200":
+          description: get-role-binding
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  created_at:
+                    type: string
+                    example: "2024-05-06T16:00:46Z"
+                  created_by:
+                    type: string
+                    example: idntusr-bailin
+                  id:
+                    type: string
+                    example: permrbn-lr5s4g6g1shmDL_htEAR_
+                  resource_id:
+                    type: string
+                    example: tnntten-root
+                  role_id:
+                    type: string
+                    example: permrv2-PLjILDwe8kG_t42tMCDiB
+                  subject_ids:
+                    type: array
+                    items:
+                      type: string
+                      example: idntusr-bailin
+                    example:
+                      - idntusr-bailin
+                      - idntusr-bailin-1
+                      - idntusr-bailin-2
+                      - idntusr-bailin-3
+                      - idntusr-bailin-4
+                      - idntusr-bailin-5
+                  updated_at:
+                    type: string
+                    example: "2024-05-06T16:00:46Z"
+                  updated_by:
+                    type: string
+                    example: idntusr-bailin
+              examples:
+                get-role-binding:
+                  value:
+                    created_at: "2024-05-06T16:00:46Z"
+                    created_by: idntusr-bailin
+                    id: permrbn-lr5s4g6g1shmDL_htEAR_
+                    resource_id: tnntten-root
+                    role_id: permrv2-PLjILDwe8kG_t42tMCDiB
+                    subject_ids:
+                      - idntusr-bailin
+                      - idntusr-bailin-1
+                      - idntusr-bailin-2
+                      - idntusr-bailin-3
+                      - idntusr-bailin-4
+                      - idntusr-bailin-5
+                    updated_at: "2024-05-06T16:00:46Z"
+                    updated_by: idntusr-bailin
+    delete:
+      tags:
+        - role-bindings
+      summary: delete-role-binding
+      description: delete-role-binding
+      operationId: deleteRoleBinding
+      responses:
+        "200":
+          description: ""
+    patch:
+      tags:
+        - role-bindings
+      summary: update-role-binding
+      description: |
+        update a role-binding, this will replace the subjects with the new
+        subjects. note that role_id is immutable
+      operationId: updateRoleBinding
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                subject_ids:
+                  type: array
+                  items:
+                    type: string
+                    example: idntclt-xT33dia6DUHdcDXsGRUes
+                  example:
+                    - idntclt-xT33dia6DUHdcDXsGRUes
+                    - idntusr-DUrM80Cg2VzLVEhpmQb7ovmW1EG1isBnmIFpLTA5N2k
+                    - idntusr-FYfXJww0qhW1XrF-WKupOQCQ9Q84d-ieEamjxz1Hzhs
+                    - idntgrp-root-admins
+                    - idntusr-bailin
+            examples:
+              update-role-binding:
+                value:
+                  subject_ids:
+                    - idntclt-xT33dia6DUHdcDXsGRUes
+                    - idntusr-DUrM80Cg2VzLVEhpmQb7ovmW1EG1isBnmIFpLTA5N2k
+                    - idntusr-FYfXJww0qhW1XrF-WKupOQCQ9Q84d-ieEamjxz1Hzhs
+                    - idntgrp-root-admins
+                    - idntusr-bailin
+      responses:
+        "200":
+          description: update-role-binding
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  created_at:
+                    type: string
+                    example: "2024-05-06T16:00:46Z"
+                  created_by:
+                    type: string
+                    example: idntusr-bailin
+                  id:
+                    type: string
+                    example: permrbn-lr5s4g6g1shmDL_htEAR_
+                  resource_id:
+                    type: string
+                    example: tnntten-root
+                  role_id:
+                    type: string
+                    example: permrv2-PLjILDwe8kG_t42tMCDiB
+                  subject_ids:
+                    type: array
+                    items:
+                      type: string
+                      example: idntclt-xT33dia6DUHdcDXsGRUes
+                    example:
+                      - idntclt-xT33dia6DUHdcDXsGRUes
+                      - idntgrp-root-admins
+                      - idntusr-DUrM80Cg2VzLVEhpmQb7ovmW1EG1isBnmIFpLTA5N2k
+                      - idntusr-FYfXJww0qhW1XrF-WKupOQCQ9Q84d-ieEamjxz1Hzhs
+                      - idntusr-bailin
+                  updated_at:
+                    type: string
+                    example: "2024-05-06T16:09:14Z"
+                  updated_by:
+                    type: string
+                    example: idntusr-bailin
+              examples:
+                update-role-binding:
+                  value:
+                    created_at: "2024-05-06T16:00:46Z"
+                    created_by: idntusr-bailin
+                    id: permrbn-lr5s4g6g1shmDL_htEAR_
+                    resource_id: tnntten-root
+                    role_id: permrv2-PLjILDwe8kG_t42tMCDiB
+                    subject_ids:
+                      - idntclt-xT33dia6DUHdcDXsGRUes
+                      - idntgrp-root-admins
+                      - idntusr-DUrM80Cg2VzLVEhpmQb7ovmW1EG1isBnmIFpLTA5N2k
+                      - idntusr-FYfXJww0qhW1XrF-WKupOQCQ9Q84d-ieEamjxz1Hzhs
+                      - idntusr-bailin
+                    updated_at: "2024-05-06T16:09:14Z"
+                    updated_by: idntusr-bailin
+    parameters:
+      - name: rb-id
+        in: path
+        required: true
+        schema:
+          type: string
+          example: permrbn-lr5s4g6g1shmDL_htEAR_
+  /actions:
+    get:
+      summary: list-actions
+      description: list all available actions in the permission system
+      operationId: listActions
+      responses:
+        "200":
+          description: list-actions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  example: role_update
+                example:
+                  - role_update
+                  - role_delete
+                  - loadbalancer_delete
+                  - role_list
+                  - role_get
+                  - loadbalancer_create
+                  - loadbalancer_update
+                  - avail_role
+                  - iam_rolebinding_get
+                  - iam_rolebinding_list
+                  - role_create
+                  - loadbalancer_get
+                  - loadbalancer_list
+                  - iam_rolebinding_create
+                  - iam_rolebinding_update
+                  - iam_rolebinding_delete
+              examples:
+                list-actions:
+                  value:
+                    - role_update
+                    - role_delete
+                    - loadbalancer_delete
+                    - role_list
+                    - role_get
+                    - loadbalancer_create
+                    - loadbalancer_update
+                    - avail_role
+                    - iam_rolebinding_get
+                    - iam_rolebinding_list
+                    - role_create
+                    - loadbalancer_get
+                    - loadbalancer_list
+                    - iam_rolebinding_create
+                    - iam_rolebinding_update
+                    - iam_rolebinding_delete
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: http://localhost:8081/default/token
+          scopes:
+            openid: openid
+            permissions-api: permissions-api
+security:
+  - oauth2:
+      - 'openid permissions-api'
+tags:
+  - name: roles
+  - name: role-bindings

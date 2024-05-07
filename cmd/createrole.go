@@ -15,6 +15,7 @@ import (
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/permissions-api/internal/spicedbx"
 	"go.infratographer.com/permissions-api/internal/storage"
+	"go.infratographer.com/permissions-api/internal/types"
 )
 
 const (
@@ -24,15 +25,13 @@ const (
 	createRoleFlagName     = "name"
 )
 
-var (
-	createRoleCmd = &cobra.Command{
-		Use:   "create-role",
-		Short: "create role in SpiceDB directly",
-		Run: func(cmd *cobra.Command, _ []string) {
-			createRole(cmd.Context(), globalCfg)
-		},
-	}
-)
+var createRoleCmd = &cobra.Command{
+	Use:   "create-role",
+	Short: "create role in SpiceDB directly",
+	Run: func(cmd *cobra.Command, _ []string) {
+		createRole(cmd.Context(), globalCfg)
+	},
+}
 
 func init() {
 	rootCmd.AddCommand(createRoleCmd)
@@ -125,14 +124,22 @@ func createRole(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("error creating subject resource", "error", err)
 	}
 
-	role, err := engine.CreateRole(ctx, subjectResource, resource, name, actions)
+	role, err := engine.CreateRoleV2(ctx, subjectResource, resource, name, actions)
 	if err != nil {
 		logger.Fatalw("error creating role", "error", err)
 	}
 
-	if err = engine.AssignSubjectRole(ctx, subjectResource, role); err != nil {
-		logger.Fatalw("error creating role", "error", err)
+	rbsubj := []types.RoleBindingSubject{{SubjectResource: subjectResource}}
+
+	roleres, err := engine.NewResourceFromID(role.ID)
+	if err != nil {
+		logger.Fatalw("error creating role resource", "error", err)
 	}
 
-	logger.Infow("role successfully created", "role_id", role.ID)
+	rb, err := engine.CreateRoleBinding(ctx, subjectResource, resource, roleres, rbsubj)
+	if err != nil {
+		logger.Fatalw("error creating role binding", "error", err)
+	}
+
+	logger.Infof("created role %s[%s] and role-binding %s", role.Name, role.ID, rb.ID)
 }
