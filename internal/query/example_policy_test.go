@@ -102,9 +102,9 @@ func TestExamplePolicy(t *testing.T) {
 	}
 
 	// users
-	superuser := types.Resource{Type: "user", ID: "idntusr-superuser"}
-	haroldadmin := types.Resource{Type: "user", ID: "idntusr-harold-admin"}
-	theotheradmin := types.Resource{Type: "user", ID: "idntusr-the-other-admin"}
+	superuser := types.Resource{Type: "user", ID: gidx.PrefixedID("idntusr-superuser")}
+	haroldadmin := types.Resource{Type: "user", ID: gidx.PrefixedID("idntusr-harold-admin")}
+	theotheradmin := types.Resource{Type: "user", ID: gidx.PrefixedID("idntusr-the-other-admin")}
 
 	// tenants
 	tnnttenroot := types.Resource{Type: "tenant", ID: gidx.PrefixedID("tnntten-root")}
@@ -114,11 +114,11 @@ func TestExamplePolicy(t *testing.T) {
 	tnnttenc := types.Resource{Type: "tenant", ID: gidx.PrefixedID("tnntten-c")}
 
 	// groups
-	groupadmin := types.Resource{Type: "group", ID: "idntgrp-admin"}
-	groupadminsubgroup := types.Resource{Type: "group", ID: "idntgrp-admin-subgroup"}
+	groupadmin := types.Resource{Type: "group", ID: gidx.PrefixedID("idntgrp-admin")}
+	groupadminsubgroup := types.Resource{Type: "group", ID: gidx.PrefixedID("idntgrp-admin-subgroup")}
 
 	// resources
-	lbtesta := types.Resource{Type: "loadbalancer", ID: "loadbal-test-a"}
+	lbtesta := types.Resource{Type: "loadbalancer", ID: gidx.PrefixedID("loadbal-test-a")}
 
 	// create hierarchical tenants and groups
 	err = e.CreateRelationships(ctx, []types.Relationship{
@@ -240,7 +240,6 @@ func TestExamplePolicy(t *testing.T) {
 				forbidden := iamactions
 				allowed := lbactions
 
-				// the other admin has no permissions on tnntten-root
 				for _, r := range res {
 					for _, a := range allowed {
 						err := e.checkPermission(ctx, &v1.CheckPermissionRequest{
