@@ -33,12 +33,22 @@ func init() {
 
 	schemaCmd.Flags().Bool("mermaid", false, "outputs the policy as a mermaid chart definition")
 	schemaCmd.Flags().Bool("mermaid-markdown", false, "outputs the policy as a markdown mermaid chart definition")
+	schemaCmd.Flags().String("filter-types", "", "filters the types rendered by mermaid")
+	schemaCmd.Flags().String("filter-actions", "", "filters the actions rendered by mermaid")
 
 	if err := viper.BindPFlag("mermaid", schemaCmd.Flags().Lookup("mermaid")); err != nil {
 		panic(err)
 	}
 
 	if err := viper.BindPFlag("mermaid-markdown", schemaCmd.Flags().Lookup("mermaid-markdown")); err != nil {
+		panic(err)
+	}
+
+	if err := viper.BindPFlag("filter-types", schemaCmd.Flags().Lookup("filter-types")); err != nil {
+		panic(err)
+	}
+
+	if err := viper.BindPFlag("filter-actions", schemaCmd.Flags().Lookup("filter-actions")); err != nil {
 		panic(err)
 	}
 }
@@ -71,7 +81,11 @@ func writeSchema(_ context.Context, dryRun bool, cfg *config.AppConfig) {
 
 	if viper.GetBool("mermaid") || viper.GetBool("mermaid-markdown") {
 		if policyDir := cfg.SpiceDB.PolicyDir; policyDir != "" {
-			outputPolicyMermaid(policyDir, viper.GetBool("mermaid-markdown"))
+			outputPolicyMermaid(policyDir,
+				viper.GetBool("mermaid-markdown"),
+				viper.GetString("filter-types"),
+				viper.GetString("filter-actions"),
+			)
 		}
 
 		return
