@@ -207,7 +207,9 @@ func LoadPolicyDocumentFromFiles(filePaths ...string) (PolicyDocument, error) {
 	return policyDocument, nil
 }
 
-// LoadPolicyDocumentFromDirectory reads the provided directory path, reads all files in the directory, merges them, and returns a new merged PolicyDocument.
+// LoadPolicyDocumentFromDirectory reads the provided directory path, reads all files in the
+// directory, merges them, and returns a new merged PolicyDocument. Directories beginning with "."
+// are skipped.
 func LoadPolicyDocumentFromDirectory(directoryPath string) (PolicyDocument, error) {
 	var filePaths []string
 
@@ -216,8 +218,9 @@ func LoadPolicyDocumentFromDirectory(directoryPath string) (PolicyDocument, erro
 			return err
 		}
 
-		if entry.IsDir() {
-			return nil
+		// Skip directories beginning with "." (i.e., hidden directories)
+		if entry.IsDir() && strings.HasPrefix(entry.Name(), ".") {
+			return filepath.SkipDir
 		}
 
 		ext := filepath.Ext(entry.Name())
