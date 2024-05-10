@@ -11,9 +11,9 @@ import (
 var (
 	mermaidTemplate = `erDiagram
 {{- if ne .RBAC nil}}
-	{{ .RBAC.RoleBindingResource }} }o--o{ {{ .RBAC.RoleResource }} : role
+{{ .RBAC.RoleBindingResource.Name }} }o--o{ {{ .RBAC.RoleResource.Name }} : role
 	{{- range $subj := .RBAC.RoleBindingSubjects }}
-	{{ $.RBAC.RoleBindingResource }} }o--o{ {{ $subj.Name }} : subject
+	{{ $.RBAC.RoleBindingResource.Name }} }o--o{ {{ $subj.Name }} : subject
 	{{- end }}
 {{- end }}
 
@@ -90,7 +90,7 @@ func outputPolicyMermaid(dirPath string, markdown bool) {
 				actions[binding.TypeName] = append(actions[binding.TypeName], binding.ActionName)
 			}
 
-			if cond.RelationshipAction != nil {
+			if cond.RelationshipAction != nil && cond.RelationshipAction.ActionName != "" {
 				if _, ok := relatedActions[binding.TypeName]; !ok {
 					relatedActions[binding.TypeName] = make(map[string][]string)
 				}
