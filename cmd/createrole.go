@@ -114,6 +114,12 @@ func createRole(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("error creating engine", "error", err)
 	}
 
+	defer func() {
+		if err := engine.Stop(); err != nil {
+			logger.Errorw("error stopping engine", "error", err)
+		}
+	}()
+
 	resource, err := engine.NewResourceFromID(resourceID)
 	if err != nil {
 		logger.Fatalw("error creating resource", "error", err)

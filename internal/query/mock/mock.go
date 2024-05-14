@@ -23,6 +23,11 @@ type Engine struct {
 	schema    []types.ResourceType
 }
 
+// Stop does nothing but satisfies the Engine interface.
+func (e *Engine) Stop() error {
+	return nil
+}
+
 // AssignSubjectRole does nothing but satisfies the Engine interface.
 func (e *Engine) AssignSubjectRole(context.Context, types.Resource, types.Role) error {
 	args := e.Called()

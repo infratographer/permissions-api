@@ -113,7 +113,7 @@ func (e *engine) SubjectHasPermission(ctx context.Context, subject types.Resourc
 
 	defer span.End()
 
-	consistency, consName := e.determineConsistency(ctx, resource)
+	consistency, consName := e.determineConsistency(resource)
 	span.SetAttributes(
 		attribute.String(
 			"permissions.consistency",

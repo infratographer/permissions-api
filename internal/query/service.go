@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/authzed/authzed-go/v1"
+	"github.com/hashicorp/golang-lru/v2/expirable"
 	"github.com/nats-io/nats.go"
 	"go.infratographer.com/x/gidx"
 	"go.opentelemetry.io/otel"
@@ -76,6 +77,8 @@ type Engine interface {
 	GetRoleBindingResource(ctx context.Context, rb types.Resource) (types.Resource, error)
 
 	AllActions() []string
+
+	Stop() error
 }
 
 type engine struct {
@@ -84,6 +87,8 @@ type engine struct {
 	namespace                string
 	client                   *authzed.Client
 	kv                       nats.KeyValue
+	keyWatcher               nats.KeyWatcher
+	zedTokenCache            *expirable.LRU[string, string]
 	store                    storage.Storage
 	schema                   []types.ResourceType
 	schemaPrefixMap          map[string]types.ResourceType
@@ -185,7 +190,15 @@ func NewEngine(namespace string, client *authzed.Client, kv nats.KeyValue, store
 		e.cacheSchemaResources()
 	}
 
+	if err := e.initZedTokenCache(); err != nil {
+		return nil, err
+	}
+
 	return e, nil
+}
+
+func (e *engine) Stop() error {
+	return e.keyWatcher.Stop()
 }
 
 // Option is a functional option for the engine
