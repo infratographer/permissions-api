@@ -7,6 +7,7 @@ import (
 	"go.infratographer.com/permissions-api/internal/testingx"
 	"go.infratographer.com/permissions-api/internal/types"
 
+	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.infratographer.com/x/gidx"
@@ -45,9 +46,18 @@ func TestConsistency(t *testing.T) {
 					},
 				}
 
-				err := e.CreateRelationships(ctx, rels)
+				// Watch for updates to the key to avoid racing
+				kw, err := e.kv.Watch(tenantID.String(), nats.UpdatesOnly())
+				require.NoError(t, err)
+
+				defer kw.Stop() //nolint:errcheck
+
+				err = e.CreateRelationships(ctx, rels)
 
 				require.NoError(t, err)
+
+				// Wait until we know an update occurred
+				<-kw.Updates()
 
 				return ctx
 			},
@@ -67,7 +77,7 @@ func TestConsistency(t *testing.T) {
 	}
 
 	testFn := func(ctx context.Context, res types.Resource) testingx.TestResult[string] {
-		_, consistencyName := e.determineConsistency(ctx, res)
+		_, consistencyName := e.determineConsistency(res)
 
 		out := testingx.TestResult[string]{
 			Success: consistencyName,

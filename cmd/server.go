@@ -92,6 +92,12 @@ func serve(_ context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("error creating engine", "error", err)
 	}
 
+	defer func() {
+		if err := engine.Stop(); err != nil {
+			logger.Errorw("error stopping engine", "error", err)
+		}
+	}()
+
 	srv, err := echox.NewServer(
 		logger.Desugar(),
 		echox.ConfigFromViper(viper.GetViper()),

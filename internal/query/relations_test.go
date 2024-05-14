@@ -60,6 +60,10 @@ func testEngine(ctx context.Context, t *testing.T, namespace string, policy iapl
 	out, err := NewEngine(namespace, client, kv, store, WithPolicy(policy))
 	require.NoError(t, err)
 
+	t.Cleanup(func() {
+		out.Stop() //nolint:errcheck
+	})
+
 	return out.(*engine)
 }
 
