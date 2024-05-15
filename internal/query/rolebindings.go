@@ -204,7 +204,7 @@ func (e *engine) CreateRoleBinding(
 
 	updates = append(updates, subjUpdates...)
 
-	if err := e.applyUpdates(ctx, updates); err != nil {
+	if err := e.applyUpdates(dbCtx, updates); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
@@ -306,7 +306,7 @@ func (e *engine) DeleteRoleBinding(ctx context.Context, rb types.Resource) error
 	}
 
 	// apply changes
-	if err := e.applyUpdates(ctx, updates); err != nil {
+	if err := e.applyUpdates(dbCtx, updates); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
@@ -503,7 +503,7 @@ func (e *engine) UpdateRoleBinding(ctx context.Context, actor, rb types.Resource
 		updates = append(updates, update)
 	}
 
-	if err := e.applyUpdates(ctx, updates); err != nil {
+	if err := e.applyUpdates(dbCtx, updates); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))

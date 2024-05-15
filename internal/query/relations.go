@@ -113,7 +113,7 @@ func (e *engine) SubjectHasPermission(ctx context.Context, subject types.Resourc
 
 	defer span.End()
 
-	consistency, consName := e.determineConsistency(resource)
+	consistency, consName := e.determineConsistency(ctx, resource)
 	span.SetAttributes(
 		attribute.String(
 			"permissions.consistency",
@@ -1266,7 +1266,12 @@ func (e *engine) rollbackUpdates(ctx context.Context, updates []*pb.Relationship
 		})
 	}
 
-	return e.applyUpdates(ctx, rollbacks)
+	_, err := e.client.WriteRelationships(ctx, &pb.WriteRelationshipsRequest{Updates: rollbacks})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // applyUpdates is a wrapper function around the spiceDB WriteRelationships method

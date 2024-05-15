@@ -12,6 +12,7 @@ import (
 type Storage interface {
 	RoleService
 	RoleBindingService
+	ZedTokenService
 	TransactionManager
 
 	HealthCheck(ctx context.Context) error
