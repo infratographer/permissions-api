@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/authzed/authzed-go/v1"
-	"github.com/hashicorp/golang-lru/v2/expirable"
 	"go.infratographer.com/x/gidx"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -83,7 +82,6 @@ type engine struct {
 	logger                   *zap.SugaredLogger
 	namespace                string
 	client                   *authzed.Client
-	zedTokenCache            *expirable.LRU[string, string]
 	store                    storage.Storage
 	schema                   []types.ResourceType
 	schemaPrefixMap          map[string]types.ResourceType
