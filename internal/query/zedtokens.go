@@ -50,8 +50,11 @@ func (e *engine) upsertZedToken(ctx context.Context, resourceID string, zedToken
 	return nil
 }
 
-// updateRelationshipZedTokens updates the NATS KV bucket for ZedTokens, setting the given ZedToken
+// updateRelationshipZedTokens updates the CRDB table for ZedTokens, setting the given ZedToken
 // as the latest point in time snapshot for every resource in the given list of relationships.
+//
+// This function updates the table using an out of band transaction, as if it fails we do not want
+// to roll back the entire outer transaction.
 func (e *engine) updateRelationshipZedTokens(ctx context.Context, rels []types.Relationship, zedToken string) {
 	resourceIDMap := map[string]struct{}{}
 	for _, rel := range rels {
@@ -59,10 +62,38 @@ func (e *engine) updateRelationshipZedTokens(ctx context.Context, rels []types.R
 		resourceIDMap[rel.Subject.ID.String()] = struct{}{}
 	}
 
+	ctx, span := e.tracer.Start(
+		ctx,
+		"updateRelationshipZedTokens",
+	)
+
+	defer span.End()
+
+	dbCtx, err := e.store.BeginContext(ctx)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		return
+	}
+
 	for resourceID := range resourceIDMap {
-		if err := e.upsertZedToken(ctx, resourceID, zedToken); err != nil {
+		if err := e.upsertZedToken(dbCtx, resourceID, zedToken); err != nil {
 			e.logger.Warnw("error upserting ZedToken", "error", err.Error(), "resource_id", resourceID)
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+
+			logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
+
+			return
 		}
+	}
+
+	if err = e.store.CommitContext(dbCtx); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
 	}
 }
 
@@ -76,7 +107,7 @@ func (e *engine) determineConsistency(ctx context.Context, resource types.Resour
 
 	_, span := e.tracer.Start(
 		ctx,
-		"upsertZedToken",
+		"determineConsistency",
 		trace.WithAttributes(
 			attribute.Stringer(
 				"permissions.resource",
