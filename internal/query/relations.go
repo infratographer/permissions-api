@@ -290,15 +290,13 @@ func (e *engine) CreateRelationships(ctx context.Context, rels []types.Relations
 		Updates: relUpdates,
 	}
 
-	resp, err := e.client.WriteRelationships(ctx, request)
+	_, err := e.client.WriteRelationships(ctx, request)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 
 		return err
 	}
-
-	e.updateRelationshipZedTokens(ctx, rels, resp.WrittenAt.Token)
 
 	return nil
 }
@@ -1269,21 +1267,11 @@ func (e *engine) rollbackUpdates(ctx context.Context, updates []*pb.Relationship
 	return e.applyUpdates(ctx, rollbacks)
 }
 
-// applyUpdates is a wrapper function around the spiceDB WriteRelationships method
-// it applies the given relationship updates and store the zed token for each resource.
+// applyUpdates is a wrapper function around the SpiceDB WriteRelationships method.
 func (e *engine) applyUpdates(ctx context.Context, updates []*pb.RelationshipUpdate) error {
-	resp, err := e.client.WriteRelationships(ctx, &pb.WriteRelationshipsRequest{Updates: updates})
+	_, err := e.client.WriteRelationships(ctx, &pb.WriteRelationshipsRequest{Updates: updates})
 	if err != nil {
 		return err
-	}
-
-	t := resp.WrittenAt.Token
-
-	for _, u := range updates {
-		resID := u.Relationship.Resource.ObjectId
-		if err := e.upsertZedToken(ctx, resID, t); err != nil {
-			return err
-		}
 	}
 
 	return nil

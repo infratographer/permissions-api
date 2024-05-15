@@ -7,7 +7,7 @@ import (
 	"go.infratographer.com/permissions-api/internal/testingx"
 	"go.infratographer.com/permissions-api/internal/types"
 
-	"github.com/nats-io/nats.go"
+	v1 "github.com/authzed/authzed-go/proto/authzed/api/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.infratographer.com/x/gidx"
@@ -46,18 +46,21 @@ func TestConsistency(t *testing.T) {
 					},
 				}
 
-				// Watch for updates to the key to avoid racing
-				kw, err := e.kv.Watch(tenantID.String(), nats.UpdatesOnly())
+				watchCtx, cancel := context.WithCancel(ctx)
+
+				watchClient, err := e.client.Watch(watchCtx, &v1.WatchRequest{})
+
 				require.NoError(t, err)
 
-				defer kw.Stop() //nolint:errcheck
+				defer cancel()
 
 				err = e.CreateRelationships(ctx, rels)
 
 				require.NoError(t, err)
 
 				// Wait until we know an update occurred
-				<-kw.Updates()
+				_, err = watchClient.Recv()
+				require.NoError(t, err)
 
 				return ctx
 			},

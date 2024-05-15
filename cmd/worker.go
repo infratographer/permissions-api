@@ -59,11 +59,6 @@ func worker(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("failed to initialize events", "error", err)
 	}
 
-	kv, err := initializeKV(cfg.Events, eventsConn)
-	if err != nil {
-		logger.Fatalw("failed to initialize KV", "error", err)
-	}
-
 	db, err := crdbx.NewDB(cfg.CRDB, cfg.Tracing.Enabled)
 	if err != nil {
 		logger.Fatalw("unable to initialize permissions-api database", "error", err)
@@ -88,7 +83,7 @@ func worker(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("invalid spicedb policy", "error", err)
 	}
 
-	engine, err := query.NewEngine("infratographer", spiceClient, kv, store, query.WithPolicy(policy))
+	engine, err := query.NewEngine("infratographer", spiceClient, store, query.WithPolicy(policy))
 	if err != nil {
 		logger.Fatalw("error creating engine", "error", err)
 	}

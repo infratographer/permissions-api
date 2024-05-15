@@ -5,7 +5,6 @@ import (
 
 	"github.com/authzed/authzed-go/v1"
 	"github.com/hashicorp/golang-lru/v2/expirable"
-	"github.com/nats-io/nats.go"
 	"go.infratographer.com/x/gidx"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -86,8 +85,7 @@ type engine struct {
 	logger                   *zap.SugaredLogger
 	namespace                string
 	client                   *authzed.Client
-	kv                       nats.KeyValue
-	keyWatcher               nats.KeyWatcher
+	watchCancel              context.CancelFunc
 	zedTokenCache            *expirable.LRU[string, string]
 	store                    storage.Storage
 	schema                   []types.ResourceType
@@ -166,14 +164,13 @@ func resourceHasRoleBindingV2(resType types.ResourceType) *types.ConditionRoleBi
 }
 
 // NewEngine returns a new client for making permissions queries.
-func NewEngine(namespace string, client *authzed.Client, kv nats.KeyValue, store storage.Storage, options ...Option) (Engine, error) {
+func NewEngine(namespace string, client *authzed.Client, store storage.Storage, options ...Option) (Engine, error) {
 	tracer := otel.GetTracerProvider().Tracer("go.infratographer.com/permissions-api/internal/query")
 
 	e := &engine{
 		logger:    zap.NewNop().Sugar(),
 		namespace: namespace,
 		client:    client,
-		kv:        kv,
 		store:     store,
 		tracer:    tracer,
 	}
@@ -190,7 +187,10 @@ func NewEngine(namespace string, client *authzed.Client, kv nats.KeyValue, store
 		e.cacheSchemaResources()
 	}
 
-	if err := e.initZedTokenCache(); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	e.watchCancel = cancel
+
+	if err := e.initZedTokenCache(ctx); err != nil {
 		return nil, err
 	}
 
@@ -198,7 +198,9 @@ func NewEngine(namespace string, client *authzed.Client, kv nats.KeyValue, store
 }
 
 func (e *engine) Stop() error {
-	return e.keyWatcher.Stop()
+	e.watchCancel()
+
+	return nil
 }
 
 // Option is a functional option for the engine

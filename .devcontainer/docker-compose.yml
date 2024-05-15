@@ -44,6 +44,7 @@ services:
       sql --insecure -e '
         CREATE DATABASE IF NOT EXISTS permissionsapi;
         CREATE DATABASE IF NOT EXISTS spicedb;
+        SET CLUSTER SETTING kv.rangefeed.enabled = true;
       '
     env_file:
       - .env
@@ -84,7 +85,7 @@ services:
       - infradev
 
   spicedb:
-    image: authzed/spicedb:v1.23.1
+    image: authzed/spicedb:v1.29.5
     command: serve
     restart: unless-stopped
     env_file:

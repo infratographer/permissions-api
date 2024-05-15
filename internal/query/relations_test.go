@@ -6,12 +6,10 @@ import (
 
 	pb "github.com/authzed/authzed-go/proto/authzed/api/v1"
 	"github.com/authzed/authzed-go/v1"
-	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"go.infratographer.com/x/gidx"
-	"go.infratographer.com/x/testing/eventtools"
 
 	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/spicedbx"
@@ -40,16 +38,6 @@ func testEngine(ctx context.Context, t *testing.T, namespace string, policy iapl
 	_, err = client.WriteSchema(ctx, request)
 	require.NoError(t, err)
 
-	natsSrv, err := eventtools.NewNatsServer()
-	require.NoError(t, err)
-
-	kvCfg := nats.KeyValueConfig{
-		Bucket: "zedtokens",
-	}
-
-	kv, err := natsSrv.JetStream.CreateKeyValue(&kvCfg)
-	require.NoError(t, err)
-
 	t.Cleanup(func() {
 		cleanDB(ctx, t, client, namespace, policy)
 		cleanStore()
@@ -57,7 +45,7 @@ func testEngine(ctx context.Context, t *testing.T, namespace string, policy iapl
 
 	// We call the constructor here to ensure the engine is created appropriately, but
 	// then return the underlying type so we can do testing with it.
-	out, err := NewEngine(namespace, client, kv, store, WithPolicy(policy))
+	out, err := NewEngine(namespace, client, store, WithPolicy(policy))
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
