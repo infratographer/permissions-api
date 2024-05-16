@@ -26,6 +26,7 @@ func (e *engine) GetLatestZedToken(ctx context.Context, ids ...gidx.PrefixedID) 
 		SELECT zedtoken
 		FROM zedtokens
 		WHERE resource_id IN (%s)
+		AND current_timestamp() < expires_at
 		ORDER BY created_at DESC
 		LIMIT 1
 	`, inClause)
