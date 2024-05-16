@@ -113,7 +113,7 @@ func (e *engine) SubjectHasPermission(ctx context.Context, subject types.Resourc
 
 	defer span.End()
 
-	consistency, consName := e.determineConsistency(resource)
+	consistency, consName := e.determineConsistency(ctx, resource)
 	span.SetAttributes(
 		attribute.String(
 			"permissions.consistency",
@@ -284,7 +284,7 @@ func (e *engine) CreateRelationships(ctx context.Context, rels []types.Relations
 		}
 	}
 
-	relUpdates := e.relationshipsToUpdates(rels)
+	relUpdates := e.relationshipsToUpdates(rels, pb.RelationshipUpdate_OPERATION_TOUCH)
 
 	request := &pb.WriteRelationshipsRequest{
 		Updates: relUpdates,
@@ -591,7 +591,7 @@ func (e *engine) roleResourceRelationshipsTouchDelete(roleResource, resource typ
 	return rels
 }
 
-func (e *engine) relationshipsToUpdates(rels []types.Relationship) []*pb.RelationshipUpdate {
+func (e *engine) relationshipsToUpdates(rels []types.Relationship, operation pb.RelationshipUpdate_Operation) []*pb.RelationshipUpdate {
 	relUpdates := make([]*pb.RelationshipUpdate, len(rels))
 
 	for i, rel := range rels {
@@ -599,7 +599,7 @@ func (e *engine) relationshipsToUpdates(rels []types.Relationship) []*pb.Relatio
 		resRef := resourceToSpiceDBRef(e.namespace, rel.Resource)
 
 		relUpdates[i] = &pb.RelationshipUpdate{
-			Operation: pb.RelationshipUpdate_OPERATION_TOUCH,
+			Operation: operation,
 			Relationship: &pb.Relationship{
 				Resource: resRef,
 				Relation: rel.Relation,
@@ -677,64 +677,21 @@ func (e *engine) DeleteRelationships(ctx context.Context, relationships ...types
 		return multierr.Combine(errors...)
 	}
 
-	errors = []error{}
+	relUpdates := e.relationshipsToUpdates(relationships, pb.RelationshipUpdate_OPERATION_DELETE)
 
-	var (
-		complete []types.Relationship
-		dErr     error
-		cErr     error
-	)
-
-	span.AddEvent("deleting relationships")
-
-	for i, relationship := range relationships {
-		resType := e.namespace + "/" + relationship.Resource.Type
-		subjType := e.namespace + "/" + relationship.Subject.Type
-
-		filter := &pb.RelationshipFilter{
-			ResourceType:       resType,
-			OptionalResourceId: relationship.Resource.ID.String(),
-			OptionalRelation:   relationship.Relation,
-			OptionalSubjectFilter: &pb.SubjectFilter{
-				SubjectType:       subjType,
-				OptionalSubjectId: relationship.Subject.ID.String(),
-			},
-		}
-
-		if dErr = e.deleteRelationships(ctx, filter); dErr != nil {
-			e.logger.Errorf("%w: failed to delete relationship %d reverting %d completed deletes", dErr, i, len(complete))
-
-			err := fmt.Errorf("%w: failed to delete relationship %d", dErr, i)
-
-			span.RecordError(err)
-
-			errors = append(errors, err)
-
-			break
-		}
-
-		complete = append(complete, relationship)
+	request := &pb.WriteRelationshipsRequest{
+		Updates: relUpdates,
 	}
 
-	if len(errors) != 0 {
-		span.SetStatus(codes.Error, "error occurred deleting relationships")
+	resp, err := e.client.WriteRelationships(ctx, request)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 
-		if len(complete) != 0 {
-			span.AddEvent("recreating deleted relationships")
-
-			if cErr = e.CreateRelationships(ctx, complete); cErr != nil {
-				e.logger.Error("%w: failed to revert %d deleted relationships", cErr, len(complete))
-
-				err := fmt.Errorf("%w: failed to revert deleted relationships", cErr)
-
-				span.RecordError(err)
-
-				errors = append(errors, err)
-			}
-		}
-
-		return multierr.Combine(errors...)
+		return err
 	}
+
+	e.updateRelationshipZedTokens(ctx, relationships, resp.WrittenAt.Token)
 
 	return nil
 }
@@ -1266,7 +1223,12 @@ func (e *engine) rollbackUpdates(ctx context.Context, updates []*pb.Relationship
 		})
 	}
 
-	return e.applyUpdates(ctx, rollbacks)
+	_, err := e.client.WriteRelationships(ctx, &pb.WriteRelationshipsRequest{Updates: rollbacks})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // applyUpdates is a wrapper function around the spiceDB WriteRelationships method

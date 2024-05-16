@@ -8,7 +8,6 @@ import (
 	"go.infratographer.com/x/crdbx"
 	"go.infratographer.com/x/echojwtx"
 	"go.infratographer.com/x/echox"
-	"go.infratographer.com/x/events"
 	"go.infratographer.com/x/otelx"
 	"go.infratographer.com/x/versionx"
 	"go.uber.org/zap"
@@ -39,7 +38,6 @@ func init() {
 	echox.MustViperFlags(v, serverCmd.Flags(), apiDefaultListen)
 	otelx.MustViperFlags(v, serverCmd.Flags())
 	echojwtx.MustViperFlags(v, serverCmd.Flags())
-	events.MustViperFlags(v, serverCmd.Flags(), appName)
 }
 
 func serve(_ context.Context, cfg *config.AppConfig) {
@@ -51,16 +49,6 @@ func serve(_ context.Context, cfg *config.AppConfig) {
 	spiceClient, err := spicedbx.NewClient(cfg.SpiceDB, cfg.Tracing.Enabled)
 	if err != nil {
 		logger.Fatalw("unable to initialize spicedb client", "error", err)
-	}
-
-	eventsConn, err := events.NewConnection(cfg.Events.Config, events.WithLogger(logger))
-	if err != nil {
-		logger.Fatalw("failed to initialize events", "error", err)
-	}
-
-	kv, err := initializeKV(cfg.Events, eventsConn)
-	if err != nil {
-		logger.Fatalw("failed to initialize KV", "error", err)
 	}
 
 	db, err := crdbx.NewDB(cfg.CRDB, cfg.Tracing.Enabled)
@@ -87,16 +75,10 @@ func serve(_ context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("invalid spicedb policy", "error", err)
 	}
 
-	engine, err := query.NewEngine("infratographer", spiceClient, kv, store, query.WithPolicy(policy), query.WithLogger(logger))
+	engine, err := query.NewEngine("infratographer", spiceClient, store, query.WithPolicy(policy), query.WithLogger(logger))
 	if err != nil {
 		logger.Fatalw("error creating engine", "error", err)
 	}
-
-	defer func() {
-		if err := engine.Stop(); err != nil {
-			logger.Errorw("error stopping engine", "error", err)
-		}
-	}()
 
 	srv, err := echox.NewServer(
 		logger.Desugar(),
