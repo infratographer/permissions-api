@@ -79,7 +79,7 @@ func (r *Router) roleBindingCreate(c echo.Context) error {
 	}
 
 	return c.JSON(
-		http.StatusOK,
+		http.StatusCreated,
 		roleBindingResponse{
 			ID:         rb.ID,
 			ResourceID: rb.ResourceID,

@@ -843,7 +843,7 @@ paths:
                   subject_ids:
                     - idntgrp-my-subgroup
       responses:
-        "200":
+        "201":
           description: root-super-user / create-role-binding-group
           content:
             application/json:
