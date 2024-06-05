@@ -11,6 +11,7 @@ import (
 
 	"go.infratographer.com/permissions-api/internal/types"
 
+	"go.infratographer.com/x/gidx"
 	"gopkg.in/yaml.v3"
 )
 
@@ -231,7 +232,6 @@ func LoadPolicyDocumentFromDirectory(directoryPath string) (PolicyDocument, erro
 
 		return nil
 	})
-
 	if err != nil {
 		return PolicyDocument{}, err
 	}
@@ -289,8 +289,13 @@ func (v *policy) validateResourceTypes() error {
 	for _, resourceType := range v.rt {
 		for _, rel := range resourceType.Relationships {
 			for _, tt := range rel.TargetTypes {
-				if _, ok := v.rt[tt.Name]; !ok {
+				rr, ok := v.rt[tt.Name]
+				if !ok {
 					return fmt.Errorf("%s: relationships: %s: %w", resourceType.Name, tt.Name, ErrorUnknownType)
+				}
+
+				if _, err := gidx.NewID(rr.IDPrefix); err != nil {
+					return fmt.Errorf("%s: relationships: %s: %w", resourceType.Name, tt.Name, err)
 				}
 
 				if tt.SubjectRelation != "" && !v.findRelationship(v.rt[tt.Name].Relationships, tt.SubjectRelation) && !v.findActionBinding(tt.SubjectRelation, tt.Name) {
