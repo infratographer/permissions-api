@@ -19,7 +19,8 @@ func TestPolicy(t *testing.T) {
 			Input: PolicyDocument{
 				ResourceTypes: []ResourceType{
 					{
-						Name: "foo",
+						Name:     "foo",
+						IDPrefix: "permfoo",
 					},
 				},
 				Unions: []Union{
@@ -61,7 +62,8 @@ func TestPolicy(t *testing.T) {
 			Input: PolicyDocument{
 				ResourceTypes: []ResourceType{
 					{
-						Name: "foo",
+						Name:     "foo",
+						IDPrefix: "permfoo",
 					},
 				},
 				Unions: []Union{
@@ -82,7 +84,8 @@ func TestPolicy(t *testing.T) {
 			Input: PolicyDocument{
 				ResourceTypes: []ResourceType{
 					{
-						Name: "foo",
+						Name:     "foo",
+						IDPrefix: "permfoo",
 						Relationships: []Relationship{
 							{
 								Relation: "bar",
@@ -103,7 +106,8 @@ func TestPolicy(t *testing.T) {
 			Input: PolicyDocument{
 				ResourceTypes: []ResourceType{
 					{
-						Name: "foo",
+						Name:     "foo",
+						IDPrefix: "permfoo",
 						Relationships: []Relationship{
 							{
 								Relation: "bar",
@@ -135,7 +139,8 @@ func TestPolicy(t *testing.T) {
 			Input: PolicyDocument{
 				ResourceTypes: []ResourceType{
 					{
-						Name: "foo",
+						Name:     "foo",
+						IDPrefix: "permfoo",
 						Relationships: []Relationship{
 							{
 								Relation: "bar",
@@ -207,7 +212,8 @@ func TestPolicy(t *testing.T) {
 			Input: PolicyDocument{
 				ResourceTypes: []ResourceType{
 					{
-						Name: "foo",
+						Name:     "foo",
+						IDPrefix: "permfoo",
 						Relationships: []Relationship{
 							{
 								Relation: "bar",
@@ -259,7 +265,8 @@ func TestPolicy(t *testing.T) {
 			Input: PolicyDocument{
 				ResourceTypes: []ResourceType{
 					{
-						Name: "foo",
+						Name:     "foo",
+						IDPrefix: "permfoo",
 						Relationships: []Relationship{
 							{
 								Relation: "bar",
@@ -270,7 +277,8 @@ func TestPolicy(t *testing.T) {
 						},
 					},
 					{
-						Name: "baz",
+						Name:     "baz",
+						IDPrefix: "permbaz",
 						Relationships: []Relationship{
 							{
 								Relation: "bar",
@@ -319,7 +327,8 @@ func TestPolicy(t *testing.T) {
 			Input: PolicyDocument{
 				ResourceTypes: []ResourceType{
 					{
-						Name: "foo",
+						Name:     "foo",
+						IDPrefix: "permfoo",
 						Relationships: []Relationship{
 							{
 								Relation: "bar",
@@ -330,7 +339,8 @@ func TestPolicy(t *testing.T) {
 						},
 					},
 					{
-						Name: "baz",
+						Name:     "baz",
+						IDPrefix: "permbaz",
 						Relationships: []Relationship{
 							{
 								Relation: "bar",
@@ -379,7 +389,8 @@ func TestPolicy(t *testing.T) {
 			Input: PolicyDocument{
 				ResourceTypes: []ResourceType{
 					{
-						Name: "foo",
+						Name:     "foo",
+						IDPrefix: "permfoo",
 					},
 					{
 						Name:     "rolev2",
@@ -428,7 +439,8 @@ func TestPolicy(t *testing.T) {
 				},
 				ResourceTypes: []ResourceType{
 					{
-						Name: "tenant",
+						Name:     "tenant",
+						IDPrefix: "tnntten",
 					},
 					{
 						Name:     "user",
