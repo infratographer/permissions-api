@@ -11,6 +11,7 @@ import (
 
 	"go.infratographer.com/permissions-api/internal/types"
 
+	"go.infratographer.com/x/gidx"
 	"gopkg.in/yaml.v3"
 )
 
@@ -231,7 +232,6 @@ func LoadPolicyDocumentFromDirectory(directoryPath string) (PolicyDocument, erro
 
 		return nil
 	})
-
 	if err != nil {
 		return PolicyDocument{}, err
 	}
@@ -287,6 +287,10 @@ func (v *policy) validateUnions() error {
 
 func (v *policy) validateResourceTypes() error {
 	for _, resourceType := range v.rt {
+		if _, err := gidx.NewID(resourceType.IDPrefix); err != nil {
+			return fmt.Errorf("%w: %s", err, resourceType.Name)
+		}
+
 		for _, rel := range resourceType.Relationships {
 			for _, tt := range rel.TargetTypes {
 				if _, ok := v.rt[tt.Name]; !ok {
