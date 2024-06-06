@@ -394,22 +394,22 @@ func (v *policy) validateActionBindings() error {
 		}
 
 		if _, ok := bindingMap[key]; ok {
-			return fmt.Errorf("%d: %w", i, ErrorActionBindingExists)
+			return fmt.Errorf("%d (%s:%s): %w", i, binding.TypeName, binding.ActionName, ErrorActionBindingExists)
 		}
 
 		bindingMap[key] = struct{}{}
 
 		if _, ok := v.ac[binding.ActionName]; !ok {
-			return fmt.Errorf("%d: %s: %w", i, binding.ActionName, ErrorUnknownAction)
+			return fmt.Errorf("%d (%s:%s): %s: %w", i, binding.TypeName, binding.ActionName, binding.ActionName, ErrorUnknownAction)
 		}
 
 		rt, ok := v.rt[binding.TypeName]
 		if !ok {
-			return fmt.Errorf("%d: %s: %w", i, binding.TypeName, ErrorUnknownType)
+			return fmt.Errorf("%d (%s:%s): %s: %w", i, binding.TypeName, binding.ActionName, binding.TypeName, ErrorUnknownType)
 		}
 
 		if err := v.validateConditions(rt, binding.Conditions); err != nil {
-			return fmt.Errorf("%d: conditions: %w", i, err)
+			return fmt.Errorf("%d (%s:%s): conditions: %w", i, binding.TypeName, binding.ActionName, err)
 		}
 	}
 
