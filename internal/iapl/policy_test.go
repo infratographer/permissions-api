@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.infratographer.com/x/gidx"
 
 	"go.infratographer.com/permissions-api/internal/testingx"
 	"go.infratographer.com/permissions-api/internal/types"
@@ -34,6 +35,21 @@ func TestPolicy(t *testing.T) {
 			},
 			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
 				require.ErrorIs(t, res.Err, ErrorTypeExists)
+			},
+		},
+		{
+			Name: "Invalid prefix ID",
+			Input: PolicyDocument{
+				ResourceTypes: []ResourceType{
+					{
+						Name:     "foo",
+						IDPrefix: "fooooooooooooooooooooo",
+					},
+				},
+			},
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[Policy]) {
+				require.Error(t, res.Err)
+				require.ErrorContains(t, res.Err, (&gidx.ErrInvalidID{}).Error())
 			},
 		},
 		{
@@ -180,7 +196,8 @@ func TestPolicy(t *testing.T) {
 			Input: PolicyDocument{
 				ResourceTypes: []ResourceType{
 					{
-						Name: "foo",
+						Name:     "foo",
+						IDPrefix: "permfoo",
 					},
 				},
 				Actions: []Action{
@@ -224,7 +241,8 @@ func TestPolicy(t *testing.T) {
 						},
 					},
 					{
-						Name: "baz",
+						Name:     "baz",
+						IDPrefix: "permbaz",
 					},
 				},
 				Unions: []Union{

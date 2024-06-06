@@ -287,15 +287,14 @@ func (v *policy) validateUnions() error {
 
 func (v *policy) validateResourceTypes() error {
 	for _, resourceType := range v.rt {
+		if _, err := gidx.NewID(resourceType.IDPrefix); err != nil {
+			return fmt.Errorf("%w: %s", err, resourceType.Name)
+		}
+
 		for _, rel := range resourceType.Relationships {
 			for _, tt := range rel.TargetTypes {
-				rr, ok := v.rt[tt.Name]
-				if !ok {
+				if _, ok := v.rt[tt.Name]; !ok {
 					return fmt.Errorf("%s: relationships: %s: %w", resourceType.Name, tt.Name, ErrorUnknownType)
-				}
-
-				if _, err := gidx.NewID(rr.IDPrefix); err != nil {
-					return fmt.Errorf("%s: relationships: %s: %w", resourceType.Name, tt.Name, err)
 				}
 
 				if tt.SubjectRelation != "" && !v.findRelationship(v.rt[tt.Name].Relationships, tt.SubjectRelation) && !v.findActionBinding(tt.SubjectRelation, tt.Name) {
