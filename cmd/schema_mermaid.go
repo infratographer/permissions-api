@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"text/template"
 
 	"go.infratographer.com/permissions-api/internal/iapl"
@@ -11,22 +12,39 @@ import (
 var (
 	mermaidTemplate = `erDiagram
 {{- if ne .RBAC nil}}
-	{{ .RBAC.RoleBindingResource }} }o--o{ {{ .RBAC.RoleResource }} : role
+	{{ .RBAC.RoleBindingResource.Name }} }o--o{ {{ .RBAC.RoleResource.Name }} : role
 	{{- range $subj := .RBAC.RoleBindingSubjects }}
-	{{ $.RBAC.RoleBindingResource }} }o--o{ {{ $subj.Name }} : subject
+	{{ $.RBAC.RoleBindingResource.Name }} }o--o{ {{ $subj.Name }} : subject
 	{{- end }}
 {{- end }}
 
 {{- range $resource := .ResourceTypes }}
 	{{ $resource.Name }} {
 		id_prefix {{ $resource.IDPrefix }}
-		{{- range $action := index $.Actions $resource.Name }}
+		{{- range $action, $relations := index $.Actions $resource.Name }}
 		action {{ $action }}
-		{{- end }}
-		{{- range $relation, $actions := index $.RelatedActions $resource.Name }}
-		{{- range $action := $actions }}
-		{{ $relation }}_action {{ $action }}
-		{{- end }}
+			{{- $quoted := false }}
+			{{- with index $relations "!!SELF!!" }}
+				{{- " \"self" }}
+				{{- $quoted = true }}
+			{{- end }}
+			{{- range $relation := $.RelationOrder }}
+				{{- with index $relations $relation }}
+					{{- range $i, $rel_action := . }}
+						{{- if not $quoted }}
+							{{- " \"" }}
+							{{- $quoted = true }}
+						{{- else }}
+							{{- " | " }}
+						{{- end }}
+
+						{{- $relation }}>{{- $rel_action }}
+					{{- end }}
+				{{- end }}
+			{{- end }}
+			{{- if $quoted }}
+				{{- "\"" }}
+			{{- end }}
 		{{- end }}
 	}
     {{- range $rel := $resource.Relationships }}
@@ -39,13 +57,30 @@ var (
 {{- end }}
 {{- range $union := .Unions }}
 	{{ $union.Name }} {
-		{{- range $action := index $.Actions $union.Name }}
+		{{- range $action, $relations := index $.Actions $union.Name }}
 		action {{ $action }}
-		{{- end }}
-		{{- range $relation, $actions := index $.RelatedActions $union.Name }}
-		{{- range $action := $actions }}
-		{{ $relation }}_action {{ $action }}
-		{{- end }}
+			{{- $quoted := false }}
+			{{- with index $relations "!!SELF!!" }}
+				{{- " \"self" }}
+				{{- $quoted = true }}
+			{{- end }}
+			{{- range $relation := $.RelationOrder }}
+				{{- with index $relations $relation }}
+					{{- range $i, $rel_action := . }}
+						{{- if not $quoted }}
+							{{- " \"" }}
+							{{- $quoted = true }}
+						{{- else }}
+							{{- " | " }}
+						{{- end }}
+
+						{{- $relation }}>{{- $rel_action }}
+					{{- end }}
+				{{- end }}
+			{{- end }}
+			{{- if $quoted }}
+				{{- "\"" }}
+			{{- end }}
 		{{- end }}
 	}
 	{{- range $typ := $union.ResourceTypes }}
@@ -59,11 +94,11 @@ var (
 )
 
 type mermaidContext struct {
-	ResourceTypes  []iapl.ResourceType
-	Unions         []iapl.Union
-	Actions        map[string][]string
-	RelatedActions map[string]map[string][]string
-	RBAC           *iapl.RBAC
+	ResourceTypes []iapl.ResourceType
+	Unions        []iapl.Union
+	Actions       map[string]map[string]map[string][]string
+	RelationOrder []string
+	RBAC          *iapl.RBAC
 }
 
 func outputPolicyMermaid(dirPath string, markdown bool) {
@@ -81,31 +116,49 @@ func outputPolicyMermaid(dirPath string, markdown bool) {
 		policy = iapl.DefaultPolicyDocument()
 	}
 
-	actions := map[string][]string{}
-	relatedActions := map[string]map[string][]string{}
+	actions := map[string]map[string]map[string][]string{}
+	relations := []string{}
 
 	for _, binding := range policy.ActionBindings {
 		for _, cond := range binding.Conditions {
 			if cond.RoleBinding != nil {
-				actions[binding.TypeName] = append(actions[binding.TypeName], binding.ActionName)
+				if _, ok := actions[binding.TypeName]; !ok {
+					actions[binding.TypeName] = make(map[string]map[string][]string)
+				}
+
+				if _, ok := actions[binding.TypeName][binding.ActionName]; !ok {
+					actions[binding.TypeName][binding.ActionName] = make(map[string][]string)
+				}
+
+				actions[binding.TypeName][binding.ActionName]["!!SELF!!"] = append(actions[binding.TypeName][binding.ActionName]["!!SELF!!"], binding.ActionName)
 			}
 
 			if cond.RelationshipAction != nil {
-				if _, ok := relatedActions[binding.TypeName]; !ok {
-					relatedActions[binding.TypeName] = make(map[string][]string)
+				if _, ok := actions[binding.TypeName]; !ok {
+					actions[binding.TypeName] = make(map[string]map[string][]string)
 				}
 
-				relatedActions[binding.TypeName][cond.RelationshipAction.Relation] = append(relatedActions[binding.TypeName][cond.RelationshipAction.Relation], cond.RelationshipAction.ActionName)
+				if _, ok := actions[binding.TypeName][binding.ActionName]; !ok {
+					actions[binding.TypeName][binding.ActionName] = make(map[string][]string)
+				}
+
+				actions[binding.TypeName][binding.ActionName][cond.RelationshipAction.Relation] = append(actions[binding.TypeName][binding.ActionName][cond.RelationshipAction.Relation], cond.RelationshipAction.ActionName)
+
+				if !slices.Contains(relations, cond.RelationshipAction.Relation) {
+					relations = append(relations, cond.RelationshipAction.Relation)
+				}
 			}
 		}
 	}
 
+	slices.Sort(relations)
+
 	ctx := mermaidContext{
-		ResourceTypes:  policy.ResourceTypes,
-		Unions:         policy.Unions,
-		Actions:        actions,
-		RelatedActions: relatedActions,
-		RBAC:           nil,
+		ResourceTypes: policy.ResourceTypes,
+		Unions:        policy.Unions,
+		Actions:       actions,
+		RelationOrder: relations,
+		RBAC:          nil,
 	}
 
 	if policy.RBAC != nil {
