@@ -1,8 +1,6 @@
 run:
   build-tags:
     - testtools
-  skip-dirs:
-    - internal/models
 
 linters-settings:
   goimports:
@@ -23,15 +21,15 @@ linters:
 
     # additional linters
     - bodyclose
+    - err113
     - gocritic
     - gocyclo
-    - goerr113
     - gofmt
     # - gofumpt
     - goimports
-    - gomnd
     - govet
     - misspell
+    - mnd
     - noctx
     - revive
     - stylecheck
@@ -40,6 +38,8 @@ linters:
 
     # - bod
 issues:
+  exclude-dirs:
+    - internal/models
   exclude-rules:
     - path: (.+)_test.go
       linters:
