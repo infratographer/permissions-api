@@ -11,11 +11,11 @@
     },
     {
       "matchPackagePrefixes": ["go.opentelemetry.io"],
-      "groupName": "Update OTEL",
-      "groupSlug": "update-otel"
+      "groupName": "OTEL Packages"
     }
   ],
   "postUpdateOptions": [
-    "gomodTidy"
+    "gomodTidy",
+    "helmUpdateSubChartArchives"
   ]
 }
