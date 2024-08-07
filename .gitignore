@@ -39,4 +39,5 @@ resolver.conf
 
 # binary files
 permissions-api
+!chart/permissions-api
 tmp
