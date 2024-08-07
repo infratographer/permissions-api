@@ -303,8 +303,8 @@ github.com/ydb-platform/ydb-go-sdk/v3 v3.55.1 h1:Ebo6J5AMXgJ3A438ECYotA0aK7ETqjQ
 github.com/ydb-platform/ydb-go-sdk/v3 v3.55.1/go.mod h1:udNPW8eupyH/EZocecFmaSNJacKKYjzQa7cVgX5U2nc=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
-go.infratographer.com/x v0.5.1 h1:wJQWOyuDx0H/yj0FMG6PQUq1veSJnEgssIkbQzU7vQI=
-go.infratographer.com/x v0.5.1/go.mod h1:IyZALpwaaviUIN8bGp9cU0hnn1mn0A/6zi70XES4+iE=
+go.infratographer.com/x v0.5.3 h1:Ul50kwszNWPSf9Tds7RKmSQx+QHZbE8Jy9J38cEztP8=
+go.infratographer.com/x v0.5.3/go.mod h1:IyZALpwaaviUIN8bGp9cU0hnn1mn0A/6zi70XES4+iE=
 go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho v0.49.0 h1:o6uIusuFp29T4+GgCM7K9+O5t+N6BlqxmTx2cyvNau0=
 go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho v0.49.0/go.mod h1:juGX+uK8rUXMdZiUTM7WbiHt0pxg9pjOJNr3INg1awo=
 go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.49.0 h1:4Pp6oUg3+e/6M4C0A/3kJ2VYa++dsWVTtGgLVj5xtHg=
