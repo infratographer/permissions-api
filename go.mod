@@ -5,7 +5,7 @@ go 1.22
 require (
 	github.com/authzed/authzed-go v0.11.1
 	github.com/authzed/grpcutil v0.0.0-20240123194739-2ea1e3d2d98b
-	github.com/cockroachdb/cockroach-go/v2 v2.3.7
+	github.com/cockroachdb/cockroach-go/v2 v2.3.8
 	github.com/go-jose/go-jose/v4 v4.0.1
 	github.com/jackc/pgx/v5 v5.5.5
 	github.com/labstack/echo/v4 v4.12.0
@@ -49,7 +49,7 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
-	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
+	github.com/jackc/pgservicefile v0.0.0-20231201235250-de7065d80cb9 // indirect
 	github.com/jackc/puddle/v2 v2.2.1 // indirect
 	github.com/jaevor/go-nanoid v1.3.0 // indirect
 	github.com/jzelinskie/stringz v0.0.3 // indirect
