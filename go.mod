@@ -7,7 +7,7 @@ require (
 	github.com/authzed/grpcutil v0.0.0-20240123194739-2ea1e3d2d98b
 	github.com/cockroachdb/cockroach-go/v2 v2.3.8
 	github.com/go-jose/go-jose/v4 v4.0.4
-	github.com/jackc/pgx/v5 v5.5.5
+	github.com/jackc/pgx/v5 v5.6.0
 	github.com/labstack/echo/v4 v4.12.0
 	github.com/pkg/errors v0.9.1
 	github.com/pressly/goose/v3 v3.21.1
