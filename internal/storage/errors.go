@@ -8,7 +8,7 @@ import (
 
 var (
 	// ErrNoRoleFound is returned when no role is found when retrieving or deleting a role.
-	ErrNoRoleFound = errors.New("role not found")
+	ErrNoRoleFound = errors.New("role not found in database")
 
 	// ErrRoleAlreadyExists is returned when creating a role which already has an existing record.
 	ErrRoleAlreadyExists = errors.New("role already exists")

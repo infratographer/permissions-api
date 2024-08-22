@@ -13,7 +13,6 @@ import (
 
 	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/spicedbx"
-	"go.infratographer.com/permissions-api/internal/storage"
 	"go.infratographer.com/permissions-api/internal/storage/teststore"
 	"go.infratographer.com/permissions-api/internal/testingx"
 	"go.infratographer.com/permissions-api/internal/types"
@@ -96,14 +95,26 @@ func TestCreateRoles(t *testing.T) {
 	ctx := context.Background()
 	e := testEngine(ctx, t, namespace, testPolicy())
 
-	testCases := []testingx.TestCase[[]string, []types.Role]{
+	testCases := []testingx.TestCase[[]string, types.Role]{
 		{
 			Name: "CreateInvalidAction",
 			Input: []string{
 				"bad_action",
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				assert.Error(t, res.Err)
+			},
+		},
+		{
+			Name:  "CreateNoActions",
+			Input: []string{},
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+				expActions := []string{}
+
+				require.NoError(t, res.Err)
+
+				role := res.Success
+				assert.Equal(t, expActions, role.Actions)
 			},
 		},
 		{
@@ -111,21 +122,20 @@ func TestCreateRoles(t *testing.T) {
 			Input: []string{
 				"loadbalancer_get",
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				expActions := []string{
 					"loadbalancer_get",
 				}
 
-				assert.NoError(t, res.Err)
-				require.Equal(t, 1, len(res.Success))
+				require.NoError(t, res.Err)
 
-				role := res.Success[0]
+				role := res.Success
 				assert.Equal(t, expActions, role.Actions)
 			},
 		},
 	}
 
-	testFn := func(ctx context.Context, actions []string) testingx.TestResult[[]types.Role] {
+	testFn := func(ctx context.Context, actions []string) testingx.TestResult[types.Role] {
 		tenID, err := gidx.NewID("tnntten")
 		require.NoError(t, err)
 		tenRes, err := e.NewResourceFromID(tenID)
@@ -133,17 +143,20 @@ func TestCreateRoles(t *testing.T) {
 		actorRes, err := e.NewResourceFromID(gidx.MustNewID("idntusr"))
 		require.NoError(t, err)
 
-		_, err = e.CreateRole(ctx, actorRes, tenRes, "test", actions)
+		role, err := e.CreateRole(ctx, actorRes, tenRes, "test", actions)
 		if err != nil {
-			return testingx.TestResult[[]types.Role]{
+			return testingx.TestResult[types.Role]{
 				Err: err,
 			}
 		}
 
-		roles, err := e.ListRoles(ctx, tenRes)
+		roleResource, err := e.NewResourceFromID(role.ID)
+		require.NoError(t, err)
 
-		return testingx.TestResult[[]types.Role]{
-			Success: roles,
+		obs, err := e.GetRole(ctx, roleResource)
+
+		return testingx.TestResult[types.Role]{
+			Success: obs,
 			Err:     err,
 		}
 	}
@@ -232,7 +245,7 @@ func TestRoleUpdate(t *testing.T) {
 			Input: gidx.MustNewID(RolePrefix),
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				require.Error(t, res.Err)
-				assert.ErrorIs(t, res.Err, storage.ErrNoRoleFound)
+				assert.ErrorIs(t, res.Err, ErrRoleNotFound)
 			},
 		},
 		{

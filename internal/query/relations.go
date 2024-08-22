@@ -408,7 +408,7 @@ func (e *engine) UpdateRole(ctx context.Context, actor, roleResource types.Resou
 		return types.Role{}, err
 	}
 
-	err = e.store.LockRoleForUpdate(dbCtx, roleResource.ID)
+	err = e.lockRoleForUpdate(dbCtx, roleResource)
 	if err != nil {
 		sErr := fmt.Errorf("failed to lock role: %s: %w", roleResource.ID, err)
 
@@ -913,12 +913,18 @@ func (e *engine) ListRoles(ctx context.Context, resource types.Resource) ([]type
 
 // listRoleResourceActions returns all resources and action relations for the provided resource type to the provided role.
 // Note: The actions returned by this function are the spicedb relationship action.
-func (e *engine) listRoleResourceActions(ctx context.Context, role types.Resource, resTypeName string) (map[types.Resource][]string, error) {
-	resType := e.namespace + "/" + resTypeName
+func (e *engine) listRoleResourceActions(ctx context.Context, role storage.Role) ([]string, error) {
+	roleOwnerResource, err := e.NewResourceFromID(role.ResourceID)
+	if err != nil {
+		return nil, err
+	}
+
+	resType := e.namespace + "/" + roleOwnerResource.Type
 	roleType := e.namespace + "/role"
 
 	filter := &pb.RelationshipFilter{
-		ResourceType: resType,
+		ResourceType:       resType,
+		OptionalResourceId: roleOwnerResource.ID.String(),
 		OptionalSubjectFilter: &pb.SubjectFilter{
 			SubjectType:       roleType,
 			OptionalSubjectId: role.ID.String(),
@@ -933,84 +939,47 @@ func (e *engine) listRoleResourceActions(ctx context.Context, role types.Resourc
 		return nil, err
 	}
 
-	resourceIDActions := make(map[gidx.PrefixedID][]string)
+	out := make([]string, 0, len(relationships))
 
 	for _, rel := range relationships {
-		resourceID, err := gidx.Parse(rel.Resource.ObjectId)
-		if err != nil {
-			return nil, err
-		}
+		action := relationToAction(rel.Relation)
 
-		resourceIDActions[resourceID] = append(resourceIDActions[resourceID], rel.Relation)
+		out = append(out, action)
 	}
 
-	resourceActions := make(map[types.Resource][]string, len(resourceIDActions))
-
-	for resID, actions := range resourceIDActions {
-		res, err := e.NewResourceFromID(resID)
-		if err != nil {
-			return nil, err
-		}
-
-		resourceActions[res] = actions
-	}
-
-	return resourceActions, nil
+	return out, nil
 }
 
-// GetRole gets the role with it's actions.
+// GetRole gets the given role and its actions.
 func (e *engine) GetRole(ctx context.Context, roleResource types.Resource) (types.Role, error) {
-	var (
-		resActions map[types.Resource][]string
-		err        error
-	)
-
-	for _, resType := range e.schemaRoleables {
-		resActions, err = e.listRoleResourceActions(ctx, roleResource, resType.Name)
-		if err != nil {
-			return types.Role{}, err
-		}
-
-		// roles are only ever created for a single resource, so we can break after the first one is found.
-		if len(resActions) != 0 {
-			break
-		}
+	dbRole, err := e.getStorageRole(ctx, roleResource)
+	if err != nil {
+		return types.Role{}, err
 	}
 
-	if len(resActions) > 1 {
-		return types.Role{}, ErrRoleHasTooManyResources
+	actions, err := e.listRoleResourceActions(ctx, dbRole)
+	if err != nil {
+		return types.Role{}, err
 	}
 
-	// returns the first resources actions.
-	for _, actions := range resActions {
-		for i, action := range actions {
-			actions[i] = relationToAction(action)
-		}
+	out := types.Role{
+		ID:      roleResource.ID,
+		Name:    dbRole.Name,
+		Actions: actions,
 
-		dbRole, err := e.store.GetRoleByID(ctx, roleResource.ID)
-		if err != nil && !errors.Is(err, storage.ErrNoRoleFound) {
-			e.logger.Error("error while getting role", zap.Error(err))
-		}
-
-		return types.Role{
-			ID:      roleResource.ID,
-			Name:    dbRole.Name,
-			Actions: actions,
-
-			ResourceID: dbRole.ResourceID,
-			CreatedBy:  dbRole.CreatedBy,
-			UpdatedBy:  dbRole.UpdatedBy,
-			CreatedAt:  dbRole.CreatedAt,
-			UpdatedAt:  dbRole.UpdatedAt,
-		}, nil
+		ResourceID: dbRole.ResourceID,
+		CreatedBy:  dbRole.CreatedBy,
+		UpdatedBy:  dbRole.UpdatedBy,
+		CreatedAt:  dbRole.CreatedAt,
+		UpdatedAt:  dbRole.UpdatedAt,
 	}
 
-	return types.Role{}, ErrRoleNotFound
+	return out, nil
 }
 
 // GetRoleResource gets the role's assigned resource.
 func (e *engine) GetRoleResource(ctx context.Context, roleResource types.Resource) (types.Resource, error) {
-	dbRole, err := e.store.GetRoleByID(ctx, roleResource.ID)
+	dbRole, err := e.getStorageRole(ctx, roleResource)
 	if err != nil {
 		return types.Resource{}, err
 	}
@@ -1029,7 +998,17 @@ func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource) er
 		return err
 	}
 
-	err = e.store.LockRoleForUpdate(dbCtx, roleResource.ID)
+	dbRole, err := e.getStorageRole(ctx, roleResource)
+	if err != nil {
+		return err
+	}
+
+	roleOwnerResource, err := e.NewResourceFromID(dbRole.ResourceID)
+	if err != nil {
+		return err
+	}
+
+	err = e.lockRoleForUpdate(dbCtx, roleResource)
 	if err != nil {
 		sErr := fmt.Errorf("failed to lock role: %s: %w", roleResource.ID, err)
 
@@ -1041,20 +1020,11 @@ func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource) er
 		return err
 	}
 
-	var resActions map[types.Resource][]string
+	actions, err := e.listRoleResourceActions(ctx, dbRole)
+	if err != nil {
+		logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
 
-	for _, resType := range e.schemaRoleables {
-		resActions, err = e.listRoleResourceActions(ctx, roleResource, resType.Name)
-		if err != nil {
-			logRollbackErr(e.logger, e.store.RollbackContext(dbCtx))
-
-			return err
-		}
-
-		// roles are only ever created for a single resource, so we can break after the first one is found.
-		if len(resActions) != 0 {
-			break
-		}
+		return err
 	}
 
 	roleType := e.namespace + "/role"
@@ -1069,15 +1039,16 @@ func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource) er
 		},
 	}
 
-	for resource, relActions := range resActions {
-		for _, relAction := range relActions {
-			filters = append(filters, &pb.RelationshipFilter{
-				ResourceType:          e.namespace + "/" + resource.Type,
-				OptionalResourceId:    resource.ID.String(),
-				OptionalRelation:      relAction,
-				OptionalSubjectFilter: roleSubjectFilter,
-			})
-		}
+	ownerType := e.namespace + "/" + roleOwnerResource.Type
+	ownerIDStr := roleOwnerResource.ID.String()
+
+	for _, relAction := range actions {
+		filters = append(filters, &pb.RelationshipFilter{
+			ResourceType:          ownerType,
+			OptionalResourceId:    ownerIDStr,
+			OptionalRelation:      relAction,
+			OptionalSubjectFilter: roleSubjectFilter,
+		})
 	}
 
 	_, err = e.store.DeleteRole(dbCtx, roleResource.ID)
@@ -1228,4 +1199,30 @@ func (e *engine) applyUpdates(ctx context.Context, updates []*pb.RelationshipUpd
 	}
 
 	return nil
+}
+
+func (e *engine) getStorageRole(ctx context.Context, roleResource types.Resource) (storage.Role, error) {
+	dbRole, err := e.store.GetRoleByID(ctx, roleResource.ID)
+
+	switch {
+	case err == nil:
+		return dbRole, nil
+	case errors.Is(err, storage.ErrNoRoleFound):
+		return storage.Role{}, ErrRoleNotFound
+	default:
+		return storage.Role{}, err
+	}
+}
+
+func (e *engine) lockRoleForUpdate(ctx context.Context, roleResource types.Resource) error {
+	err := e.store.LockRoleForUpdate(ctx, roleResource.ID)
+
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, storage.ErrNoRoleFound):
+		return ErrRoleNotFound
+	default:
+		return err
+	}
 }
