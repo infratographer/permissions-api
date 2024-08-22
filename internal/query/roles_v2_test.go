@@ -11,7 +11,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.infratographer.com/permissions-api/internal/iapl"
-	"go.infratographer.com/permissions-api/internal/storage"
 	"go.infratographer.com/permissions-api/internal/testingx"
 	"go.infratographer.com/permissions-api/internal/types"
 )
@@ -176,7 +175,7 @@ func TestGetRoleV2(t *testing.T) {
 			Name:  "GetRoleNotFound",
 			Input: missingRes,
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
-				assert.ErrorIs(t, res.Err, storage.ErrNoRoleFound)
+				assert.ErrorIs(t, res.Err, ErrRoleNotFound)
 			},
 		},
 		{
@@ -324,7 +323,7 @@ func TestUpdateRolesV2(t *testing.T) {
 				role:    notfoundRes,
 			},
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
-				assert.ErrorIs(t, res.Err, storage.ErrNoRoleFound)
+				assert.ErrorIs(t, res.Err, ErrRoleNotFound)
 			},
 			Sync: true,
 		},
@@ -460,7 +459,7 @@ func TestDeleteRolesV2(t *testing.T) {
 			Name:  "DeleteRoleNotFound",
 			Input: notfoundRes,
 			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
-				assert.ErrorIs(t, res.Err, storage.ErrNoRoleFound)
+				assert.ErrorIs(t, res.Err, ErrRoleNotFound)
 			},
 			Sync: true,
 		},
@@ -510,7 +509,7 @@ func TestDeleteRolesV2(t *testing.T) {
 				assert.NoError(t, res.Err)
 
 				_, err := e.GetRoleV2(ctx, roleRes)
-				assert.ErrorIs(t, err, storage.ErrNoRoleFound)
+				assert.ErrorIs(t, err, ErrRoleNotFound)
 			},
 			Sync: true,
 		},
