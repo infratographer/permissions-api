@@ -408,7 +408,7 @@ func (e *engine) UpdateRole(ctx context.Context, actor, roleResource types.Resou
 		return types.Role{}, err
 	}
 
-	err = e.store.LockRoleForUpdate(dbCtx, roleResource.ID)
+	err = e.lockRoleForUpdate(dbCtx, roleResource)
 	if err != nil {
 		sErr := fmt.Errorf("failed to lock role: %s: %w", roleResource.ID, err)
 
@@ -1008,7 +1008,7 @@ func (e *engine) DeleteRole(ctx context.Context, roleResource types.Resource) er
 		return err
 	}
 
-	err = e.store.LockRoleForUpdate(dbCtx, roleResource.ID)
+	err = e.lockRoleForUpdate(dbCtx, roleResource)
 	if err != nil {
 		sErr := fmt.Errorf("failed to lock role: %s: %w", roleResource.ID, err)
 
@@ -1211,5 +1211,18 @@ func (e *engine) getStorageRole(ctx context.Context, roleResource types.Resource
 		return storage.Role{}, ErrRoleNotFound
 	default:
 		return storage.Role{}, err
+	}
+}
+
+func (e *engine) lockRoleForUpdate(ctx context.Context, roleResource types.Resource) error {
+	err := e.store.LockRoleForUpdate(ctx, roleResource.ID)
+
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, storage.ErrNoRoleFound):
+		return ErrRoleNotFound
+	default:
+		return err
 	}
 }

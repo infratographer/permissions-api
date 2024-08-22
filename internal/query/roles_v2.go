@@ -234,7 +234,7 @@ func (e *engine) UpdateRoleV2(ctx context.Context, actor, roleResource types.Res
 		return types.Role{}, err
 	}
 
-	err = e.store.LockRoleForUpdate(dbCtx, roleResource.ID)
+	err = e.lockRoleForUpdate(dbCtx, roleResource)
 	if err != nil {
 		sErr := fmt.Errorf("failed to lock role: %s: %w", roleResource.ID, err)
 
@@ -360,7 +360,7 @@ func (e *engine) DeleteRoleV2(ctx context.Context, roleResource types.Resource) 
 		return err
 	}
 
-	err = e.store.LockRoleForUpdate(dbCtx, roleResource.ID)
+	err = e.lockRoleForUpdate(dbCtx, roleResource)
 	if err != nil {
 		sErr := fmt.Errorf("failed to lock role: %s: %w", roleResource.ID, err)
 
