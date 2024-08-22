@@ -202,7 +202,7 @@ func (e *engine) GetRoleV2(ctx context.Context, role types.Resource) (types.Role
 	}
 
 	// 2. Get role info (name, created_by, etc.) from permissions API DB
-	dbrole, err := e.store.GetRoleByID(ctx, role.ID)
+	dbrole, err := e.getStorageRole(ctx, role)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
@@ -399,7 +399,7 @@ func (e *engine) DeleteRoleV2(ctx context.Context, roleResource types.Resource) 
 		return err
 	}
 
-	dbRole, err := e.store.GetRoleByID(dbCtx, roleResource.ID)
+	dbRole, err := e.getStorageRole(dbCtx, roleResource)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
