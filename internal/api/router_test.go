@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -19,6 +20,8 @@ func TestErrorMiddleware(t *testing.T) {
 	ctx := context.Background()
 
 	e := echo.New()
+	e.Debug = true
+
 	e.Use(echoTestLogger(t, e))
 	e.Use(errorMiddleware)
 
@@ -27,7 +30,15 @@ func TestErrorMiddleware(t *testing.T) {
 
 		select {
 		case <-c.Request().Context().Done():
-			return c.Request().Context().Err()
+			err := c.Request().Context().Err()
+
+			switch errType {
+			case "":
+			case "echo":
+				return echo.NewHTTPError(http.StatusInternalServerError, "some message").WithInternal(err)
+			}
+
+			return err
 		case <-time.After(time.Second):
 		}
 
@@ -37,6 +48,8 @@ func TestErrorMiddleware(t *testing.T) {
 			return echo.ErrTeapot
 		case "other":
 			return io.ErrUnexpectedEOF
+		case "internalCancel":
+			return echo.NewHTTPError(http.StatusInternalServerError, "service error").WithInternal(context.Canceled)
 		}
 
 		return nil
@@ -95,6 +108,55 @@ func TestErrorMiddleware(t *testing.T) {
 				require.NotNil(t, res.Success)
 
 				assert.Equal(t, http.StatusUnprocessableEntity, res.Success.Code)
+			},
+		},
+		{
+			Name: "Canceled echo",
+			Input: testinput{
+				path:  "/test?error=echo",
+				delay: time.Second / 2,
+			},
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[*httptest.ResponseRecorder]) {
+				require.NoError(t, res.Err)
+				require.NotNil(t, res.Success)
+
+				require.Equal(t, http.StatusUnprocessableEntity, res.Success.Code)
+
+				resp := map[string]string{}
+
+				err := json.Unmarshal(res.Success.Body.Bytes(), &resp)
+				require.NoError(t, err, "no error expected decoding response body")
+
+				expect := map[string]string{
+					"error":   "code=422, message=some message, internal=context canceled",
+					"message": "some message",
+				}
+
+				assert.Equal(t, expect, resp, "unexpected response")
+			},
+		},
+		{
+			Name: "Canceled echo internal",
+			Input: testinput{
+				path: "/test?error=internalCancel",
+			},
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[*httptest.ResponseRecorder]) {
+				require.NoError(t, res.Err)
+				require.NotNil(t, res.Success)
+
+				require.Equal(t, http.StatusInternalServerError, res.Success.Code)
+
+				resp := map[string]string{}
+
+				err := json.Unmarshal(res.Success.Body.Bytes(), &resp)
+				require.NoError(t, err, "no error expected decoding response body")
+
+				expect := map[string]string{
+					"error":   "code=500, message=service error, internal=context canceled",
+					"message": "service error",
+				}
+
+				assert.Equal(t, expect, resp, "unexpected response")
 			},
 		},
 	}
