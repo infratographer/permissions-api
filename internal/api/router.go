@@ -98,22 +98,31 @@ func (r *Router) Routes(rg *echo.Group) {
 
 func errorMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		err := next(c)
+		origErr := next(c)
 
-		if err == nil {
+		if origErr == nil {
 			return nil
 		}
 
-		// If error is an echo.HTTPError simply return it
-		if _, ok := err.(*echo.HTTPError); ok {
-			return err
+		var (
+			checkErr = origErr
+			echoMsg  []any
+		)
+
+		// If error is an echo.HTTPError, extract it's message to be reused if status is rewritten.
+		// Additionally we unwrap the internal error which is then checked instead of the echo error.
+		if eerr, ok := origErr.(*echo.HTTPError); ok {
+			echoMsg = []any{eerr.Message}
+			checkErr = eerr.Internal
 		}
 
 		switch {
-		case errors.Is(err, context.Canceled):
-			return echo.ErrUnprocessableEntity.WithInternal(err)
+		// Only if the error is a context canceled error and the request context has been canceled.
+		// If the request was not canceled, then the context canceled error probably came from the service.
+		case errors.Is(checkErr, context.Canceled) && errors.Is(c.Request().Context().Err(), context.Canceled):
+			return echo.NewHTTPError(http.StatusUnprocessableEntity, echoMsg...).WithInternal(checkErr)
 		default:
-			return err
+			return origErr
 		}
 	}
 }
