@@ -96,6 +96,7 @@ func DefaultPolicyDocumentV2() iapl.PolicyDocument {
 				IDPrefix: "idntgrp",
 				RoleBindingV2: &iapl.ResourceRoleBindingV2{
 					InheritPermissionsFrom: []string{"parent"},
+					InheritAllActions:      true,
 				},
 				Relationships: []iapl.Relationship{
 					{Relation: "parent", TargetTypes: []types.TargetType{{Name: "group_parent"}}},
@@ -108,6 +109,7 @@ func DefaultPolicyDocumentV2() iapl.PolicyDocument {
 				IDPrefix: "tnntten",
 				RoleBindingV2: &iapl.ResourceRoleBindingV2{
 					InheritPermissionsFrom: []string{"parent"},
+					InheritAllActions:      true,
 				},
 				Relationships: []iapl.Relationship{
 					{Relation: "parent", TargetTypes: []types.TargetType{{Name: "tenant_parent"}}},
@@ -120,6 +122,7 @@ func DefaultPolicyDocumentV2() iapl.PolicyDocument {
 				IDPrefix: "loadbal",
 				RoleBindingV2: &iapl.ResourceRoleBindingV2{
 					InheritPermissionsFrom: []string{"owner"},
+					InheritAllActions:      true,
 				},
 				Relationships: []iapl.Relationship{
 					{Relation: "owner", TargetTypes: []types.TargetType{{Name: "resourceowner_relationship"}}},

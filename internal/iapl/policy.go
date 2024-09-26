@@ -799,7 +799,11 @@ func (v *policy) Schema() []types.ResourceType {
 
 				typeMap[b.TypeName].Relationships = append(typeMap[b.TypeName].Relationships, actionRel)
 			case c.RoleBindingV2 != nil && res.RoleBindingV2 != nil:
-				conditions = v.RBAC().CreateRoleBindingConditionsForAction(actionName, res.RoleBindingV2.InheritPermissionsFrom...)
+				if res.RoleBindingV2.InheritAllActions {
+					conditions = v.RBAC().CreateRoleBindingConditionsForAction(actionName, res.RoleBindingV2.InheritPermissionsFrom...)
+				} else {
+					conditions = v.RBAC().CreateRoleBindingConditionsForAction(actionName)
+				}
 
 				// add role-binding v2 conditions to the resource, if not exists
 				if _, ok := rbv2Actions[b.TypeName]; !ok {
