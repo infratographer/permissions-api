@@ -44,10 +44,10 @@ resourcetypes:
 
   - name: tenant
     idprefix: tnntten
-    rolebindingv2:
-      &permsFromParent
+    rolebindingv2: &permsFromParent
       inheritpermissionsfrom:
         - parent
+      inheritallactions: true
     relationships:
       - relation: parent
         targettypes:
@@ -80,6 +80,7 @@ resourcetypes:
     rolebindingv2:
       inheritpermissionsfrom:
         - owner
+      inheritallactions: true
     relationships:
       - relation: owner
         targettypes:

@@ -70,6 +70,9 @@ type ResourceRoleBindingV2 struct {
 	//
 	// Also see the RoleOwners field in the RBAC struct
 	InheritPermissionsFrom []string
+
+	// InheritAllActions adds relationship action lookups for all actions, not just role binding actions.
+	InheritAllActions bool
 }
 
 /*
