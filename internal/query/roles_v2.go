@@ -260,7 +260,7 @@ func (e *engine) UpdateRoleV2(ctx context.Context, actor, roleResource types.Res
 		newName = role.Name
 	}
 
-	addActions, rmActions := diff(role.Actions, newActions)
+	addActions, rmActions := diff(role.Actions, newActions, false)
 
 	// If no changes, return existing role
 	if newName == role.Name && len(addActions) == 0 && len(rmActions) == 0 {

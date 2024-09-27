@@ -459,7 +459,7 @@ func (e *engine) UpdateRoleBinding(ctx context.Context, actor, rb types.Resource
 		newSubjectIDs[i] = subj.SubjectResource.ID
 	}
 
-	add, remove := diff(current, incoming)
+	add, remove := diff(current, incoming, true)
 
 	// return if there are no changes
 	if (len(add) + len(remove)) == 0 {

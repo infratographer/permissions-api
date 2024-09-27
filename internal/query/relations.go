@@ -362,8 +362,8 @@ func (e *engine) CreateRole(ctx context.Context, actor, res types.Resource, role
 
 // diff determines which entities needs to be added and removed.
 // If no new entity are provided it is assumed no changes are requested.
-func diff(current, incoming []string) ([]string, []string) {
-	if len(incoming) == 0 {
+func diff(current, incoming []string, allowEmptyIncoming bool) ([]string, []string) {
+	if len(incoming) == 0 && !allowEmptyIncoming {
 		return nil, nil
 	}
 
@@ -445,7 +445,7 @@ func (e *engine) UpdateRole(ctx context.Context, actor, roleResource types.Resou
 		newName = role.Name
 	}
 
-	addActions, remActions := diff(role.Actions, newActions)
+	addActions, remActions := diff(role.Actions, newActions, false)
 
 	// If no changes, return existing role with no changes.
 	if newName == role.Name && len(addActions) == 0 && len(remActions) == 0 {

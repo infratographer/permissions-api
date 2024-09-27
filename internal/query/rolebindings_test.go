@@ -394,6 +394,17 @@ func TestUpdateRoleBinding(t *testing.T) {
 			},
 			Sync: true,
 		},
+		{
+			Name: "UpdateRoleBindingRemoveAllSubjects",
+			Input: input{
+				rb:   rbRes,
+				subj: []types.RoleBindingSubject{},
+			},
+			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.RoleBinding]) {
+				assert.NoError(t, res.Err)
+				assert.Len(t, res.Success.SubjectIDs, 0)
+			},
+		},
 	}
 
 	testFn := func(ctx context.Context, in input) testingx.TestResult[types.RoleBinding] {
