@@ -103,14 +103,6 @@ func (e *engine) CreateRoleBinding(
 	)
 	defer span.End()
 
-	if len(subjects) == 0 {
-		err := ErrCreateRoleBindingWithNoSubjects
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-
-		return types.RoleBinding{}, err
-	}
-
 	if err := e.isRoleBindable(ctx, roleResource, resource); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())

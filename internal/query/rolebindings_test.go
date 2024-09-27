@@ -122,17 +122,6 @@ func TestCreateRoleBinding(t *testing.T) {
 			},
 		},
 		{
-			Name: "CreateRoleBindingWithNoSubjects",
-			Input: input{
-				resource: root,
-				role:     roleRes,
-			},
-			CheckFn: func(ctx context.Context, t *testing.T, tr testingx.TestResult[types.RoleBinding]) {
-				assert.ErrorIs(t, tr.Err, ErrInvalidArgument)
-				assert.ErrorIs(t, tr.Err, ErrCreateRoleBindingWithNoSubjects)
-			},
-		},
-		{
 			Name: "CreateRoleBindingSuccess",
 			Input: input{
 				resource: root,
