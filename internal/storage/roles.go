@@ -15,7 +15,8 @@ type RoleService interface {
 	GetRoleByID(ctx context.Context, id gidx.PrefixedID) (Role, error)
 	GetResourceRoleByName(ctx context.Context, resourceID gidx.PrefixedID, name string) (Role, error)
 	ListResourceRoles(ctx context.Context, resourceID gidx.PrefixedID) ([]Role, error)
-	CreateRole(ctx context.Context, actorID gidx.PrefixedID, roleID gidx.PrefixedID, name string, resourceID gidx.PrefixedID) (Role, error)
+	ListManagerResourceRoles(ctx context.Context, manager string, resourceID gidx.PrefixedID) ([]Role, error)
+	CreateRole(ctx context.Context, actorID gidx.PrefixedID, roleID gidx.PrefixedID, name string, manager string, resourceID gidx.PrefixedID) (Role, error)
 	UpdateRole(ctx context.Context, actorID, roleID gidx.PrefixedID, name string) (Role, error)
 	DeleteRole(ctx context.Context, roleID gidx.PrefixedID) (Role, error)
 	LockRoleForUpdate(ctx context.Context, roleID gidx.PrefixedID) error
@@ -26,6 +27,7 @@ type RoleService interface {
 type Role struct {
 	ID         gidx.PrefixedID
 	Name       string
+	Manager    string
 	ResourceID gidx.PrefixedID
 	CreatedBy  gidx.PrefixedID
 	UpdatedBy  gidx.PrefixedID
@@ -47,6 +49,7 @@ func (e *engine) GetRoleByID(ctx context.Context, id gidx.PrefixedID) (Role, err
 		SELECT
 			id,
 			name,
+			manager,
 			resource_id,
 			created_by,
 			updated_by,
@@ -58,6 +61,7 @@ func (e *engine) GetRoleByID(ctx context.Context, id gidx.PrefixedID) (Role, err
 	).Scan(
 		&role.ID,
 		&role.Name,
+		&role.Manager,
 		&role.ResourceID,
 		&role.CreatedBy,
 		&role.UpdatedBy,
@@ -114,6 +118,7 @@ func (e *engine) GetResourceRoleByName(ctx context.Context, resourceID gidx.Pref
 		SELECT
 			id,
 			name,
+			manager,
 			resource_id,
 			created_by,
 			updated_by,
@@ -129,6 +134,7 @@ func (e *engine) GetResourceRoleByName(ctx context.Context, resourceID gidx.Pref
 	).Scan(
 		&role.ID,
 		&role.Name,
+		&role.Manager,
 		&role.ResourceID,
 		&role.CreatedBy,
 		&role.UpdatedBy,
@@ -158,6 +164,7 @@ func (e *engine) ListResourceRoles(ctx context.Context, resourceID gidx.Prefixed
 		SELECT
 			id,
 			name,
+			manager,
 			resource_id,
 			created_by,
 			updated_by,
@@ -178,7 +185,52 @@ func (e *engine) ListResourceRoles(ctx context.Context, resourceID gidx.Prefixed
 	for rows.Next() {
 		var role Role
 
-		if err := rows.Scan(&role.ID, &role.Name, &role.ResourceID, &role.CreatedBy, &role.UpdatedBy, &role.CreatedAt, &role.UpdatedAt); err != nil {
+		if err := rows.Scan(&role.ID, &role.Name, &role.Manager, &role.ResourceID, &role.CreatedBy, &role.UpdatedBy, &role.CreatedAt, &role.UpdatedAt); err != nil {
+			return nil, err
+		}
+
+		roles = append(roles, role)
+	}
+
+	return roles, nil
+}
+
+// ListManagerResourceRoles retrieves all roles associated with the provided resource ID.
+// If no roles are found an empty slice is returned.
+func (e *engine) ListManagerResourceRoles(ctx context.Context, manager string, resourceID gidx.PrefixedID) ([]Role, error) {
+	db, err := getContextDBQuery(ctx, e)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT
+			id,
+			name,
+			manager,
+			resource_id,
+			created_by,
+			updated_by,
+			created_at,
+			updated_at
+		FROM roles
+		WHERE
+			manager = $1
+			AND resource_id = $2
+		`,
+		manager,
+		resourceID.String(),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var roles []Role
+
+	for rows.Next() {
+		var role Role
+
+		if err := rows.Scan(&role.ID, &role.Name, &role.Manager, &role.ResourceID, &role.CreatedBy, &role.UpdatedBy, &role.CreatedAt, &role.UpdatedAt); err != nil {
 			return nil, err
 		}
 
@@ -194,7 +246,7 @@ func (e *engine) ListResourceRoles(ctx context.Context, resourceID gidx.Prefixed
 //
 // This method must be called with a context returned from BeginContext.
 // CommitContext or RollbackContext must be called afterwards if this method returns no error.
-func (e *engine) CreateRole(ctx context.Context, actorID, roleID gidx.PrefixedID, name string, resourceID gidx.PrefixedID) (Role, error) {
+func (e *engine) CreateRole(ctx context.Context, actorID, roleID gidx.PrefixedID, name string, manager string, resourceID gidx.PrefixedID) (Role, error) {
 	tx, err := getContextTx(ctx)
 	if err != nil {
 		return Role{}, err
@@ -204,13 +256,14 @@ func (e *engine) CreateRole(ctx context.Context, actorID, roleID gidx.PrefixedID
 
 	err = tx.QueryRowContext(ctx, `
 		INSERT
-			INTO roles (id, name, resource_id, created_by, updated_by, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $4, now(), now())
-		RETURNING id, name, resource_id, created_by, updated_by, created_at, updated_at
-		`, roleID.String(), name, resourceID.String(), actorID.String(),
+			INTO roles (id, name, manager, resource_id, created_by, updated_by, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $5, now(), now())
+		RETURNING id, name, manager, resource_id, created_by, updated_by, created_at, updated_at
+		`, roleID.String(), name, manager, resourceID.String(), actorID.String(),
 	).Scan(
 		&role.ID,
 		&role.Name,
+		&role.Manager,
 		&role.ResourceID,
 		&role.CreatedBy,
 		&role.UpdatedBy,
@@ -247,11 +300,12 @@ func (e *engine) UpdateRole(ctx context.Context, actorID, roleID gidx.PrefixedID
 
 	err = tx.QueryRowContext(ctx, `
 		UPDATE roles SET name = $1, updated_by = $2, updated_at = now() WHERE id = $3
-		RETURNING id, name, resource_id, created_by, updated_by, created_at, updated_at
+		RETURNING id, name, manager, resource_id, created_by, updated_by, created_at, updated_at
 		`, name, actorID.String(), roleID.String(),
 	).Scan(
 		&role.ID,
 		&role.Name,
+		&role.Manager,
 		&role.ResourceID,
 		&role.CreatedBy,
 		&role.UpdatedBy,
@@ -316,7 +370,7 @@ func (e *engine) BatchGetRoleByID(ctx context.Context, ids []gidx.PrefixedID) ([
 	inClause, args := e.buildBatchInClauseWithIDs(ids)
 	q := fmt.Sprintf(`
 		SELECT
-			id, name, resource_id,
+			id, name, manager, resource_id,
 			created_by, updated_by, created_at, updated_at
 		FROM roles
 		WHERE id IN (%s)
@@ -332,7 +386,7 @@ func (e *engine) BatchGetRoleByID(ctx context.Context, ids []gidx.PrefixedID) ([
 	for rows.Next() {
 		var role Role
 
-		if err := rows.Scan(&role.ID, &role.Name, &role.ResourceID, &role.CreatedBy, &role.UpdatedBy, &role.CreatedAt, &role.UpdatedAt); err != nil {
+		if err := rows.Scan(&role.ID, &role.Name, &role.Manager, &role.ResourceID, &role.CreatedBy, &role.UpdatedBy, &role.CreatedAt, &role.UpdatedAt); err != nil {
 			return nil, err
 		}
 

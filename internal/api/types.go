@@ -6,6 +6,7 @@ import (
 
 type createRoleRequest struct {
 	Name    string   `json:"name" binding:"required"`
+	Manager string   `json:"manager"`
 	Actions []string `json:"actions" binding:"required"`
 }
 
@@ -17,6 +18,7 @@ type updateRoleRequest struct {
 type roleResponse struct {
 	ID      gidx.PrefixedID `json:"id"`
 	Name    string          `json:"name"`
+	Manager string          `json:"manager,omitempty"`
 	Actions []string        `json:"actions"`
 
 	ResourceID gidx.PrefixedID `json:"resource_id,omitempty"`
@@ -77,8 +79,9 @@ type listRolesV2Response struct {
 }
 
 type listRolesV2Role struct {
-	ID   gidx.PrefixedID `json:"id"`
-	Name string          `json:"name"`
+	ID      gidx.PrefixedID `json:"id"`
+	Name    string          `json:"name"`
+	Manager string          `json:"manager"`
 }
 
 // RoleBindings
@@ -86,6 +89,7 @@ type listRolesV2Role struct {
 type roleBindingRequest struct {
 	RoleID     string            `json:"role_id" binding:"required"`
 	SubjectIDs []gidx.PrefixedID `json:"subject_ids" binding:"required"`
+	Manager    string            `json:"manager"`
 }
 
 type rolebindingUpdateRequest struct {
@@ -96,6 +100,7 @@ type roleBindingResponse struct {
 	ID         gidx.PrefixedID   `json:"id"`
 	ResourceID gidx.PrefixedID   `json:"resource_id"`
 	RoleID     gidx.PrefixedID   `json:"role_id"`
+	Manager    string            `json:"manager"`
 	SubjectIDs []gidx.PrefixedID `json:"subject_ids"`
 
 	CreatedBy gidx.PrefixedID `json:"created_by"`

@@ -50,7 +50,7 @@ func (e *Engine) CreateRelationships(context.Context, []types.Relationship) erro
 }
 
 // CreateRole creates a Role object and does not persist it anywhere.
-func (e *Engine) CreateRole(context.Context, types.Resource, types.Resource, string, []string) (types.Role, error) {
+func (e *Engine) CreateRole(context.Context, types.Resource, types.Resource, string, string, []string) (types.Role, error) {
 	args := e.Called()
 
 	retRole := args.Get(0).(types.Role)
@@ -60,12 +60,17 @@ func (e *Engine) CreateRole(context.Context, types.Resource, types.Resource, str
 
 // CreateRoleV2 creates a v2 role object
 // TODO: Implement this
-func (e *Engine) CreateRoleV2(context.Context, types.Resource, types.Resource, string, []string) (types.Role, error) {
+func (e *Engine) CreateRoleV2(context.Context, types.Resource, types.Resource, string, string, []string) (types.Role, error) {
 	return types.Role{}, nil
 }
 
 // ListRolesV2 list roles
 func (e *Engine) ListRolesV2(context.Context, types.Resource) ([]types.Role, error) {
+	return nil, nil
+}
+
+// ListManagerRolesV2 list roles
+func (e *Engine) ListManagerRolesV2(context.Context, string, types.Resource) ([]types.Role, error) {
 	return nil, nil
 }
 
@@ -127,6 +132,11 @@ func (e *Engine) ListRelationshipsTo(context.Context, types.Resource) ([]types.R
 
 // ListRoles returns nothing but satisfies the Engine interface.
 func (e *Engine) ListRoles(context.Context, types.Resource) ([]types.Role, error) {
+	return nil, nil
+}
+
+// ListManagerRoles returns nothing but satisfies the Engine interface.
+func (e *Engine) ListManagerRoles(context.Context, string, types.Resource) ([]types.Role, error) {
 	return nil, nil
 }
 
@@ -209,12 +219,17 @@ func (e *Engine) SubjectHasPermission(context.Context, types.Resource, string, t
 }
 
 // CreateRoleBinding returns nothing but satisfies the Engine interface.
-func (e *Engine) CreateRoleBinding(context.Context, types.Resource, types.Resource, types.Resource, []types.RoleBindingSubject) (types.RoleBinding, error) {
+func (e *Engine) CreateRoleBinding(context.Context, types.Resource, types.Resource, types.Resource, string, []types.RoleBindingSubject) (types.RoleBinding, error) {
 	return types.RoleBinding{}, nil
 }
 
 // ListRoleBindings returns nothing but satisfies the Engine interface.
 func (e *Engine) ListRoleBindings(context.Context, types.Resource, *types.Resource) ([]types.RoleBinding, error) {
+	return nil, nil
+}
+
+// ListManagerRoleBindings returns nothing but satisfies the Engine interface.
+func (e *Engine) ListManagerRoleBindings(context.Context, string, types.Resource, *types.Resource) ([]types.RoleBinding, error) {
 	return nil, nil
 }
 

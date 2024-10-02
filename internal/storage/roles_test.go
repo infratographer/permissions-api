@@ -29,7 +29,7 @@ func TestGetRoleByID(t *testing.T) {
 	dbCtx, err := store.BeginContext(ctx)
 	require.NoError(t, err, "no error expected beginning transaction context")
 
-	createdRole, err := store.CreateRole(dbCtx, actorID, roleID, roleName, resourceID)
+	createdRole, err := store.CreateRole(dbCtx, actorID, roleID, roleName, t.Name(), resourceID)
 	require.NoError(t, err, "no error expected while seeding database role")
 
 	err = store.CommitContext(dbCtx)
@@ -93,7 +93,7 @@ func TestListResourceRoles(t *testing.T) {
 	require.NoError(t, err, "no error expected beginning transaction context")
 
 	for roleName, roleID := range groups {
-		_, err := store.CreateRole(dbCtx, actorID, roleID, roleName, resourceID)
+		_, err := store.CreateRole(dbCtx, actorID, roleID, roleName, t.Name(), resourceID)
 
 		require.NoError(t, err, "no error expected creating role", roleName)
 	}
@@ -216,7 +216,7 @@ func TestCreateRole(t *testing.T) {
 			return result
 		}
 
-		result.Success, result.Err = store.CreateRole(dbCtx, actorID, input.id, input.name, resourceID)
+		result.Success, result.Err = store.CreateRole(dbCtx, actorID, input.id, input.name, t.Name(), resourceID)
 		if result.Err != nil {
 			store.RollbackContext(dbCtx) //nolint:errcheck // skip check in test
 
@@ -251,10 +251,10 @@ func TestUpdateRole(t *testing.T) {
 
 	require.NoError(t, err, "no error expected beginning transaction context")
 
-	createdDBRole1, err := store.CreateRole(dbCtx, actorID, role1ID, role1Name, resourceID)
+	createdDBRole1, err := store.CreateRole(dbCtx, actorID, role1ID, role1Name, t.Name(), resourceID)
 	require.NoError(t, err, "no error expected while seeding database role")
 
-	_, err = store.CreateRole(dbCtx, actorID, role2ID, role2Name, resourceID)
+	_, err = store.CreateRole(dbCtx, actorID, role2ID, role2Name, t.Name(), resourceID)
 	require.NoError(t, err, "no error expected while seeding database role 2")
 
 	err = store.CommitContext(dbCtx)
@@ -361,7 +361,7 @@ func TestDeleteRole(t *testing.T) {
 
 	require.NoError(t, err, "no error expected beginning transaction context")
 
-	createdDBRole, err := store.CreateRole(dbCtx, actorID, roleID, roleName, resourceID)
+	createdDBRole, err := store.CreateRole(dbCtx, actorID, roleID, roleName, t.Name(), resourceID)
 
 	require.NoError(t, err, "no error expected while seeding database role")
 

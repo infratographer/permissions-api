@@ -143,7 +143,7 @@ func TestCreateRoles(t *testing.T) {
 		actorRes, err := e.NewResourceFromID(gidx.MustNewID("idntusr"))
 		require.NoError(t, err)
 
-		role, err := e.CreateRole(ctx, actorRes, tenRes, "test", actions)
+		role, err := e.CreateRole(ctx, actorRes, tenRes, t.Name(), "test", actions)
 		if err != nil {
 			return testingx.TestResult[types.Role]{
 				Err: err,
@@ -175,7 +175,7 @@ func TestGetRoles(t *testing.T) {
 	actorRes, err := e.NewResourceFromID(gidx.MustNewID("idntusr"))
 	require.NoError(t, err)
 
-	role, err := e.CreateRole(ctx, actorRes, tenRes, "test", []string{"loadbalancer_get"})
+	role, err := e.CreateRole(ctx, actorRes, tenRes, t.Name(), "test", []string{"loadbalancer_get"})
 	require.NoError(t, err)
 	roleRes, err := e.NewResourceFromID(role.ID)
 	require.NoError(t, err)
@@ -233,7 +233,7 @@ func TestRoleUpdate(t *testing.T) {
 	actorUpdateRes, err := e.NewResourceFromID(gidx.MustNewID("idntusr"))
 	require.NoError(t, err)
 
-	role, err := e.CreateRole(ctx, actorRes, tenRes, "test", []string{"loadbalancer_get"})
+	role, err := e.CreateRole(ctx, actorRes, tenRes, t.Name(), "test", []string{"loadbalancer_get"})
 	require.NoError(t, err)
 	roles, err := e.ListRoles(ctx, tenRes)
 	require.NoError(t, err)
@@ -317,7 +317,7 @@ func TestListRoles(t *testing.T) {
 				tenRes, err := e.NewResourceFromID(tenID)
 				require.NoError(t, err)
 
-				role, err := e.CreateRole(ctx, actorRes, tenRes, t.Name(), []string{"loadbalancer_get"})
+				role, err := e.CreateRole(ctx, actorRes, tenRes, t.Name(), t.Name(), []string{"loadbalancer_get"})
 				require.NoError(t, err)
 				require.NotEmpty(t, role.ID)
 
@@ -342,7 +342,7 @@ func TestListRoles(t *testing.T) {
 				tenRes, err := e.NewResourceFromID(tenID)
 				require.NoError(t, err)
 
-				role, err := e.CreateRole(ctx, actorRes, tenRes, t.Name(), nil)
+				role, err := e.CreateRole(ctx, actorRes, tenRes, t.Name(), t.Name(), nil)
 				require.NoError(t, err)
 				require.NotEmpty(t, role.ID)
 
@@ -386,7 +386,7 @@ func TestRoleDelete(t *testing.T) {
 	actorRes, err := e.NewResourceFromID(gidx.MustNewID("idntusr"))
 	require.NoError(t, err)
 
-	role, err := e.CreateRole(ctx, actorRes, tenRes, "test", []string{"loadbalancer_get"})
+	role, err := e.CreateRole(ctx, actorRes, tenRes, t.Name(), "test", []string{"loadbalancer_get"})
 	require.NoError(t, err)
 	roles, err := e.ListRoles(ctx, tenRes)
 	require.NoError(t, err)
@@ -455,6 +455,7 @@ func TestAssignments(t *testing.T) {
 		ctx,
 		actorRes,
 		tenRes,
+		t.Name(),
 		"test",
 		[]string{
 			"loadbalancer_update",
@@ -515,6 +516,7 @@ func TestUnassignments(t *testing.T) {
 		ctx,
 		actorRes,
 		tenRes,
+		t.Name(),
 		"test",
 		[]string{
 			"loadbalancer_update",
@@ -768,6 +770,7 @@ func TestSubjectActions(t *testing.T) {
 		ctx,
 		actorRes,
 		tenRes,
+		t.Name(),
 		"test",
 		[]string{
 			"loadbalancer_update",

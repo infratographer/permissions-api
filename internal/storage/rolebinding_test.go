@@ -26,7 +26,7 @@ func TestGetRoleBindingByID(t *testing.T) {
 	dbCtx, err := store.BeginContext(ctx)
 	require.NoError(t, err, "no error expected beginning transaction context")
 
-	rb, err := store.CreateRoleBinding(dbCtx, actorID, rbID, resourceID)
+	rb, err := store.CreateRoleBinding(dbCtx, actorID, rbID, resourceID, t.Name())
 	require.NoError(t, err, "no error expected creating role binding")
 
 	err = store.CommitContext(dbCtx)
@@ -85,7 +85,7 @@ func TestListResourceRoleBindings(t *testing.T) {
 	require.NoError(t, err, "no error expected beginning transaction context")
 
 	for _, rbID := range rbIDs {
-		rbs[rbID], err = store.CreateRoleBinding(dbCtx, actorID, rbID, resourceID)
+		rbs[rbID], err = store.CreateRoleBinding(dbCtx, actorID, rbID, resourceID, t.Name())
 		require.NoError(t, err, "no error expected creating role binding")
 	}
 
@@ -173,7 +173,7 @@ func TestCreateRoleBinding(t *testing.T) {
 			return result
 		}
 
-		result.Success, result.Err = store.CreateRoleBinding(dbCtx, actorID, input, resourceID)
+		result.Success, result.Err = store.CreateRoleBinding(dbCtx, actorID, input, resourceID, t.Name())
 		if result.Err != nil {
 			store.RollbackContext(dbCtx) //nolint:errcheck // skip check in test
 
@@ -201,7 +201,7 @@ func TestUpdateRoleBinding(t *testing.T) {
 	dbCtx, err := store.BeginContext(ctx)
 	require.NoError(t, err, "no error expected beginning transaction context")
 
-	_, err = store.CreateRoleBinding(dbCtx, actorID, rbID, resourceID)
+	_, err = store.CreateRoleBinding(dbCtx, actorID, rbID, resourceID, t.Name())
 	require.NoError(t, err, "no error expected creating role binding")
 
 	err = store.CommitContext(dbCtx)
@@ -267,7 +267,7 @@ func TestDeleteRoleBinding(t *testing.T) {
 	dbCtx, err := store.BeginContext(ctx)
 	require.NoError(t, err, "no error expected beginning transaction context")
 
-	_, err = store.CreateRoleBinding(dbCtx, actorID, rbID, resourceID)
+	_, err = store.CreateRoleBinding(dbCtx, actorID, rbID, resourceID, t.Name())
 	require.NoError(t, err, "no error expected creating role binding")
 
 	err = store.CommitContext(dbCtx)

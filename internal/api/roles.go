@@ -14,6 +14,7 @@ import (
 	"go.infratographer.com/permissions-api/internal/iapl"
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/permissions-api/internal/storage"
+	"go.infratographer.com/permissions-api/internal/types"
 )
 
 func (r *Router) roleCreate(c echo.Context) error {
@@ -49,7 +50,7 @@ func (r *Router) roleCreate(c echo.Context) error {
 	}
 
 	role, err := r.engine.CreateRole(
-		ctx, subjectResource, resource,
+		ctx, subjectResource, resource, reqBody.Manager,
 		strings.TrimSpace(reqBody.Name), reqBody.Actions,
 	)
 
@@ -66,6 +67,7 @@ func (r *Router) roleCreate(c echo.Context) error {
 	resp := roleResponse{
 		ID:         role.ID,
 		Name:       role.Name,
+		Manager:    role.Manager,
 		Actions:    role.Actions,
 		ResourceID: role.ResourceID,
 		CreatedBy:  role.CreatedBy,
@@ -139,6 +141,7 @@ func (r *Router) roleUpdate(c echo.Context) error {
 	resp := roleResponse{
 		ID:         role.ID,
 		Name:       role.Name,
+		Manager:    role.Manager,
 		Actions:    role.Actions,
 		ResourceID: role.ResourceID,
 		CreatedBy:  role.CreatedBy,
@@ -202,6 +205,7 @@ func (r *Router) roleGet(c echo.Context) error {
 	resp := roleResponse{
 		ID:         role.ID,
 		Name:       role.Name,
+		Manager:    role.Manager,
 		Actions:    role.Actions,
 		ResourceID: role.ResourceID,
 		CreatedBy:  role.CreatedBy,
@@ -238,7 +242,16 @@ func (r *Router) rolesList(c echo.Context) error {
 		return err
 	}
 
-	roles, err := r.engine.ListRoles(ctx, resource)
+	var roles []types.Role
+
+	params := c.QueryParams()
+
+	if params.Has("manager") {
+		roles, err = r.engine.ListManagerRoles(ctx, params.Get("manager"), resource)
+	} else {
+		roles, err = r.engine.ListRoles(ctx, resource)
+	}
+
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "error getting role").SetInternal(err)
 	}
@@ -251,6 +264,7 @@ func (r *Router) rolesList(c echo.Context) error {
 		roleResp := roleResponse{
 			ID:        role.ID,
 			Name:      role.Name,
+			Manager:   role.Manager,
 			Actions:   role.Actions,
 			CreatedBy: role.CreatedBy,
 			UpdatedBy: role.UpdatedBy,

@@ -179,13 +179,13 @@ func TestExamplePolicy(t *testing.T) {
 	require.NoError(t, err)
 
 	// create roles
-	superadmin, err := e.CreateRoleV2(ctx, superuser, tnnttenroot, "superuser", allactions)
+	superadmin, err := e.CreateRoleV2(ctx, superuser, tnnttenroot, t.Name(), "superuser", allactions)
 	require.NoError(t, err)
 
-	iamadmin, err := e.CreateRoleV2(ctx, superuser, tnnttena, "iam_admin", iamactions)
+	iamadmin, err := e.CreateRoleV2(ctx, superuser, tnnttena, t.Name(), "iam_admin", iamactions)
 	require.NoError(t, err)
 
-	lbadmin, err := e.CreateRoleV2(ctx, superuser, tnnttenroot, "lb_admin", lbactions)
+	lbadmin, err := e.CreateRoleV2(ctx, superuser, tnnttenroot, t.Name(), "lb_admin", lbactions)
 	require.NoError(t, err)
 
 	tc := []testingx.TestCase[any, any]{
@@ -193,7 +193,7 @@ func TestExamplePolicy(t *testing.T) {
 			Name: "superuser can do anything",
 			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
 				role := types.Resource{Type: "role", ID: superadmin.ID}
-				_, err := e.CreateRoleBinding(ctx, superuser, tnnttenroot, role, []types.RoleBindingSubject{{SubjectResource: superuser}})
+				_, err := e.CreateRoleBinding(ctx, superuser, tnnttenroot, role, t.Name(), []types.RoleBindingSubject{{SubjectResource: superuser}})
 				require.NoError(t, err)
 
 				return ctx
@@ -229,7 +229,7 @@ func TestExamplePolicy(t *testing.T) {
 			Sync: true,
 			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
 				role := types.Resource{Type: "role", ID: lbadmin.ID}
-				_, err := e.CreateRoleBinding(ctx, superuser, tnnttena, role, []types.RoleBindingSubject{{SubjectResource: groupadmin}})
+				_, err := e.CreateRoleBinding(ctx, superuser, tnnttena, role, t.Name(), []types.RoleBindingSubject{{SubjectResource: groupadmin}})
 				require.NoError(t, err)
 
 				return ctx
@@ -279,7 +279,7 @@ func TestExamplePolicy(t *testing.T) {
 			Sync: true,
 			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
 				role := types.Resource{Type: "role", ID: iamadmin.ID}
-				_, err := e.CreateRoleBinding(ctx, superuser, tnnttena, role, []types.RoleBindingSubject{{SubjectResource: groupadminsubgroup}})
+				_, err := e.CreateRoleBinding(ctx, superuser, tnnttena, role, t.Name(), []types.RoleBindingSubject{{SubjectResource: groupadminsubgroup}})
 				require.NoError(t, err)
 
 				return ctx
@@ -326,7 +326,7 @@ func TestExamplePolicy(t *testing.T) {
 			Name: "iam-admin cannot be bind on tnntten-root",
 			CheckFn: func(ctx context.Context, t *testing.T, tr testingx.TestResult[any]) {
 				role := types.Resource{Type: "role", ID: iamadmin.ID}
-				_, err := e.CreateRoleBinding(ctx, superuser, tnnttenroot, role, []types.RoleBindingSubject{{SubjectResource: groupadminsubgroup}})
+				_, err := e.CreateRoleBinding(ctx, superuser, tnnttenroot, role, t.Name(), []types.RoleBindingSubject{{SubjectResource: groupadminsubgroup}})
 				assert.Error(t, err)
 				assert.ErrorIs(t, err, ErrRoleNotFound)
 			},

@@ -113,7 +113,7 @@ func createRole(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("error creating subject resource", "error", err)
 	}
 
-	role, err := engine.CreateRoleV2(ctx, subjectResource, resource, name, actions)
+	role, err := engine.CreateRoleV2(ctx, subjectResource, resource, "", name, actions)
 	if err != nil {
 		logger.Fatalw("error creating role", "error", err)
 	}
@@ -125,7 +125,7 @@ func createRole(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("error creating role resource", "error", err)
 	}
 
-	rb, err := engine.CreateRoleBinding(ctx, subjectResource, resource, roleres, rbsubj)
+	rb, err := engine.CreateRoleBinding(ctx, subjectResource, resource, roleres, "", rbsubj)
 	if err != nil {
 		logger.Fatalw("error creating role binding", "error", err)
 	}
