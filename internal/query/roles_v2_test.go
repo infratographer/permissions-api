@@ -130,7 +130,7 @@ func TestCreateRolesV2(t *testing.T) {
 	}
 
 	testFn := func(ctx context.Context, in input) testingx.TestResult[types.Role] {
-		r, err := e.CreateRoleV2(ctx, actor, in.owner, in.name, in.actions)
+		r, err := e.CreateRoleV2(ctx, actor, in.owner, t.Name(), in.name, in.actions)
 		if err != nil {
 			return testingx.TestResult[types.Role]{Err: err}
 		}
@@ -158,7 +158,7 @@ func TestGetRoleV2(t *testing.T) {
 	actor, err := e.NewResourceFromIDString("idntusr-actor")
 	require.NoError(t, err)
 
-	role, err := e.CreateRoleV2(ctx, actor, tenant, "lb_viewer", []string{"loadbalancer_list", "loadbalancer_get"})
+	role, err := e.CreateRoleV2(ctx, actor, tenant, t.Name(), "lb_viewer", []string{"loadbalancer_list", "loadbalancer_get"})
 	require.NoError(t, err)
 
 	roleRes, err := e.NewResourceFromID(role.ID)
@@ -231,13 +231,13 @@ func TestListRolesV2(t *testing.T) {
 	actor, err := e.NewResourceFromIDString("idntusr-actor")
 	require.NoError(t, err)
 
-	_, err = e.CreateRoleV2(ctx, actor, root, "lb_viewer", []string{"loadbalancer_list", "loadbalancer_get"})
+	_, err = e.CreateRoleV2(ctx, actor, root, t.Name(), "lb_viewer", []string{"loadbalancer_list", "loadbalancer_get"})
 	require.NoError(t, err)
 
-	_, err = e.CreateRoleV2(ctx, actor, root, "lb_editor", []string{"loadbalancer_list", "loadbalancer_get", "loadbalancer_update"})
+	_, err = e.CreateRoleV2(ctx, actor, root, t.Name(), "lb_editor", []string{"loadbalancer_list", "loadbalancer_get", "loadbalancer_update"})
 	require.NoError(t, err)
 
-	_, err = e.CreateRoleV2(ctx, actor, child, "custom_role", []string{"loadbalancer_list"})
+	_, err = e.CreateRoleV2(ctx, actor, child, t.Name(), "custom_role", []string{"loadbalancer_list"})
 	require.NoError(t, err)
 
 	invalidOwner, err := e.NewResourceFromIDString("idntgrp-group")
@@ -299,7 +299,7 @@ func TestUpdateRolesV2(t *testing.T) {
 	actor, err := e.NewResourceFromIDString("idntusr-actor")
 	require.NoError(t, err)
 
-	role, err := e.CreateRoleV2(ctx, actor, tenant, "lb_viewer", []string{"loadbalancer_list", "loadbalancer_get"})
+	role, err := e.CreateRoleV2(ctx, actor, tenant, t.Name(), "lb_viewer", []string{"loadbalancer_list", "loadbalancer_get"})
 	require.NoError(t, err)
 
 	roleRes, err := e.NewResourceFromID(role.ID)
@@ -413,7 +413,7 @@ func TestDeleteRolesV2(t *testing.T) {
 	actor, err := e.NewResourceFromIDString("idntusr-actor")
 	require.NoError(t, err)
 
-	role, err := e.CreateRoleV2(ctx, subj, root, "lb_viewer", []string{"loadbalancer_list", "loadbalancer_get"})
+	role, err := e.CreateRoleV2(ctx, subj, root, t.Name(), "lb_viewer", []string{"loadbalancer_list", "loadbalancer_get"})
 	require.NoError(t, err)
 
 	roleRes, err := e.NewResourceFromID(role.ID)
@@ -433,13 +433,13 @@ func TestDeleteRolesV2(t *testing.T) {
 	require.NoError(t, err)
 
 	// these bindings are expected to be deleted after the role is deleted
-	rbRoot, err := e.CreateRoleBinding(ctx, actor, root, roleRes, []types.RoleBindingSubject{{SubjectResource: subj}})
+	rbRoot, err := e.CreateRoleBinding(ctx, actor, root, roleRes, t.Name(), []types.RoleBindingSubject{{SubjectResource: subj}})
 	require.NoError(t, err)
 
-	rbChild, err := e.CreateRoleBinding(ctx, actor, child, roleRes, []types.RoleBindingSubject{{SubjectResource: subj}})
+	rbChild, err := e.CreateRoleBinding(ctx, actor, child, roleRes, t.Name(), []types.RoleBindingSubject{{SubjectResource: subj}})
 	require.NoError(t, err)
 
-	rbTheOtherChild, err := e.CreateRoleBinding(ctx, actor, theotherchild, roleRes, []types.RoleBindingSubject{{SubjectResource: subj}})
+	rbTheOtherChild, err := e.CreateRoleBinding(ctx, actor, theotherchild, roleRes, t.Name(), []types.RoleBindingSubject{{SubjectResource: subj}})
 	require.NoError(t, err)
 
 	rb, err := e.ListRoleBindings(ctx, root, &roleRes)

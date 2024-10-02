@@ -92,6 +92,7 @@ func (e *engine) GetRoleBinding(ctx context.Context, roleBinding types.Resource)
 func (e *engine) CreateRoleBinding(
 	ctx context.Context,
 	actor, resource, roleResource types.Resource,
+	manager string,
 	subjects []types.RoleBindingSubject,
 ) (types.RoleBinding, error) {
 	ctx, span := e.tracer.Start(
@@ -141,7 +142,7 @@ func (e *engine) CreateRoleBinding(
 		return types.RoleBinding{}, err
 	}
 
-	rb, err := e.store.CreateRoleBinding(dbCtx, actor.ID, rbid, resource.ID)
+	rb, err := e.store.CreateRoleBinding(dbCtx, actor.ID, rbid, resource.ID, manager)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
@@ -338,6 +339,27 @@ func (e *engine) ListRoleBindings(ctx context.Context, resource types.Resource, 
 
 	e.logger.Debugf("listing role-bindings for resource: %s, optionalRole: %v", resource.ID, optionalRole)
 
+	return e.listRoleBindings(ctx, resource, optionalRole, nil)
+}
+
+func (e *engine) ListManagerRoleBindings(ctx context.Context, manager string, resource types.Resource, optionalRole *types.Resource) ([]types.RoleBinding, error) {
+	ctx, span := e.tracer.Start(
+		ctx, "engine.ListManagerRoleBinding",
+		trace.WithAttributes(
+			attribute.Stringer("resource_id", resource.ID),
+			attribute.String("manager", manager),
+		),
+	)
+	defer span.End()
+
+	e.logger.Debugf("listing manager %s role-bindings for resource: %s, optionalRole: %v", manager, resource.ID, optionalRole)
+
+	return e.listRoleBindings(ctx, resource, optionalRole, &manager)
+}
+
+func (e *engine) listRoleBindings(ctx context.Context, resource types.Resource, optionalRole *types.Resource, optionalManager *string) ([]types.RoleBinding, error) {
+	span := trace.SpanFromContext(ctx)
+
 	// 1. list all grants on the resource
 	listRbFilter := &pb.RelationshipFilter{
 		ResourceType:       e.namespaced(resource.Type),
@@ -385,6 +407,10 @@ func (e *engine) ListRoleBindings(ctx context.Context, resource types.Resource, 
 
 			errs = append(errs, err)
 
+			continue
+		}
+
+		if optionalManager != nil && rb.Manager != *optionalManager {
 			continue
 		}
 

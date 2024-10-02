@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.infratographer.com/permissions-api/internal/iapl"
+	"go.infratographer.com/permissions-api/internal/types"
 
 	"github.com/labstack/echo/v4"
 	"go.infratographer.com/x/gidx"
@@ -47,7 +48,7 @@ func (r *Router) roleV2Create(c echo.Context) error {
 	}
 
 	role, err := r.engine.CreateRoleV2(
-		ctx, subjectResource, resource,
+		ctx, subjectResource, resource, reqBody.Manager,
 		strings.TrimSpace(reqBody.Name), reqBody.Actions,
 	)
 	if err != nil {
@@ -57,6 +58,7 @@ func (r *Router) roleV2Create(c echo.Context) error {
 	resp := roleResponse{
 		ID:         role.ID,
 		Name:       role.Name,
+		Manager:    role.Manager,
 		Actions:    role.Actions,
 		ResourceID: role.ResourceID,
 		CreatedBy:  role.CreatedBy,
@@ -113,6 +115,7 @@ func (r *Router) roleV2Update(c echo.Context) error {
 	resp := roleResponse{
 		ID:         role.ID,
 		Name:       role.Name,
+		Manager:    role.Manager,
 		Actions:    role.Actions,
 		ResourceID: role.ResourceID,
 		CreatedBy:  role.CreatedBy,
@@ -159,6 +162,7 @@ func (r *Router) roleV2Get(c echo.Context) error {
 	resp := roleResponse{
 		ID:         role.ID,
 		Name:       role.Name,
+		Manager:    role.Manager,
 		Actions:    role.Actions,
 		ResourceID: role.ResourceID,
 		CreatedBy:  role.CreatedBy,
@@ -195,7 +199,16 @@ func (r *Router) roleV2sList(c echo.Context) error {
 		return err
 	}
 
-	roles, err := r.engine.ListRolesV2(ctx, resource)
+	var roles []types.Role
+
+	params := c.QueryParams()
+
+	if params.Has("manager") {
+		roles, err = r.engine.ListManagerRolesV2(ctx, params.Get("manager"), resource)
+	} else {
+		roles, err = r.engine.ListRolesV2(ctx, resource)
+	}
+
 	if err != nil {
 		return r.errorResponse("error getting roles", err)
 	}
@@ -206,8 +219,9 @@ func (r *Router) roleV2sList(c echo.Context) error {
 
 	for _, role := range roles {
 		roleResp := listRolesV2Role{
-			ID:   role.ID,
-			Name: role.Name,
+			ID:      role.ID,
+			Name:    role.Name,
+			Manager: role.Manager,
 		}
 
 		resp.Data = append(resp.Data, roleResp)

@@ -29,7 +29,7 @@ type Engine interface {
 	AssignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) error
 	UnassignSubjectRole(ctx context.Context, subject types.Resource, role types.Role) error
 	CreateRelationships(ctx context.Context, rels []types.Relationship) error
-	CreateRole(ctx context.Context, actor, res types.Resource, roleName string, actions []string) (types.Role, error)
+	CreateRole(ctx context.Context, actor, res types.Resource, manager, roleName string, actions []string) (types.Role, error)
 	UpdateRole(ctx context.Context, actor, roleResource types.Resource, newName string, newActions []string) (types.Role, error)
 	GetRole(ctx context.Context, roleResource types.Resource) (types.Role, error)
 	GetRoleResource(ctx context.Context, roleResource types.Resource) (types.Resource, error)
@@ -37,6 +37,7 @@ type Engine interface {
 	ListRelationshipsFrom(ctx context.Context, resource types.Resource) ([]types.Relationship, error)
 	ListRelationshipsTo(ctx context.Context, resource types.Resource) ([]types.Relationship, error)
 	ListRoles(ctx context.Context, resource types.Resource) ([]types.Role, error)
+	ListManagerRoles(ctx context.Context, manager string, resource types.Resource) ([]types.Role, error)
 	DeleteRelationships(ctx context.Context, relationships ...types.Relationship) error
 	DeleteRole(ctx context.Context, roleResource types.Resource) error
 	DeleteResourceRelationships(ctx context.Context, resource types.Resource) error
@@ -47,9 +48,11 @@ type Engine interface {
 	// v2 functions, add role bindings support
 
 	// CreateRoleV2 creates a v2 role scoped to the given owner resource with the given actions.
-	CreateRoleV2(ctx context.Context, actor, owner types.Resource, roleName string, actions []string) (types.Role, error)
+	CreateRoleV2(ctx context.Context, actor, owner types.Resource, manager, roleName string, actions []string) (types.Role, error)
 	// ListRolesV2 returns all V2 roles owned by the given resource.
 	ListRolesV2(ctx context.Context, owner types.Resource) ([]types.Role, error)
+	// ListManagerRolesV2 returns all V2 roles owned by the given resource with the given manager.
+	ListManagerRolesV2(ctx context.Context, manager string, owner types.Resource) ([]types.Role, error)
 	// GetRoleV2 returns a V2 role
 	GetRoleV2(ctx context.Context, role types.Resource) (types.Role, error)
 	// UpdateRoleV2 updates a V2 role with the given name and actions.
@@ -60,10 +63,13 @@ type Engine interface {
 	// CreateRoleBinding creates all the necessary relationships for a role binding.
 	// role binding here establishes a three-way relationship between a role,
 	// a resource, and the subjects.
-	CreateRoleBinding(ctx context.Context, actor, resource, role types.Resource, subjects []types.RoleBindingSubject) (types.RoleBinding, error)
+	CreateRoleBinding(ctx context.Context, actor, resource, role types.Resource, manager string, subjects []types.RoleBindingSubject) (types.RoleBinding, error)
 	// ListRoleBindings lists all role-bindings for a resource, an optional Role
 	// can be provided to filter the role-bindings.
 	ListRoleBindings(ctx context.Context, resource types.Resource, optionalRole *types.Resource) ([]types.RoleBinding, error)
+	// ListManagerRoleBindings lists all role-bindings for a resource with the given manager,
+	// an optional Role can be provided to filter the role-bindings.
+	ListManagerRoleBindings(ctx context.Context, manager string, resource types.Resource, optionalRole *types.Resource) ([]types.RoleBinding, error)
 	// GetRoleBinding fetches a role-binding by its ID.
 	GetRoleBinding(ctx context.Context, rolebinding types.Resource) (types.RoleBinding, error)
 	// UpdateRoleBinding updates the subjects of a role-binding.

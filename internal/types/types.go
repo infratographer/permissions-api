@@ -11,6 +11,7 @@ import (
 type Role struct {
 	ID      gidx.PrefixedID
 	Name    string
+	Manager string
 	Actions []string
 
 	ResourceID gidx.PrefixedID
@@ -97,6 +98,7 @@ type Relationship struct {
 type RoleBinding struct {
 	ID         gidx.PrefixedID
 	ResourceID gidx.PrefixedID
+	Manager    string
 	RoleID     gidx.PrefixedID
 	SubjectIDs []gidx.PrefixedID
 

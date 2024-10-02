@@ -20,6 +20,8 @@ paths:
         list all available roles for a resource, including roles that are
         inherited from parent resources
       operationId: listRoles
+      parameters:
+        - $ref: '#/components/parameters/manager'
       responses:
         "200":
           description: tnntten-root
@@ -72,6 +74,9 @@ paths:
                         name:
                           type: string
                           example: super_user
+                        manager:
+                          type: string
+                          example: service-a
                         updated_at:
                           type: string
                           example: "2024-04-10T20:18:10Z"
@@ -166,6 +171,9 @@ paths:
                 name:
                   type: string
                   example: lb_editor
+                manager:
+                  type: string
+                  example: service-a
             examples:
               create-role:
                 value:
@@ -175,6 +183,7 @@ paths:
                     - loadbalancer_update
                     - loadbalancer_create
                   name: lb_editor
+                  manager: svc-access-manager
       responses:
         "201":
           description: "role object"
@@ -214,6 +223,9 @@ paths:
                   name:
                     type: string
                     example: super_admin
+                  manager:
+                    type: string
+                    example: svc-access-manager
                   resource_id:
                     type: string
                     example: tnntten-root
@@ -235,52 +247,46 @@ paths:
                     created_by: idntusr-bailin
                     id: permrv2-IG7RfsYhyga0EwEbY4BKs
                     name: lb_editor
+                    manager: svc-access-manager
                     resource_id: tnntten-a
                     updated_at: "2024-02-29T18:18:18Z"
                     updated_by: idntusr-bailin
-                lb-viwer:
+                lb-viewer:
                   value:
                     actions:
-                      - role_list
-                      - rolebinding_create
                       - loadbalancer_list
-                      - loadbalancer_update
-                      - loadbalancer_delete
-                      - role_create
-                      - role_delete
-                      - loadbalancer_create
                       - loadbalancer_get
-                      - rolebinding_list
-                      - rolebinding_delete
-                      - role_get
-                      - role_update
                     created_at: "2024-02-28T17:22:04Z"
                     created_by: idntusr-bailin
-                    id: permrv2-ecBlNMsPrvVFgUUAUfmeY
-                    name: super_admin
+                    id: permrv2-ecBlNMsYhyga0EwEUffsY
+                    name: lb_viewer
+                    manager: svc-access-manager
                     resource_id: tnntten-root
                     updated_at: "2024-02-28T17:22:04Z"
                     updated_by: idntusr-bailin
                 super-admin:
                   value:
                     actions:
-                      - role_list
-                      - rolebinding_create
+                      - loadbalancer_create
+                      - loadbalancer_delete
+                      - loadbalancer_get
                       - loadbalancer_list
                       - loadbalancer_update
-                      - loadbalancer_delete
                       - role_create
                       - role_delete
-                      - loadbalancer_create
-                      - loadbalancer_get
-                      - rolebinding_list
-                      - rolebinding_delete
                       - role_get
+                      - role_list
                       - role_update
+                      - iam_rolebinding_create
+                      - iam_rolebinding_delete
+                      - iam_rolebinding_get
+                      - iam_rolebinding_list
+                      - iam_rolebinding_update
                     created_at: "2024-02-28T17:22:04Z"
                     created_by: idntusr-bailin
                     id: permrv2-ecBlNMsPrvVFgUUAUfmeY
                     name: super_admin
+                    manager: svc-access-manager
                     resource_id: tnntten-root
                     updated_at: "2024-02-28T17:22:04Z"
                     updated_by: idntusr-bailin
@@ -396,6 +402,9 @@ paths:
                   name:
                     type: string
                     example: super_user
+                  manager:
+                    type: string
+                    example: service-a
                   resource_id:
                     type: string
                     example: tnntten-root
@@ -699,6 +708,7 @@ paths:
         an optional query parameter `role_id` can be used to filter the results.
       operationId: listRoleBindings
       parameters:
+        - $ref: '#/components/parameters/manager'
         - name: role_id
           in: query
           schema:
@@ -826,6 +836,9 @@ paths:
             schema:
               type: object
               properties:
+                manager:
+                  type: string
+                  example: service-a
                 role_id:
                   type: string
                   example: permrv2-PLjILDwe8kG_t42tMCDiB
@@ -840,6 +853,7 @@ paths:
               create-role-binding:
                 value:
                   role_id: permrv2-PLjILDwe8kG_t42tMCDiB
+                  manager: svc-access-manager
                   subject_ids:
                     - idntgrp-my-subgroup
       responses:
@@ -1154,7 +1168,15 @@ paths:
                     - iam_rolebinding_create
                     - iam_rolebinding_update
                     - iam_rolebinding_delete
+
 components:
+  parameters:
+    manager:
+      in: query
+      name: manager
+      required: false
+      schema:
+        type: string
   securitySchemes:
     oauth2:
       type: oauth2

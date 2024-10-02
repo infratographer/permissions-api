@@ -19,6 +19,10 @@ type RoleBindingService interface {
 	// an empty slice is returned if no role bindings are found
 	ListResourceRoleBindings(ctx context.Context, resourceID gidx.PrefixedID) ([]types.RoleBinding, error)
 
+	// ListManagerResourceRoleBindings returns all role bindings for a given resource and manager
+	// an empty slice is returned if no role bindings are found
+	ListManagerResourceRoleBindings(ctx context.Context, manager string, resourceID gidx.PrefixedID) ([]types.RoleBinding, error)
+
 	// GetRoleBindingByID returns a role binding by its prefixed ID
 	// an ErrRoleBindingNotFound error is returned if no role binding is found
 	GetRoleBindingByID(ctx context.Context, id gidx.PrefixedID) (types.RoleBinding, error)
@@ -26,7 +30,7 @@ type RoleBindingService interface {
 	// CreateRoleBinding creates a new role binding in the database
 	// This method must be called with a context returned from BeginContext.
 	// CommitContext or RollbackContext must be called afterwards if this method returns no error.
-	CreateRoleBinding(ctx context.Context, actorID, rbID, resourceID gidx.PrefixedID) (types.RoleBinding, error)
+	CreateRoleBinding(ctx context.Context, actorID, rbID, resourceID gidx.PrefixedID, manager string) (types.RoleBinding, error)
 
 	// UpdateRoleBinding updates a role binding in the database
 	// Note that this method only updates the updated_at and updated_by fields
@@ -55,12 +59,13 @@ func (e *engine) GetRoleBindingByID(ctx context.Context, id gidx.PrefixedID) (ty
 	var roleBinding types.RoleBinding
 
 	err = db.QueryRowContext(ctx, `
-		SELECT id, resource_id, created_by, updated_by, created_at, updated_at
+		SELECT id, resource_id, manager, created_by, updated_by, created_at, updated_at
 		FROM rolebindings WHERE id = $1
 		`, id.String(),
 	).Scan(
 		&roleBinding.ID,
 		&roleBinding.ResourceID,
+		&roleBinding.Manager,
 		&roleBinding.CreatedBy,
 		&roleBinding.UpdatedBy,
 		&roleBinding.CreatedAt,
@@ -84,7 +89,7 @@ func (e *engine) ListResourceRoleBindings(ctx context.Context, resourceID gidx.P
 	}
 
 	rows, err := db.QueryContext(ctx, `
-		SELECT id, resource_id, created_by, updated_by, created_at, updated_at
+		SELECT id, resource_id, manager, created_by, updated_by, created_at, updated_at
 		FROM rolebindings WHERE resource_id = $1 ORDER BY created_at ASC
 		`, resourceID.String(),
 	)
@@ -101,6 +106,7 @@ func (e *engine) ListResourceRoleBindings(ctx context.Context, resourceID gidx.P
 		err = rows.Scan(
 			&roleBinding.ID,
 			&roleBinding.ResourceID,
+			&roleBinding.Manager,
 			&roleBinding.CreatedBy,
 			&roleBinding.UpdatedBy,
 			&roleBinding.CreatedAt,
@@ -116,7 +122,47 @@ func (e *engine) ListResourceRoleBindings(ctx context.Context, resourceID gidx.P
 	return roleBindings, nil
 }
 
-func (e *engine) CreateRoleBinding(ctx context.Context, actorID, rbID, resourceID gidx.PrefixedID) (types.RoleBinding, error) {
+func (e *engine) ListManagerResourceRoleBindings(ctx context.Context, manager string, resourceID gidx.PrefixedID) ([]types.RoleBinding, error) {
+	db, err := getContextDBQuery(ctx, e)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT id, resource_id, manager, created_by, updated_by, created_at, updated_at
+		FROM rolebindings WHERE manager = $1 AND resource_id = $1 ORDER BY created_at ASC
+		`, manager, resourceID.String(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", err, resourceID.String())
+	}
+	defer rows.Close()
+
+	var roleBindings []types.RoleBinding
+
+	for rows.Next() {
+		var roleBinding types.RoleBinding
+
+		err = rows.Scan(
+			&roleBinding.ID,
+			&roleBinding.ResourceID,
+			&roleBinding.Manager,
+			&roleBinding.CreatedBy,
+			&roleBinding.UpdatedBy,
+			&roleBinding.CreatedAt,
+			&roleBinding.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %s", err, resourceID.String())
+		}
+
+		roleBindings = append(roleBindings, roleBinding)
+	}
+
+	return roleBindings, nil
+}
+
+func (e *engine) CreateRoleBinding(ctx context.Context, actorID, rbID, resourceID gidx.PrefixedID, manager string) (types.RoleBinding, error) {
 	tx, err := getContextTx(ctx)
 	if err != nil {
 		return types.RoleBinding{}, err
@@ -125,13 +171,14 @@ func (e *engine) CreateRoleBinding(ctx context.Context, actorID, rbID, resourceI
 	var rb types.RoleBinding
 
 	err = tx.QueryRowContext(ctx, `
-		INSERT INTO rolebindings (id, resource_id, created_by, updated_by, created_at, updated_at)
-		VALUES ($1, $2, $3, $3, $4, $4)
-		RETURNING id, resource_id, created_by, updated_by, created_at, updated_at
-		`, rbID.String(), resourceID.String(), actorID.String(), time.Now(),
+		INSERT INTO rolebindings (id, resource_id, manager, created_by, updated_by, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $4, $5, $5)
+		RETURNING id, resource_id, manager, created_by, updated_by, created_at, updated_at
+		`, rbID.String(), resourceID.String(), manager, actorID.String(), time.Now(),
 	).Scan(
 		&rb.ID,
 		&rb.ResourceID,
+		&rb.Manager,
 		&rb.CreatedBy,
 		&rb.UpdatedBy,
 		&rb.CreatedAt,

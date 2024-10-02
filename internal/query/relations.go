@@ -304,7 +304,7 @@ func (e *engine) CreateRelationships(ctx context.Context, rels []types.Relations
 }
 
 // CreateRole creates a role scoped to the given resource with the given actions.
-func (e *engine) CreateRole(ctx context.Context, actor, res types.Resource, roleName string, actions []string) (types.Role, error) {
+func (e *engine) CreateRole(ctx context.Context, actor, res types.Resource, manager, roleName string, actions []string) (types.Role, error) {
 	ctx, span := e.tracer.Start(ctx, "engine.CreateRole")
 
 	defer span.End()
@@ -321,7 +321,7 @@ func (e *engine) CreateRole(ctx context.Context, actor, res types.Resource, role
 		return types.Role{}, nil
 	}
 
-	dbRole, err := e.store.CreateRole(dbCtx, actor.ID, role.ID, roleName, res.ID)
+	dbRole, err := e.store.CreateRole(dbCtx, actor.ID, role.ID, roleName, manager, res.ID)
 	if err != nil {
 		return types.Role{}, err
 	}
@@ -351,6 +351,7 @@ func (e *engine) CreateRole(ctx context.Context, actor, res types.Resource, role
 		return types.Role{}, err
 	}
 
+	role.Manager = dbRole.Manager
 	role.CreatedBy = dbRole.CreatedBy
 	role.UpdatedBy = dbRole.UpdatedBy
 	role.ResourceID = dbRole.ResourceID
@@ -497,6 +498,7 @@ func (e *engine) UpdateRole(ctx context.Context, actor, roleResource types.Resou
 	}
 
 	role.Name = dbRole.Name
+	role.Manager = dbRole.Manager
 	role.CreatedBy = dbRole.CreatedBy
 	role.UpdatedBy = dbRole.UpdatedBy
 	role.ResourceID = dbRole.ResourceID
@@ -899,6 +901,81 @@ func (e *engine) ListRoles(ctx context.Context, resource types.Resource) ([]type
 		out[i] = types.Role{
 			ID:         dbRole.ID,
 			Name:       dbRole.Name,
+			Manager:    dbRole.Manager,
+			Actions:    spicedbRole.Actions,
+			ResourceID: dbRole.ResourceID,
+			CreatedBy:  dbRole.CreatedBy,
+			UpdatedBy:  dbRole.UpdatedBy,
+			CreatedAt:  dbRole.CreatedAt,
+			UpdatedAt:  dbRole.UpdatedAt,
+		}
+	}
+
+	return out, nil
+}
+
+// ListManagerRoles returns all roles bound to a given resource.
+func (e *engine) ListManagerRoles(ctx context.Context, manager string, resource types.Resource) ([]types.Role, error) {
+	dbRoles, err := e.store.ListResourceRoles(ctx, resource.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	dbRolesv1 := make([]storage.Role, 0, len(dbRoles))
+
+	for _, dbRole := range dbRoles {
+		if dbRole.Manager != manager {
+			continue
+		}
+
+		res, err := e.NewResourceFromID(dbRole.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		if res.Type == e.rbac.RoleResource.Name {
+			continue
+		}
+
+		dbRolesv1 = append(dbRolesv1, dbRole)
+	}
+
+	resType := e.namespace + "/" + resource.Type
+	roleType := e.namespace + "/role"
+
+	filter := &pb.RelationshipFilter{
+		ResourceType:       resType,
+		OptionalResourceId: resource.ID.String(),
+		OptionalSubjectFilter: &pb.SubjectFilter{
+			SubjectType: roleType,
+			OptionalRelation: &pb.SubjectFilter_RelationFilter{
+				Relation: roleSubjectRelation,
+			},
+		},
+	}
+
+	relationships, err := e.readRelationships(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	spicedbRoles := relationshipsToRoles(relationships)
+
+	rolesByID := make(map[gidx.PrefixedID]types.Role, len(spicedbRoles))
+
+	for _, role := range spicedbRoles {
+		rolesByID[role.ID] = role
+	}
+
+	out := make([]types.Role, len(dbRolesv1))
+
+	for i, dbRole := range dbRolesv1 {
+		spicedbRole := rolesByID[dbRole.ID]
+
+		out[i] = types.Role{
+			ID:         dbRole.ID,
+			Name:       dbRole.Name,
+			Manager:    dbRole.Manager,
 			Actions:    spicedbRole.Actions,
 			ResourceID: dbRole.ResourceID,
 			CreatedBy:  dbRole.CreatedBy,
@@ -965,6 +1042,7 @@ func (e *engine) GetRole(ctx context.Context, roleResource types.Resource) (type
 	out := types.Role{
 		ID:      roleResource.ID,
 		Name:    dbRole.Name,
+		Manager: dbRole.Manager,
 		Actions: actions,
 
 		ResourceID: dbRole.ResourceID,

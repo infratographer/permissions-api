@@ -73,7 +73,7 @@ func (r *Router) roleBindingCreate(c echo.Context) error {
 		}
 	}
 
-	rb, err := r.engine.CreateRoleBinding(ctx, actor, resource, roleResource, subjects)
+	rb, err := r.engine.CreateRoleBinding(ctx, actor, resource, roleResource, body.Manager, subjects)
 	if err != nil {
 		return r.errorResponse("error creating role-binding", err)
 	}
@@ -83,6 +83,7 @@ func (r *Router) roleBindingCreate(c echo.Context) error {
 		roleBindingResponse{
 			ID:         rb.ID,
 			ResourceID: rb.ResourceID,
+			Manager:    rb.Manager,
 			SubjectIDs: rb.SubjectIDs,
 			RoleID:     rb.RoleID,
 
@@ -122,7 +123,16 @@ func (r *Router) roleBindingsList(c echo.Context) error {
 		return err
 	}
 
-	rbs, err := r.engine.ListRoleBindings(ctx, resource, nil)
+	var rbs []types.RoleBinding
+
+	params := c.QueryParams()
+
+	if params.Has("manager") {
+		rbs, err = r.engine.ListManagerRoleBindings(ctx, params.Get("manager"), resource, nil)
+	} else {
+		rbs, err = r.engine.ListRoleBindings(ctx, resource, nil)
+	}
+
 	if err != nil {
 		return r.errorResponse("error listing role-binding", err)
 	}
@@ -137,6 +147,7 @@ func (r *Router) roleBindingsList(c echo.Context) error {
 			ResourceID: rb.ResourceID,
 			SubjectIDs: rb.SubjectIDs,
 			RoleID:     rb.RoleID,
+			Manager:    rb.Manager,
 
 			CreatedBy: rb.CreatedBy,
 			UpdatedBy: rb.UpdatedBy,
@@ -242,6 +253,7 @@ func (r *Router) roleBindingGet(c echo.Context) error {
 			ResourceID: rb.ResourceID,
 			SubjectIDs: rb.SubjectIDs,
 			RoleID:     rb.RoleID,
+			Manager:    rb.Manager,
 
 			CreatedBy: rb.CreatedBy,
 			UpdatedBy: rb.UpdatedBy,
@@ -321,6 +333,7 @@ func (r *Router) roleBindingUpdate(c echo.Context) error {
 			ResourceID: rb.ResourceID,
 			SubjectIDs: rb.SubjectIDs,
 			RoleID:     rb.RoleID,
+			Manager:    rb.Manager,
 
 			CreatedBy: rb.CreatedBy,
 			UpdatedBy: rb.UpdatedBy,

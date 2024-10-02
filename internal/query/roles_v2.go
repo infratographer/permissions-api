@@ -22,7 +22,7 @@ func (e *engine) namespaced(name string) string {
 	return e.namespace + "/" + name
 }
 
-func (e *engine) CreateRoleV2(ctx context.Context, actor, owner types.Resource, roleName string, actions []string) (types.Role, error) {
+func (e *engine) CreateRoleV2(ctx context.Context, actor, owner types.Resource, manager, roleName string, actions []string) (types.Role, error) {
 	ctx, span := e.tracer.Start(ctx, "engine.CreateRoleV2")
 
 	defer span.End()
@@ -49,7 +49,7 @@ func (e *engine) CreateRoleV2(ctx context.Context, actor, owner types.Resource, 
 		return types.Role{}, nil
 	}
 
-	dbRole, err := e.store.CreateRole(dbCtx, actor.ID, role.ID, roleName, owner.ID)
+	dbRole, err := e.store.CreateRole(dbCtx, actor.ID, role.ID, roleName, manager, owner.ID)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
@@ -166,9 +166,95 @@ func (e *engine) ListRolesV2(ctx context.Context, owner types.Resource) ([]types
 
 	for i, r := range storageRoles {
 		roles[i] = types.Role{
-			Name: r.Name,
-			ID:   r.ID,
+			Name:    r.Name,
+			ID:      r.ID,
+			Manager: r.Manager,
 		}
+	}
+
+	return roles, nil
+}
+
+func (e *engine) ListManagerRolesV2(ctx context.Context, manager string, owner types.Resource) ([]types.Role, error) {
+	ctx, span := e.tracer.Start(
+		ctx,
+		"engine.ListManagerRolesV2",
+		trace.WithAttributes(
+			attribute.Stringer("owner", owner.ID),
+			attribute.String("manager", manager),
+		),
+	)
+	defer span.End()
+
+	if _, ok := e.rbac.RoleOwnersSet()[owner.Type]; !ok {
+		err := fmt.Errorf("%w: %s is not a valid role owner", ErrInvalidType, owner.Type)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		return nil, err
+	}
+
+	lookupClient, err := e.client.LookupSubjects(ctx, &pb.LookupSubjectsRequest{
+		Consistency: &pb.Consistency{
+			Requirement: &pb.Consistency_FullyConsistent{
+				FullyConsistent: true,
+			},
+		},
+		Resource:          resourceToSpiceDBRef(e.namespace, owner),
+		Permission:        iapl.AvailableRolesList,
+		SubjectObjectType: e.namespaced(e.rbac.RoleResource.Name),
+	})
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		return nil, err
+	}
+
+	roleIDs := []gidx.PrefixedID{}
+
+	for {
+		lookup, err := lookupClient.Recv()
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				span.RecordError(err)
+				span.SetStatus(codes.Error, err.Error())
+			}
+
+			break
+		}
+
+		id, err := gidx.Parse(lookup.Subject.SubjectObjectId)
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+
+			continue
+		}
+
+		roleIDs = append(roleIDs, id)
+	}
+
+	storageRoles, err := e.store.BatchGetRoleByID(ctx, roleIDs)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
+		return nil, err
+	}
+
+	roles := make([]types.Role, 0, len(storageRoles))
+
+	for _, r := range storageRoles {
+		if r.Manager != manager {
+			continue
+		}
+
+		roles = append(roles, types.Role{
+			Name:    r.Name,
+			Manager: r.Manager,
+			ID:      r.ID,
+		})
 	}
 
 	return roles, nil
@@ -213,6 +299,7 @@ func (e *engine) GetRoleV2(ctx context.Context, role types.Resource) (types.Role
 	resp := types.Role{
 		ID:      dbrole.ID,
 		Name:    dbrole.Name,
+		Manager: dbrole.Manager,
 		Actions: actions,
 
 		ResourceID: dbrole.ResourceID,
@@ -338,6 +425,7 @@ func (e *engine) UpdateRoleV2(ctx context.Context, actor, roleResource types.Res
 	}
 
 	role.Name = dbRole.Name
+	role.Manager = dbRole.Manager
 	role.CreatedBy = dbRole.CreatedBy
 	role.UpdatedBy = dbRole.UpdatedBy
 	role.ResourceID = dbRole.ResourceID
