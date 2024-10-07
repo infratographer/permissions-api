@@ -219,9 +219,14 @@ func (r *Router) roleV2sList(c echo.Context) error {
 
 	for _, role := range roles {
 		roleResp := listRolesV2Role{
-			ID:      role.ID,
-			Name:    role.Name,
-			Manager: role.Manager,
+			ID:         role.ID,
+			Name:       role.Name,
+			Manager:    role.Manager,
+			ResourceID: role.ResourceID,
+			CreatedBy:  role.CreatedBy,
+			UpdatedBy:  role.UpdatedBy,
+			CreatedAt:  role.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:  role.UpdatedAt.Format(time.RFC3339),
 		}
 
 		resp.Data = append(resp.Data, roleResp)

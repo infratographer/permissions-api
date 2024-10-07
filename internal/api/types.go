@@ -79,9 +79,15 @@ type listRolesV2Response struct {
 }
 
 type listRolesV2Role struct {
-	ID      gidx.PrefixedID `json:"id"`
-	Name    string          `json:"name"`
-	Manager string          `json:"manager"`
+	ID         gidx.PrefixedID `json:"id"`
+	Name       string          `json:"name"`
+	Manager    string          `json:"manager"`
+	ResourceID gidx.PrefixedID `json:"resource_id"`
+
+	CreatedBy gidx.PrefixedID `json:"created_by"`
+	UpdatedBy gidx.PrefixedID `json:"updated_by"`
+	CreatedAt string          `json:"created_at"`
+	UpdatedAt string          `json:"updated_at"`
 }
 
 // RoleBindings

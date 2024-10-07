@@ -166,9 +166,14 @@ func (e *engine) ListRolesV2(ctx context.Context, owner types.Resource) ([]types
 
 	for i, r := range storageRoles {
 		roles[i] = types.Role{
-			Name:    r.Name,
-			ID:      r.ID,
-			Manager: r.Manager,
+			Name:       r.Name,
+			ID:         r.ID,
+			Manager:    r.Manager,
+			ResourceID: r.ResourceID,
+			CreatedBy:  r.CreatedBy,
+			UpdatedBy:  r.UpdatedBy,
+			CreatedAt:  r.CreatedAt,
+			UpdatedAt:  r.UpdatedAt,
 		}
 	}
 
@@ -251,9 +256,14 @@ func (e *engine) ListManagerRolesV2(ctx context.Context, manager string, owner t
 		}
 
 		roles = append(roles, types.Role{
-			Name:    r.Name,
-			Manager: r.Manager,
-			ID:      r.ID,
+			Name:       r.Name,
+			Manager:    r.Manager,
+			ID:         r.ID,
+			ResourceID: r.ResourceID,
+			CreatedBy:  r.CreatedBy,
+			UpdatedBy:  r.UpdatedBy,
+			CreatedAt:  r.CreatedAt,
+			UpdatedAt:  r.UpdatedAt,
 		})
 	}
 
