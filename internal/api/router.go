@@ -10,6 +10,8 @@ import (
 	"go.infratographer.com/x/gidx"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.infratographer.com/permissions-api/internal/query"
 	"go.infratographer.com/permissions-api/internal/types"
@@ -114,6 +116,11 @@ func errorMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		if eerr, ok := origErr.(*echo.HTTPError); ok {
 			echoMsg = []any{eerr.Message}
 			checkErr = eerr.Internal
+		}
+
+		// GRPC returns it's own canceled context status. Here we convert it so we may use the same logic.
+		if grpcStatus, ok := status.FromError(checkErr); ok && grpcStatus.Code() == codes.Canceled {
+			checkErr = context.Canceled
 		}
 
 		switch {

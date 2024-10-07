@@ -1,12 +1,15 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
 	"go.infratographer.com/x/gidx"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+
+	"go.infratographer.com/permissions-api/internal/query"
 )
 
 func (r *Router) relationshipListFrom(c echo.Context) error {
@@ -63,7 +66,12 @@ func (r *Router) relationshipListTo(c echo.Context) error {
 	}
 
 	rels, err := r.engine.ListRelationshipsTo(ctx, resource)
-	if err != nil {
+
+	switch {
+	case err == nil:
+	case errors.Is(err, query.ErrInvalidType):
+		return echo.NewHTTPError(http.StatusBadRequest, "resource doesn't support relationships")
+	default:
 		return echo.NewHTTPError(http.StatusInternalServerError, "error listing relationships").SetInternal(err)
 	}
 
