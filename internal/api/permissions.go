@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -128,6 +129,17 @@ type checkResult struct {
 	Request checkRequest
 	Error   error
 }
+
+type bulkCheckActionsRequest []checkAction
+
+type checkActionResponse struct {
+	ResourceID string `json:"resource_id"`
+	Action     string `json:"action"`
+	Allowed    bool   `json:"allowed"`
+	Error      string `json:"error,omitempty"`
+}
+
+type bulkCheckActionsResponse []checkActionResponse
 
 // checkAllActions will check if a subject is allowed to perform an action on a list of resources.
 // This is the permissions check endpoint.
@@ -311,4 +323,116 @@ func getParam(c echo.Context, name string) (string, bool) {
 	}
 
 	return values[0], true
+}
+
+// bulkCheckActions will check if a subject is allowed to perform a list of
+// actions on a list of resources provided in the request body.
+//
+// This endpoint will always return 200 on successful checks, regardless of the
+// outcome of the checks.
+// It will return a 400 if the request is invalid.
+func (r *Router) bulkCheckActions(c echo.Context) error {
+	ctx, span := tracer.Start(c.Request().Context(), "api.bulkCheckAction")
+	defer span.End()
+
+	// Subject validation
+	subjectResource, err := r.currentSubject(c)
+	if err != nil {
+		return err
+	}
+
+	var reqBody bulkCheckActionsRequest
+
+	if err := c.Bind(&reqBody); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "error parsing request body").SetInternal(err)
+	}
+
+	// validate requests
+	var (
+		validationResp   bulkCheckActionsResponse = make([]checkActionResponse, 0, len(reqBody))
+		validationErrors                          = make([]error, 0, len(reqBody))
+		checks                                    = make([]checkRequest, 0, len(reqBody))
+	)
+
+	for _, req := range reqBody {
+		resourceID, err := gidx.Parse(req.ResourceID)
+		if err != nil {
+			err = fmt.Errorf("error parsing resource ID: %w", err)
+
+			validationResp = append(validationResp, checkActionResponse{
+				ResourceID: req.ResourceID,
+				Action:     req.Action,
+				Error:      err.Error(),
+			})
+
+			validationErrors = append(validationErrors, err)
+
+			continue
+		}
+
+		resource, err := r.engine.NewResourceFromID(resourceID)
+		if err != nil {
+			err = fmt.Errorf("error creating resource from ID: %w", err)
+
+			validationResp = append(validationResp, checkActionResponse{
+				ResourceID: req.ResourceID,
+				Action:     req.Action,
+				Error:      err.Error(),
+			})
+
+			validationErrors = append(validationErrors, err)
+
+			continue
+		}
+
+		checks = append(checks, checkRequest{
+			Resource: resource,
+			Action:   req.Action,
+		})
+	}
+
+	if len(validationErrors) != 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, validationResp).SetInternal(multierr.Combine(validationErrors...))
+	}
+
+	// check permissions
+	var (
+		responses bulkCheckActionsResponse = make([]checkActionResponse, len(checks))
+		wg                                 = &sync.WaitGroup{}
+	)
+
+	for i, check := range checks {
+		wg.Add(1)
+
+		go func(ctx context.Context, i int, action string, resource types.Resource) {
+			defer wg.Done()
+
+			ctxWithCancel, cancel := context.WithTimeout(ctx, maxCheckDuration)
+			defer cancel()
+
+			resp := checkActionResponse{
+				ResourceID: resource.ID.String(),
+				Action:     action,
+			}
+
+			err := r.engine.SubjectHasPermission(ctxWithCancel, subjectResource, action, resource)
+
+			switch {
+			case errors.Is(err, query.ErrActionNotAssigned):
+				// do nothing
+			case errors.Is(err, query.ErrInvalidAction):
+				resp.Error = fmt.Sprintf("invalid action '%s' for resource '%s'", action, resource.ID.String())
+			case err != nil:
+				resp.Error = err.Error()
+			default:
+				resp.Allowed = true
+			}
+
+			responses[i] = resp
+		}(ctx, i, check.Action, check.Resource)
+	}
+
+	wg.Wait()
+
+	return c.JSON(http.StatusOK, responses)
 }

@@ -76,6 +76,7 @@ func (r *Router) Routes(rg *echo.Group) {
 		// /allow is the permissions check endpoint
 		v1.GET("/allow", r.checkAction)
 		v1.POST("/allow", r.checkAllActions)
+		v1.POST("/allow/bulk", r.bulkCheckActions)
 	}
 
 	v2 := rg.Group("api/v2")
