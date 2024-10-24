@@ -133,10 +133,10 @@ type checkResult struct {
 type bulkCheckActionsRequest []checkAction
 
 type checkActionResponse struct {
-	ResourceID    string `json:"resource_id"`
-	Action        string `json:"action"`
-	HasPermission bool   `json:"has_permission"`
-	Error         string `json:"error,omitempty"`
+	ResourceID string `json:"resource_id"`
+	Action     string `json:"action"`
+	Allowed    bool   `json:"allowed"`
+	Error      string `json:"error,omitempty"`
 }
 
 type bulkCheckActionsResponse []checkActionResponse
@@ -425,7 +425,7 @@ func (r *Router) bulkCheckActions(c echo.Context) error {
 			case err != nil:
 				resp.Error = err.Error()
 			default:
-				resp.HasPermission = true
+				resp.Allowed = true
 			}
 
 			responses[i] = resp
