@@ -83,6 +83,7 @@ func (e *engine) CreateRoleV2(ctx context.Context, actor, owner types.Resource, 
 		return types.Role{}, err
 	}
 
+	role.Manager = dbRole.Manager
 	role.CreatedBy = dbRole.CreatedBy
 	role.UpdatedBy = dbRole.UpdatedBy
 	role.ResourceID = dbRole.ResourceID
