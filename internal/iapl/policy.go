@@ -388,6 +388,14 @@ func (v *policy) validateActionBindings() error {
 	bindingMap := make(map[bindingMapKey]struct{}, len(v.p.ActionBindings))
 
 	for i, binding := range v.bn {
+		if binding.ActionName == "" {
+			return fmt.Errorf("%d (%s:%s): %w", i, binding.TypeName, binding.ActionName, ErrorUnknownAction)
+		}
+
+		if binding.TypeName == "" {
+			return fmt.Errorf("%d (%s:%s): %w", i, binding.TypeName, binding.ActionName, ErrorUnknownType)
+		}
+
 		key := bindingMapKey{
 			actionName: binding.ActionName,
 			typeName:   binding.TypeName,
