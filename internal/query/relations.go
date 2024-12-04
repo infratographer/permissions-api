@@ -280,7 +280,7 @@ func (e *engine) CreateRelationships(ctx context.Context, rels []types.Relations
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
 
-			return err
+			return fmt.Errorf("%w: %w", ErrInvalidRelationship, err)
 		}
 	}
 
@@ -676,7 +676,7 @@ func (e *engine) DeleteRelationships(ctx context.Context, relationships ...types
 	if len(errors) != 0 {
 		span.SetStatus(codes.Error, "invalid relationships")
 
-		return multierr.Combine(errors...)
+		return fmt.Errorf("%w: %w", ErrInvalidRelationship, multierr.Combine(errors...))
 	}
 
 	relUpdates := e.relationshipsToUpdates(relationships, pb.RelationshipUpdate_OPERATION_DELETE)

@@ -176,6 +176,8 @@ func (s *Subscriber) deleteRelationships(ctx context.Context, relationships []ty
 }
 
 func (s *Subscriber) handleCreateEvent(ctx context.Context, msg events.Request[events.AuthRelationshipRequest, events.AuthRelationshipResponse]) error {
+	span := trace.SpanFromContext(ctx)
+
 	elogger := s.logger.With(
 		"event.message.topic", msg.Topic(),
 		"event.message.action", msg.Message().Action,
@@ -183,14 +185,16 @@ func (s *Subscriber) handleCreateEvent(ctx context.Context, msg events.Request[e
 		"event.message.relations", len(msg.Message().Relations),
 	)
 
-	var errors []error
+	var errs []error
 
 	if err := msg.Message().Validate(); err != nil {
-		errors = multierr.Errors(err)
+		errs = multierr.Errors(err)
 	}
 
 	resource, err := s.qe.NewResourceFromID(msg.Message().ObjectID)
 	if err != nil {
+		span.RecordError(err)
+
 		elogger.Warnw("error parsing resource ID", "error", err.Error())
 
 		return respondRequest(ctx, elogger, msg, err)
@@ -198,9 +202,13 @@ func (s *Subscriber) handleCreateEvent(ctx context.Context, msg events.Request[e
 
 	rType := s.qe.GetResourceType(resource.Type)
 	if rType == nil {
-		elogger.Warnw("error finding resource type", "error", err.Error())
+		err := fmt.Errorf("%w: resource: %s", ErrUnknownResourceType, resource.Type)
 
-		return respondRequest(ctx, elogger, msg, fmt.Errorf("%w: resource: %s", ErrUnknownResourceType, resource.Type))
+		span.RecordError(err)
+
+		elogger.Warnw("error finding resource type", "error", err)
+
+		return respondRequest(ctx, elogger, msg, err)
 	}
 
 	relationships := make([]types.Relationship, len(msg.Message().Relations))
@@ -208,18 +216,26 @@ func (s *Subscriber) handleCreateEvent(ctx context.Context, msg events.Request[e
 	for i, relation := range msg.Message().Relations {
 		subject, err := s.qe.NewResourceFromID(relation.SubjectID)
 		if err != nil {
-			elogger.Warnw("error parsing subject ID", "error", err.Error())
+			verr := fmt.Errorf("error parsing subject ID: '%s': %w", relation.SubjectID, err)
 
-			errors = append(errors, fmt.Errorf("%w: relation %d", err, i))
+			span.RecordError(verr)
+
+			elogger.Warnw("error parsing subject ID", "error", verr.Error())
+
+			errs = append(errs, fmt.Errorf("%w: relation %d", err, i))
 
 			continue
 		}
 
 		sType := s.qe.GetResourceType(subject.Type)
 		if sType == nil {
+			err := fmt.Errorf("%w: relation %d subject: %s", ErrUnknownResourceType, i, subject.Type)
+
+			span.RecordError(err)
+
 			elogger.Warnw("error finding subject resource type", "error", err.Error())
 
-			errors = append(errors, fmt.Errorf("%w: relation %d subject: %s", ErrUnknownResourceType, i, subject.Type))
+			errs = append(errs, err)
 
 			continue
 		}
@@ -231,16 +247,26 @@ func (s *Subscriber) handleCreateEvent(ctx context.Context, msg events.Request[e
 		}
 	}
 
-	if len(errors) != 0 {
-		return respondRequest(ctx, elogger, msg, errors...)
+	if len(errs) != 0 {
+		return respondRequest(ctx, elogger, msg, errs...)
 	}
 
 	err = s.createRelationships(ctx, relationships)
+
+	if err != nil {
+		span.RecordError(err)
+
+		if !errors.Is(err, query.ErrInvalidRelationship) {
+			span.SetStatus(codes.Error, err.Error())
+		}
+	}
 
 	return respondRequest(ctx, elogger, msg, err)
 }
 
 func (s *Subscriber) handleDeleteEvent(ctx context.Context, msg events.Request[events.AuthRelationshipRequest, events.AuthRelationshipResponse]) error {
+	span := trace.SpanFromContext(ctx)
+
 	elogger := s.logger.With(
 		"event.message.topic", msg.Topic(),
 		"event.message.action", msg.Message().Action,
@@ -248,24 +274,30 @@ func (s *Subscriber) handleDeleteEvent(ctx context.Context, msg events.Request[e
 		"event.message.relations", len(msg.Message().Relations),
 	)
 
-	var errors []error
+	var errs []error
 
 	if err := msg.Message().Validate(); err != nil {
-		errors = multierr.Errors(err)
+		errs = multierr.Errors(err)
 	}
 
 	resource, err := s.qe.NewResourceFromID(msg.Message().ObjectID)
 	if err != nil {
+		span.RecordError(err)
+
 		elogger.Warnw("error parsing resource ID", "error", err.Error())
 
-		errors = append(errors, err)
+		errs = append(errs, err)
 	}
 
 	rType := s.qe.GetResourceType(resource.Type)
 	if rType == nil {
+		err := fmt.Errorf("%w: resource: %s", ErrUnknownResourceType, resource.Type)
+
+		span.RecordError(err)
+
 		elogger.Warnw("error finding resource type", "error", err.Error())
 
-		errors = append(errors, fmt.Errorf("%w: resource: %s", ErrUnknownResourceType, resource.Type))
+		errs = append(errs, fmt.Errorf("%w: resource: %s", ErrUnknownResourceType, resource.Type))
 	}
 
 	relationships := make([]types.Relationship, len(msg.Message().Relations))
@@ -273,18 +305,26 @@ func (s *Subscriber) handleDeleteEvent(ctx context.Context, msg events.Request[e
 	for i, relation := range msg.Message().Relations {
 		subject, err := s.qe.NewResourceFromID(relation.SubjectID)
 		if err != nil {
-			elogger.Warnw("error parsing subject ID", "error", err.Error())
+			verr := fmt.Errorf("error parsing subject ID: '%s': %w", relation.SubjectID, err)
 
-			errors = append(errors, fmt.Errorf("%w: relation %d", err, i))
+			span.RecordError(verr)
+
+			elogger.Warnw("error parsing subject ID", "error", verr.Error())
+
+			errs = append(errs, fmt.Errorf("%w: relation %d", err, i))
 
 			continue
 		}
 
 		sType := s.qe.GetResourceType(subject.Type)
 		if sType == nil {
+			err := fmt.Errorf("%w: relation %d subject: %s", ErrUnknownResourceType, i, subject.Type)
+
+			span.RecordError(err)
+
 			elogger.Warnw("error finding subject resource type", "error", err.Error())
 
-			errors = append(errors, fmt.Errorf("%w: relation %d subject: %s", ErrUnknownResourceType, i, subject.Type))
+			errs = append(errs, fmt.Errorf("%w: relation %d subject: %s", ErrUnknownResourceType, i, subject.Type))
 
 			continue
 		}
@@ -296,11 +336,19 @@ func (s *Subscriber) handleDeleteEvent(ctx context.Context, msg events.Request[e
 		}
 	}
 
-	if len(errors) != 0 {
-		return respondRequest(ctx, elogger, msg, errors...)
+	if len(errs) != 0 {
+		return respondRequest(ctx, elogger, msg, errs...)
 	}
 
 	err = s.deleteRelationships(ctx, relationships)
+
+	if err != nil {
+		span.RecordError(err)
+
+		if !errors.Is(err, query.ErrInvalidRelationship) {
+			span.SetStatus(codes.Error, err.Error())
+		}
+	}
 
 	return respondRequest(ctx, elogger, msg, err)
 }
