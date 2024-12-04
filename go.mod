@@ -9,6 +9,8 @@ require (
 	github.com/authzed/grpcutil v0.0.0-20240123194739-2ea1e3d2d98b
 	github.com/cockroachdb/cockroach-go/v2 v2.3.8
 	github.com/go-jose/go-jose/v4 v4.0.4
+	github.com/hashicorp/go-cleanhttp v0.5.2
+	github.com/hashicorp/go-retryablehttp v0.7.7
 	github.com/jackc/pgx/v5 v5.7.1
 	github.com/labstack/echo/v4 v4.12.0
 	github.com/pkg/errors v0.9.1
