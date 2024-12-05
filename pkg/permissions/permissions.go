@@ -11,16 +11,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/go-cleanhttp"
+	"github.com/hashicorp/go-retryablehttp"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/pkg/errors"
 	"go.infratographer.com/x/echojwtx"
 	"go.infratographer.com/x/events"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.uber.org/zap"
+
+	"go.infratographer.com/permissions-api/pkg/permissions/internal/selecthost"
 )
 
 const (
@@ -32,22 +35,18 @@ const (
 	outcomeDenied  = "denied"
 )
 
-var (
-	defaultClient = &http.Client{
-		Timeout:   defaultClientTimeout,
-		Transport: otelhttp.NewTransport(http.DefaultTransport),
-	}
-
-	tracer = otel.GetTracerProvider().Tracer("go.infratographer.com/permissions-api/pkg/permissions")
-)
+var tracer = otel.GetTracerProvider().Tracer("go.infratographer.com/permissions-api/pkg/permissions")
 
 // Permissions handles supporting authorization checks
 type Permissions struct {
 	enableChecker bool
 
+	config Config
+
 	logger             *zap.SugaredLogger
 	publisher          events.AuthRelationshipPublisher
-	client             *http.Client
+	discoveryOpts      []selecthost.Option
+	client             *retryablehttp.Client
 	url                *url.URL
 	skipper            middleware.Skipper
 	defaultChecker     Checker
@@ -121,7 +120,7 @@ func (p *Permissions) checker(c echo.Context, actor, _ string) Checker {
 			return err
 		}
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.url.String(), &reqBody)
+		req, err := retryablehttp.NewRequestWithContext(ctx, http.MethodPost, p.url.String(), &reqBody)
 		if err != nil {
 			err = errors.WithStack(err)
 
@@ -182,8 +181,8 @@ func (p *Permissions) checker(c echo.Context, actor, _ string) Checker {
 // New creates a new Permissions instance
 func New(config Config, options ...Option) (*Permissions, error) {
 	p := &Permissions{
+		config:             config,
 		enableChecker:      config.URL != "",
-		client:             defaultClient,
 		skipper:            middleware.DefaultSkipper,
 		defaultChecker:     DefaultDenyChecker,
 		ignoreNoResponders: config.IgnoreNoResponders,
@@ -211,6 +210,19 @@ func New(config Config, options ...Option) (*Permissions, error) {
 	if p.logger == nil {
 		p.logger = zap.NewNop().Sugar()
 	}
+
+	if p.client == nil {
+		client := &http.Client{
+			Transport: cleanhttp.DefaultPooledTransport(),
+			Timeout:   defaultClientTimeout,
+		}
+
+		if err := WithHTTPClient(client)(p); err != nil {
+			return nil, err
+		}
+	}
+
+	p.client.Logger = &retryableLogger{p.logger}
 
 	return p, nil
 }
