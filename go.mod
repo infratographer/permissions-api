@@ -2,7 +2,7 @@ module go.infratographer.com/permissions-api
 
 go 1.22.5
 
-toolchain go1.22.6
+toolchain go1.23.4
 
 require (
 	github.com/authzed/authzed-go v0.14.0
