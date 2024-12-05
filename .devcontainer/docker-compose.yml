@@ -14,7 +14,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        VARIANT: 1.22-bullseye
+        VARIANT: 1.23-bullseye
         NODE_VERSION: "none"
     command: sleep infinity
 # uncomment along with bind volume to use SSH for dev container access
