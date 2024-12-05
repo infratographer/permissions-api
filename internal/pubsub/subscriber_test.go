@@ -17,7 +17,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var contextKeyEngine = struct{}{}
+type engineContextKey struct{}
+
+var contextKeyEngine = engineContextKey{}
 
 func setupEvents(t *testing.T, engine query.Engine) (*eventtools.TestNats, events.AuthRelationshipPublisher, *Subscriber) {
 	ctx := context.Background()

@@ -25,7 +25,9 @@ import (
 	"go.infratographer.com/permissions-api/internal/types"
 )
 
-var contextKeyEngine = struct{}{}
+type engineContextKey struct{}
+
+var contextKeyEngine = engineContextKey{}
 
 func TestRoleCreate(t *testing.T) {
 	ctx := context.Background()

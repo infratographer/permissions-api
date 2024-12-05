@@ -99,7 +99,7 @@ func (s *Server) serve(srv *http.Server, listener net.Listener) {
 
 func (s *Server) handleOIDC(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{
-		"jwks_uri": fmt.Sprintf(s.Issuer + "/.well-known/jwks.json"),
+		"jwks_uri": s.Issuer + "/.well-known/jwks.json",
 	})
 }
 

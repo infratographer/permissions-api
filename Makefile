@@ -17,10 +17,10 @@ NATS_CREDS?=/tmp/user.creds
 
 # Tool Versions
 GCI_REPO = github.com/daixiang0/gci
-GCI_VERSION = v0.10.1
+GCI_VERSION = v0.13.5
 
 GOLANGCI_LINT_REPO = github.com/golangci/golangci-lint
-GOLANGCI_LINT_VERSION = v1.59.1
+GOLANGCI_LINT_VERSION = v1.62.2
 
 NATS_CLI_REPO = github.com/nats-io/natscli
 NATS_CLI_VERSION = v0.0.35
