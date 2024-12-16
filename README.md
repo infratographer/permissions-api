@@ -127,6 +127,14 @@ To get started, you can use either [VS Code][vs-code] or the official [CLI][cli]
 [vs-code]: https://code.visualstudio.com/docs/devcontainers/containers
 [cli]: https://github.com/devcontainers/cli
 
+### Spanner Emulator
+
+To develop on Spanner DB emulator:
+
+1. edit `.devcontainer/devcontainer.json` and use `spanner.docker-compose.yml`
+1. edit `.devcontainer/.env` and uncomment the sections that configures Spanner DB
+1. edit config file, set `db.driver` to be `postgres`
+
 ### Manually setting up SSH agent forwarding
 
 The provided dev container listens for SSH connections on port 2222 and bind mounts `~/.ssh/authorized_keys` from the host to facilitate SSH. In order to perform Git operations (i.e., committing code in the container), you will need to enable SSH agent forwarding from your machine to the dev container. While VS Code handles this automatically, for other editors you will need to set this up manually.

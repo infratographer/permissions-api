@@ -11,6 +11,7 @@ import (
 	"github.com/pressly/goose/v3"
 
 	"go.infratographer.com/permissions-api/internal/storage"
+	"go.infratographer.com/permissions-api/internal/storage/crdb"
 )
 
 // NewTestStorage creates a new permissions database instance for testing.
@@ -25,7 +26,7 @@ func NewTestStorage(t *testing.T) (storage.Storage, func()) {
 		return nil, func() {}
 	}
 
-	goose.SetBaseFS(storage.Migrations)
+	goose.SetBaseFS(crdb.Migrations)
 
 	db, err := goose.OpenDBWithDriver("postgres", server.PGURL().String())
 	if err != nil {

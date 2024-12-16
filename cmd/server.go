@@ -5,7 +5,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"go.infratographer.com/x/crdbx"
 	"go.infratographer.com/x/echojwtx"
 	"go.infratographer.com/x/echox"
 	"go.infratographer.com/x/otelx"
@@ -51,9 +50,9 @@ func serve(_ context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("unable to initialize spicedb client", "error", err)
 	}
 
-	db, err := crdbx.NewDB(cfg.CRDB, cfg.Tracing.Enabled)
+	db, err := newDBFromConfig(cfg)
 	if err != nil {
-		logger.Fatalw("unable to initialize permissions-api database", "error", err)
+		logger.Fatalw("unable to initialize database", "error", err)
 	}
 
 	store := storage.New(db, storage.WithLogger(logger))

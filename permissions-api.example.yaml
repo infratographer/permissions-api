@@ -6,3 +6,5 @@ events:
   nats:
     credsFile: /tmp/user.creds
   zedTokenBucket: zedtokens
+db:
+  engine: cockroach # change to postgres if you want to use pgx driver
