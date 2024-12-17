@@ -58,10 +58,10 @@ func init() {
 		logger.Infow("setting up migrations", "engine", string(globalCfg.DB.Engine))
 
 		switch globalCfg.DB.Engine {
-		case config.PostgreSQL:
+		case config.DBEnginePostgreSQL:
 			goosex.SetBaseFS(psql.Migrations)
 			goosex.SetDBURI(globalCfg.PSQL.GetURI())
-		case config.CockroachDB:
+		case config.DBEngineCockroachDB:
 			goosex.SetBaseFS(psql.Migrations)
 			goosex.SetDBURI(globalCfg.CRDB.GetURI())
 		default:
@@ -130,9 +130,9 @@ func newDBFromConfig(cfg *config.AppConfig) (storage.DB, error) {
 	logger.Infow("setting up database", "engine", string(cfg.DB.Engine))
 
 	switch cfg.DB.Engine {
-	case config.PostgreSQL:
+	case config.DBEnginePostgreSQL:
 		return psql.NewDB(cfg.PSQL, cfg.Tracing.Enabled)
-	case config.CockroachDB:
+	case config.DBEngineCockroachDB:
 		return crdbx.NewDB(cfg.CRDB, cfg.Tracing.Enabled)
 	default:
 		return nil, fmt.Errorf("%w: %s", ErrUnsupportedDBEngine, cfg.DB.Engine)

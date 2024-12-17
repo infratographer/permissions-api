@@ -27,10 +27,10 @@ type EventsConfig struct {
 type DBEngine string
 
 const (
-	// CockroachDB is the CockroachDB database engine
-	CockroachDB DBEngine = "cockroach"
-	// PostgreSQL is the PostgreSQL database engine
-	PostgreSQL DBEngine = "postgres"
+	// DBEngineCockroachDB is the DBEngineCockroachDB database engine
+	DBEngineCockroachDB DBEngine = "cockroach"
+	// DBEnginePostgreSQL is the DBEnginePostgreSQL database engine
+	DBEnginePostgreSQL DBEngine = "postgres"
 )
 
 // DBDriverConfig is the struct used for configuring the database driver
