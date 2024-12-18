@@ -41,7 +41,7 @@ spec:
             - up
             - --config
             - /config/config.yaml
-          {{- if eq .Values.config.db.driver "postgres"}}
+          {{- if eq .Values.config.db.engine "postgres"}}
           {{- with .Values.config.psql.uriSecretName }}
           env:
             - name: PERMISSIONSAPI_PSQL_URI
