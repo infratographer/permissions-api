@@ -132,8 +132,6 @@ To get started, you can use either [VS Code][vs-code] or the official [CLI][cli]
 To develop on Spanner DB emulator:
 
 1. edit `.devcontainer/devcontainer.json` and use `spanner.docker-compose.yml`
-1. edit `.devcontainer/.env` and uncomment the sections that configures Spanner DB
-1. edit config file, set `db.driver` to be `postgres`
 
 ### Manually setting up SSH agent forwarding
 

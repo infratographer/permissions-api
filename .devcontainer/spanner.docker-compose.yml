@@ -14,7 +14,7 @@ services:
 #    ports:
 #      - "127.0.0.1:2224:2222"
     env_file:
-      - .env
+      - spanner.env
     volumes:
       - ./nsc:/nsc
       - ./nats:/nats
@@ -107,7 +107,7 @@ services:
     command: datastore migrate head
     restart: on-failure:5
     env_file:
-      - .env
+      - spanner.env
     depends_on:
       create-databases-pg:
         condition: service_completed_successfully
@@ -119,7 +119,7 @@ services:
     command: serve
     restart: unless-stopped
     env_file:
-      - .env
+      - spanner.env
     depends_on:
       migrate_spicedb:
         condition: service_completed_successfully
