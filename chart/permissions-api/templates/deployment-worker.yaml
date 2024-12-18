@@ -55,12 +55,23 @@ spec:
           env:
             - name: PERMISSIONSAPI_SERVER_LISTEN
               value: ":{{ include "permapi.listenPort" . }}"
+          {{- if eq .Values.config.db.driver "postgres"}}
+          {{- with .Values.config.psql.uriSecretName }}
+          env:
+            - name: PERMISSIONSAPI_PSQL_URI
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: uri
+          {{- end }}
+          {{- else }}
           {{- with .Values.config.crdb.uriSecretName }}
             - name: PERMISSIONSAPI_CRDB_URI
               valueFrom:
                 secretKeyRef:
                   name: {{ . }}
                   key: uri
+          {{- end }}
           {{- end }}
           {{- if .Values.config.events.nats.tokenSecretName }}
             - name: PERMISSIONSAPI_EVENTS_NATS_TOKEN

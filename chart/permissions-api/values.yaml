@@ -45,12 +45,42 @@ config:
     pskSecretName: ""
     # policyConfigMapName is the name of the Config Map containing the policy file configuration
     policyConfigMapName: ""
-  crdb:
+  db:
+    # db engine to use for the permissions-api, cockroach or postgres, defaults to be cockroach
+    engine: "cockroach"
     # migrateHook sets when to run database migrations. one of: pre-sync, init, manual
     #  - pre-sync: hook runs as a job before any other changes are synced.
     #  - init: is run as an init container to the server deployment and may run multiple times if replica count is high.
     #  - manual: a migrate-database job will be available to triggered manually
     migrateHook: "init"
+  psql:
+    # name is the database name
+    name: ""
+    # host is the database host
+    host: ""
+    # user is the auth username to the database
+    user: ""
+    # password is the auth password to the database
+    password: ""
+    # params is the connection parameters to the database
+    params: ""
+    # uri is the raw uri connection string
+    uri: ""
+    # uriSecretName if set retrieves the `uri` from the provided secret name
+    uriSecretName: ""
+    # caSecretName if defined mounts database certificates from the provided secret
+    # secrets are mounted at `caMountPath`
+    caSecretName: ""
+    # caMountPath is the path the caSecretName is mounted at
+    caMountPath: /etc/ssl/crdb/
+    connections:
+      # max_open is the maximum number of open connections to the database
+      max_open: 0
+      # max_idle is the maximum number of connections in the idle connection
+      max_idle: 0
+      # max_lifetime is the maximum amount of time a connection may be idle
+      max_lifetime: 0 
+  crdb:
     # name is the database name
     name: ""
     # host is the database host
