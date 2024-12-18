@@ -9,7 +9,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"go.infratographer.com/x/crdbx"
 	"go.infratographer.com/x/echox"
 	"go.infratographer.com/x/events"
 	"go.infratographer.com/x/otelx"
@@ -59,7 +58,7 @@ func worker(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("failed to initialize events", "error", err)
 	}
 
-	db, err := crdbx.NewDB(cfg.CRDB, cfg.Tracing.Enabled)
+	db, err := newDBFromConfig(cfg)
 	if err != nil {
 		logger.Fatalw("unable to initialize permissions-api database", "error", err)
 	}

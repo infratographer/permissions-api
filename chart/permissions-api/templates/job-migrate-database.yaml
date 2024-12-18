@@ -1,9 +1,9 @@
-{{- if has .Values.config.crdb.migrateHook (list "pre-sync" "manual") }}
+{{- if has .Values.config.db.migrateHook (list "pre-sync" "manual") }}
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  {{- if eq .Values.config.crdb.migrateHook "manual" }}
+  {{- if eq .Values.config.db.migrateHook "manual" }}
   name: {{ include "common.names.name" . }}-migrate-database
   {{- else }}
   generateName: migrate-database-
@@ -41,6 +41,16 @@ spec:
             - up
             - --config
             - /config/config.yaml
+          {{- if eq .Values.config.db.engine "postgres"}}
+          {{- with .Values.config.psql.uriSecretName }}
+          env:
+            - name: PERMISSIONSAPI_PSQL_URI
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: uri
+          {{- end }}
+          {{- else }}
           {{- with .Values.config.crdb.uriSecretName }}
           env:
             - name: PERMISSIONSAPI_CRDB_URI
@@ -48,6 +58,7 @@ spec:
                 secretKeyRef:
                   name: {{ . }}
                   key: uri
+          {{- end }}
           {{- end }}
           {{- with .Values.deployment.resources }}
           resources:

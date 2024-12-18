@@ -1,0 +1,172 @@
+networks:
+  infradev:
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VARIANT: 1.23-bullseye
+        NODE_VERSION: "none"
+    command: sleep infinity
+# uncomment along with bind volume to use SSH for dev container access
+#    ports:
+#      - "127.0.0.1:2224:2222"
+    env_file:
+      - spanner.env
+    volumes:
+      - ./nsc:/nsc
+      - ./nats:/nats
+      - ..:/workspace:cached
+#      - type: bind
+#        source: ~/.ssh/authorized_keys
+#        target: /home/vscode/.ssh/authorized_keys
+#        read_only: true
+    networks:
+      - infradev
+    # Use "forwardPorts" in **devcontainer.json** to forward a port locally.
+    # (Adding the "ports" property to this file will not forward from a Codespace.)
+
+  # DB
+  spanner:
+    image: gcr.io/cloud-spanner-emulator/emulator
+    networks:
+      - infradev
+    ports:
+      - "9010:9010"
+      - "9020:9020"
+
+  spanner-pg:
+    image: gcr.io/cloud-spanner-pg-adapter/pgadapter
+    command:
+      - "-p test-project"
+      - "-i test-instance"
+      - "-r autoConfigEmulator=true"
+      - "-e spanner:9010"
+      - "-c \"\""
+      - "-x"
+      - -ddl=AutocommitExplicitTransaction
+    ports:
+      - "5432:5432"
+    depends_on:
+      - spanner
+    networks:
+      - infradev
+
+  create-databases-pg:
+    image: postgres:13.4
+    restart: on-failure:5
+    command: |
+      psql -h spanner-pg -c 'CREATE DATABASE permissionsapi;'
+    depends_on:
+      - spanner-pg
+    networks:
+      - infradev
+
+  create-databases-spanner:
+    image: alpine/curl
+    restart: on-failure:5
+    command: |
+      curl -X POST \
+        http://spanner:9020/v1/projects/test-project/instances/test-instance/databases \
+        -H 'Content-Type: application/json' \
+        -d '{
+          "createStatement": "CREATE DATABASE spicedb",
+          "databaseDialect": "GOOGLE_STANDARD_SQL"
+        }'
+    depends_on:
+      create-databases-pg:
+        condition: service_completed_successfully
+    networks:
+      - infradev
+
+  create-goose-table:
+    image: postgres:13.4
+    depends_on:
+      create-databases-pg:
+        condition: service_completed_successfully
+    restart: on-failure:5
+    networks:
+      - infradev
+    command: |
+      psql -h spanner-pg -d projects/test-project/instances/test-instance/databases/permissionsapi \
+        -c \
+        'CREATE TABLE IF NOT EXISTS public.goose_db_version (
+          id BIGINT NOT NULL DEFAULT (extract(epoch from CURRENT_TIMESTAMP)*1000)::bigint,
+          version_id BIGINT NOT NULL,
+          is_applied BOOLEAN NOT NULL,
+          tstamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id)
+        );
+
+        INSERT INTO goose_db_version (version_id, is_applied) VALUES (0, true);'
+
+  migrate_spicedb:
+    image: authzed/spicedb:v1.38.1
+    command: datastore migrate head
+    restart: on-failure:5
+    env_file:
+      - spanner.env
+    depends_on:
+      create-databases-pg:
+        condition: service_completed_successfully
+    networks:
+      - infradev
+
+  spicedb:
+    image: authzed/spicedb:v1.38.1
+    command: serve
+    restart: unless-stopped
+    env_file:
+      - spanner.env
+    depends_on:
+      migrate_spicedb:
+        condition: service_completed_successfully
+    ports:
+      - 50051:50051
+    networks:
+      - infradev
+
+  nats-init:
+    image: natsio/nats-box
+    environment:
+      - NSC_HOME=/nsc
+    volumes:
+      - ./nsc:/nsc
+      - ./nats:/nats
+      - ./scripts:/scripts
+    command:
+      - /scripts/nats_init.sh
+
+  nats:
+    image: 'nats:alpine'
+    depends_on:
+      - nats-init
+    command:
+      - -c
+      - '/etc/nats/nats-server.conf'
+      - -D
+    volumes:
+      - ./nats/:/etc/nats
+    restart: unless-stopped
+    networks:
+      - infradev
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.60.0
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - 16688:16686
+    networks:
+      - infradev
+
+  mock-oauth2-server:
+    image: ghcr.io/navikt/mock-oauth2-server:2.1.10
+    networks:
+      - infradev
+    environment:
+      - PORT=8081
+    ports:
+      - 8081:8081

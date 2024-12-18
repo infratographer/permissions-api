@@ -55,6 +55,13 @@ spec:
           env:
             - name: PERMISSIONSAPI_SERVER_LISTEN
               value: ":{{ include "permapi.listenPort" . }}"
+          {{- with .Values.config.psql.uriSecretName }}
+            - name: PERMISSIONSAPI_PSQL_URI
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: uri
+          {{- end }}
           {{- with .Values.config.crdb.uriSecretName }}
             - name: PERMISSIONSAPI_CRDB_URI
               valueFrom:

@@ -5,7 +5,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"go.infratographer.com/x/crdbx"
 	"go.infratographer.com/x/gidx"
 	"go.infratographer.com/x/viperx"
 
@@ -64,7 +63,7 @@ func createRole(ctx context.Context, cfg *config.AppConfig) {
 		logger.Fatalw("unable to initialize spicedb client", "error", err)
 	}
 
-	db, err := crdbx.NewDB(cfg.CRDB, cfg.Tracing.Enabled)
+	db, err := newDBFromConfig(cfg)
 	if err != nil {
 		logger.Fatalw("unable to initialize permissions-api database", "error", err)
 	}

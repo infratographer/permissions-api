@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -16,6 +17,7 @@ import (
 
 	"go.infratographer.com/permissions-api/internal/config"
 	"go.infratographer.com/permissions-api/internal/storage"
+	"go.infratographer.com/permissions-api/internal/storage/psql"
 )
 
 var (
@@ -47,12 +49,24 @@ func init() {
 
 	// Database Flags
 	crdbx.MustViperFlags(viper.GetViper(), rootCmd.Flags())
+	psql.MustViperFlags(viper.GetViper(), rootCmd.Flags())
 
 	// Add migrate command
 	goosex.RegisterCobraCommand(rootCmd, func() {
-		goosex.SetBaseFS(storage.Migrations)
 		goosex.SetLogger(logger)
-		goosex.SetDBURI(globalCfg.CRDB.GetURI())
+
+		logger.Infow("setting up migrations", "engine", string(globalCfg.DB.Engine))
+
+		switch globalCfg.DB.Engine {
+		case config.DBEnginePostgreSQL:
+			goosex.SetBaseFS(psql.Migrations)
+			goosex.SetDBURI(globalCfg.PSQL.GetURI())
+		case config.DBEngineCockroachDB:
+			goosex.SetBaseFS(psql.Migrations)
+			goosex.SetDBURI(globalCfg.CRDB.GetURI())
+		default:
+			log.Fatalf("unknown database engine: %s", globalCfg.DB.Engine)
+		}
 	})
 
 	// Add version command
@@ -70,6 +84,9 @@ func init() {
 	viperx.MustBindFlag(viper.GetViper(), "spicedb.prefix", rootCmd.PersistentFlags().Lookup("spicedb-prefix"))
 	rootCmd.PersistentFlags().String("spicedb-policydir", "", "spicedb policy directory")
 	viperx.MustBindFlag(viper.GetViper(), "spicedb.policyDir", rootCmd.PersistentFlags().Lookup("spicedb-policydir"))
+
+	rootCmd.PersistentFlags().String("db-engine", "cockoach", "database engine to use (cockroach, postgres)")
+	viperx.MustBindFlag(viper.GetViper(), "db.engine", rootCmd.PersistentFlags().Lookup("db-engine"))
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -106,4 +123,18 @@ func initConfig() {
 	}
 
 	globalCfg = &settings
+}
+
+// newDBFromConfig creates a new database connection based on the provided configuration.
+func newDBFromConfig(cfg *config.AppConfig) (storage.DB, error) {
+	logger.Infow("setting up database", "engine", string(cfg.DB.Engine))
+
+	switch cfg.DB.Engine {
+	case config.DBEnginePostgreSQL:
+		return psql.NewDB(cfg.PSQL, cfg.Tracing.Enabled)
+	case config.DBEngineCockroachDB:
+		return crdbx.NewDB(cfg.CRDB, cfg.Tracing.Enabled)
+	default:
+		return nil, fmt.Errorf("%w: %s", ErrUnsupportedDBEngine, cfg.DB.Engine)
+	}
 }

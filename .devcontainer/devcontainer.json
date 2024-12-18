@@ -2,6 +2,9 @@
 {
 	"name": "permissions-api",
 	"dockerComposeFile":"docker-compose.yml",
+	// use the following instead if you want to use spanner and its emulator
+	// instead of crdb
+	// "dockerComposeFile":"spanner.docker-compose.yml",
 	"service": "app",
 	"workspaceFolder": "/workspace",
 	"shutdownAction": "stopCompose",

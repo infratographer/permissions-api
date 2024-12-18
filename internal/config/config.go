@@ -13,6 +13,7 @@ import (
 	"go.infratographer.com/x/viperx"
 
 	"go.infratographer.com/permissions-api/internal/spicedbx"
+	"go.infratographer.com/permissions-api/internal/storage/psql"
 )
 
 // EventsConfig stores the configuration for a load-balancer-api events config
@@ -22,15 +23,32 @@ type EventsConfig struct {
 	ZedTokenBucket string
 }
 
+// DBEngine is the type for the database engine
+type DBEngine string
+
+const (
+	// DBEngineCockroachDB is the DBEngineCockroachDB database engine
+	DBEngineCockroachDB DBEngine = "cockroach"
+	// DBEnginePostgreSQL is the DBEnginePostgreSQL database engine
+	DBEnginePostgreSQL DBEngine = "postgres"
+)
+
+// DBDriverConfig is the struct used for configuring the database driver
+type DBDriverConfig struct {
+	Engine DBEngine `mapstructure:"engine"`
+}
+
 // AppConfig is the struct used for configuring the app
 type AppConfig struct {
 	CRDB    crdbx.Config
+	PSQL    psql.Config
 	OIDC    echojwtx.AuthConfig
 	Logging loggingx.Config
 	Server  echox.Config
 	SpiceDB spicedbx.Config
 	Tracing otelx.Config
 	Events  EventsConfig
+	DB      DBDriverConfig
 }
 
 // MustViperFlags sets the cobra flags and viper config for events.
