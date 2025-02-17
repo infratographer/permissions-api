@@ -121,7 +121,7 @@ services:
       - infradev
 
   jaeger:
-    image: jaegertracing/all-in-one:1.60.0
+    image: jaegertracing/all-in-one:1.66.0
     environment:
       - COLLECTOR_OTLP_ENABLED=true
     ports:
