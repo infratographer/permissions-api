@@ -2,7 +2,7 @@ module go.infratographer.com/permissions-api
 
 go 1.23
 
-toolchain go1.23.4
+toolchain go1.24.0
 
 require (
 	github.com/XSAM/otelsql v0.37.0
