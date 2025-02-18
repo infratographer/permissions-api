@@ -12,7 +12,7 @@ require (
 	github.com/go-jose/go-jose/v4 v4.0.4
 	github.com/hashicorp/go-cleanhttp v0.5.2
 	github.com/hashicorp/go-retryablehttp v0.7.7
-	github.com/jackc/pgx/v5 v5.7.1
+	github.com/jackc/pgx/v5 v5.7.2
 	github.com/labstack/echo/v4 v4.13.3
 	github.com/pkg/errors v0.9.1
 	github.com/pressly/goose/v3 v3.24.1
