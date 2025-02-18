@@ -85,7 +85,7 @@ func init() {
 	rootCmd.PersistentFlags().String("spicedb-policydir", "", "spicedb policy directory")
 	viperx.MustBindFlag(viper.GetViper(), "spicedb.policyDir", rootCmd.PersistentFlags().Lookup("spicedb-policydir"))
 
-	rootCmd.PersistentFlags().String("db-engine", "cockoach", "database engine to use (cockroach, postgres)")
+	rootCmd.PersistentFlags().String("db-engine", "cockroach", "database engine to use (cockroach, postgres)")
 	viperx.MustBindFlag(viper.GetViper(), "db.engine", rootCmd.PersistentFlags().Lookup("db-engine"))
 }
 
