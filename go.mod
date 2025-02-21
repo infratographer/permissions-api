@@ -5,7 +5,7 @@ go 1.24.0
 require (
 	github.com/XSAM/otelsql v0.37.0
 	github.com/authzed/authzed-go v1.3.0
-	github.com/authzed/grpcutil v0.0.0-20240123194739-2ea1e3d2d98b
+	github.com/authzed/grpcutil v0.0.0-20250221190651-1985b19b35b8
 	github.com/cockroachdb/cockroach-go/v2 v2.4.0
 	github.com/go-jose/go-jose/v4 v4.0.4
 	github.com/hashicorp/go-cleanhttp v0.5.2
@@ -355,8 +355,8 @@ require (
 	golang.org/x/time v0.9.0 // indirect
 	golang.org/x/tools v0.30.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250115164207-1a7da9e5054f // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250127172529-29210b9bc287 // indirect
-	google.golang.org/protobuf v1.36.4 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250219182151-9fdb1cabc7b2 // indirect
+	google.golang.org/protobuf v1.36.5 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	honnef.co/go/tools v0.6.0 // indirect
