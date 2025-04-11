@@ -96,7 +96,7 @@ func (e *engine) ListResourceRoleBindings(ctx context.Context, resourceID gidx.P
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", err, resourceID.String())
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var roleBindings []types.RoleBinding
 
@@ -136,7 +136,7 @@ func (e *engine) ListManagerResourceRoleBindings(ctx context.Context, manager st
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", err, resourceID.String())
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var roleBindings []types.RoleBinding
 

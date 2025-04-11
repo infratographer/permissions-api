@@ -115,7 +115,7 @@ func TestTransportRoundTrip(t *testing.T) {
 
 			require.NoError(t, err, "no error expected to be returned")
 
-			defer resp.Body.Close()
+			defer resp.Body.Close() //nolint:errcheck
 
 			assert.Equal(t, tc.expectRequestURL, resp.Request.URL.String(), "unexpected url requested")
 			assert.Equal(t, tc.expectSelected, selector.selected.Host(), "unexpected host selected")

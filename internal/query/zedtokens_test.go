@@ -51,7 +51,7 @@ func TestConsistency(t *testing.T) {
 
 				return ctx
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[string]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[string]) {
 				assert.NoError(t, res.Err)
 				assert.Equal(t, consistencyAtLeastAsFresh, res.Success)
 			},
@@ -59,7 +59,7 @@ func TestConsistency(t *testing.T) {
 		{
 			Name:  "WithoutZedToken",
 			Input: otherRes,
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[string]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[string]) {
 				assert.NoError(t, res.Err)
 				assert.Equal(t, consistencyMinimizeLatency, res.Success)
 			},

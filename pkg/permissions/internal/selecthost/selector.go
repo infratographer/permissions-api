@@ -256,7 +256,7 @@ func (s *Selector) selectHost(ctx context.Context) {
 		span.SetAttributes(attribute.Bool("host.changed", true))
 
 		// ensure host doesn't change for 5 check intervals (as long as it's still healthy)
-		s.stickyUntil = time.Now().Add(5 * s.checkInterval)
+		s.stickyUntil = time.Now().Add(5 * s.checkInterval) //nolint:Mnd
 
 		if current == nil {
 			span.AddEvent("selected host: " + selected.ID())
@@ -277,7 +277,7 @@ func (s *Selector) selectHost(ctx context.Context) {
 		}
 	} else if selected != nil && current == selected && !sticky {
 		// If host remains the same but stickiness has expired, reset the sticky counter.
-		s.stickyUntil = time.Now().Add(5 * s.checkInterval)
+		s.stickyUntil = time.Now().Add(5 * s.checkInterval) //nolint:mnd
 	}
 
 	if selected == nil {
@@ -472,16 +472,16 @@ func NewSelector(target, service, protocol string, options ...Option) (*Selector
 		target:   target,
 
 		resolver:          net.DefaultResolver,
-		discoveryInterval: 15 * time.Minute,
-		discoveryTimeout:  2 * time.Second,
+		discoveryInterval: 15 * time.Minute, //nolint:mnd
+		discoveryTimeout:  2 * time.Second,  //nolint:mnd
 
-		checkCount:       5,
+		checkCount:       5, //nolint:mnd
 		checkInterval:    time.Minute,
-		checkDelay:       200 * time.Millisecond,
-		checkTimeout:     2 * time.Second,
-		checkConcurrency: 5,
+		checkDelay:       200 * time.Millisecond, //nolint:mnd
+		checkTimeout:     2 * time.Second,        //nolint:mnd
+		checkConcurrency: 5,                      //nolint:mnd
 
-		initTimeout: 10 * time.Second,
+		initTimeout: 10 * time.Second, //nolint:mnd
 
 		runCh:     make(chan struct{}),
 		startWait: make(chan struct{}),

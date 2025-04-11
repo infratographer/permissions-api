@@ -29,7 +29,7 @@ var (
 // httpClient sets the client timeout to 10 seconds.
 var httpClient = &http.Client{
 	Transport: otelhttp.NewTransport(cleanhttp.DefaultPooledTransport()),
-	Timeout:   10 * time.Second,
+	Timeout:   10 * time.Second, //nolint:mnd
 }
 
 // Host is an individual host entry.
@@ -302,7 +302,7 @@ func (h *host) run(ctx context.Context, logger *zap.SugaredLogger) (time.Duratio
 		return duration, err
 	}
 
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	// Consume body so connection can be reused.
 	// If an error occurs reading the body, ignore.

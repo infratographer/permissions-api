@@ -139,7 +139,7 @@ func TestAssignmentCreate(t *testing.T) {
 
 				resp := res.Success.Result()
 
-				defer resp.Body.Close()
+				defer resp.Body.Close() //nolint:errcheck
 
 				var retResp createAssignmentResponse
 
@@ -255,7 +255,7 @@ func TestAssignmentsList(t *testing.T) {
 
 				resp := res.Success.Result()
 
-				defer resp.Body.Close()
+				defer resp.Body.Close() //nolint:errcheck
 
 				var ret listAssignmentsResponse
 
@@ -424,7 +424,7 @@ func TestAssignmentDelete(t *testing.T) {
 
 				resp := res.Success.Result()
 
-				defer resp.Body.Close()
+				defer resp.Body.Close() //nolint:errcheck
 
 				var retResp deleteAssignmentResponse
 

@@ -12,7 +12,7 @@ var (
 	Error = errors.New("permissions error")
 
 	// AuthError is the root error all auth related errors stem from.
-	AuthError = fmt.Errorf("%w: auth", Error) //nolint:revive,stylecheck // not returned directly, but used as a root error.
+	AuthError = fmt.Errorf("%w: auth", Error) //nolint:revive,staticcheck // not returned directly, but used as a root error.
 
 	// ErrNoAuthToken is the error returned when there is no auth token provided for the API request
 	ErrNoAuthToken = echo.ErrBadRequest.WithInternal(fmt.Errorf("%w: no auth token provided for client", AuthError))

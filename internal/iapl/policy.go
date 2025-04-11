@@ -161,7 +161,7 @@ func loadPolicyDocumentFromFile(filePath string) (PolicyDocument, error) {
 		return PolicyDocument{}, fmt.Errorf("%s: %w", filePath, err)
 	}
 
-	defer file.Close()
+	defer file.Close() //nolint:errcheck
 
 	var (
 		finalPolicyDocument = PolicyDocument{}

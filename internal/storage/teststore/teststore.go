@@ -39,12 +39,12 @@ func NewTestStorage(t *testing.T) (storage.Storage, func()) {
 	if err = goose.RunContext(context.Background(), "up", db, "migrations"); err != nil {
 		t.Error(err)
 
-		db.Close()
+		db.Close() //nolint:errcheck
 
 		t.FailNow()
 
 		return nil, func() {}
 	}
 
-	return storage.New(db), func() { db.Close() }
+	return storage.New(db), func() { db.Close() } //nolint:errcheck
 }

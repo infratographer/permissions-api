@@ -178,7 +178,7 @@ func TestRoleCreate(t *testing.T) {
 
 				resp := res.Success.Result()
 
-				defer resp.Body.Close()
+				defer resp.Body.Close() //nolint:errcheck
 
 				var role roleResponse
 
@@ -397,7 +397,7 @@ func TestRoleUpdate(t *testing.T) {
 
 				resp := res.Success.Result()
 
-				defer resp.Body.Close()
+				defer resp.Body.Close() //nolint:errcheck
 
 				var role roleResponse
 
@@ -528,7 +528,7 @@ func TestRoleGet(t *testing.T) {
 
 				resp := res.Success.Result()
 
-				defer resp.Body.Close()
+				defer resp.Body.Close() //nolint:errcheck
 
 				var role roleResponse
 
@@ -661,7 +661,7 @@ func TestRoleDelete(t *testing.T) {
 
 				resp := res.Success.Result()
 
-				defer resp.Body.Close()
+				defer resp.Body.Close() //nolint:errcheck
 
 				var roleResp deleteRoleResponse
 
