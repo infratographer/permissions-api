@@ -166,7 +166,7 @@ func TestCreateRole(t *testing.T) {
 				id:   "permrol-abc123",
 				name: "admins",
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[storage.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[storage.Role]) {
 				require.NoError(t, res.Err, "no error expected creating role")
 
 				assert.Equal(t, "permrol-abc123", res.Success.ID.String())
@@ -184,7 +184,7 @@ func TestCreateRole(t *testing.T) {
 				id:   "permrol-abc123",
 				name: "users",
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[storage.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[storage.Role]) {
 				require.Error(t, res.Err, "expected error for duplicate index")
 				assert.ErrorIs(t, res.Err, storage.ErrRoleAlreadyExists, "expected error to be for role already exists")
 				require.Empty(t, res.Success.ID, "expected role to be empty")
@@ -197,7 +197,7 @@ func TestCreateRole(t *testing.T) {
 				id:   "permrol-def456",
 				name: "admins",
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[storage.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[storage.Role]) {
 				assert.Error(t, res.Err, "expected error for already taken name")
 				assert.ErrorIs(t, res.Err, storage.ErrRoleNameTaken, "expected error to be for already taken name")
 				require.Empty(t, res.Success.ID, "expected role to be empty")
@@ -272,7 +272,7 @@ func TestUpdateRole(t *testing.T) {
 				id:   role1ID,
 				name: role2Name,
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[storage.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[storage.Role]) {
 				assert.Error(t, res.Err, "expected error updating role name to an already taken role name")
 				assert.ErrorIs(t, res.Err, storage.ErrRoleNameTaken, "expected error to be role name taken error")
 				assert.Empty(t, res.Success.ID, "expected role to be empty")
@@ -285,7 +285,7 @@ func TestUpdateRole(t *testing.T) {
 				id:   role1ID,
 				name: "root-admins",
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[storage.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[storage.Role]) {
 				require.NoError(t, res.Err, "no error expected while updating role")
 
 				assert.Equal(t, role1ID, res.Success.ID)
@@ -302,7 +302,7 @@ func TestUpdateRole(t *testing.T) {
 				id:   "permrol-notfound789",
 				name: "not-found",
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[storage.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[storage.Role]) {
 				require.Error(t, res.Err, "an error expected to be returned for an unknown role")
 				assert.ErrorIs(t, res.Err, storage.ErrNoRoleFound, "unexpected error returned")
 				assert.Empty(t, res.Success.ID, "expected role to be empty")

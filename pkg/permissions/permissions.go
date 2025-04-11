@@ -142,7 +142,7 @@ func (p *Permissions) checker(c echo.Context, actor, _ string) Checker {
 			return err
 		}
 
-		defer resp.Body.Close()
+		defer resp.Body.Close() //nolint:errcheck
 
 		err = ensureValidServerResponse(resp)
 		if err != nil {

@@ -101,14 +101,14 @@ func TestCreateRoles(t *testing.T) {
 			Input: []string{
 				"bad_action",
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				assert.Error(t, res.Err)
 			},
 		},
 		{
 			Name:  "CreateNoActions",
 			Input: []string{},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				expActions := []string{}
 
 				require.NoError(t, res.Err)
@@ -122,7 +122,7 @@ func TestCreateRoles(t *testing.T) {
 			Input: []string{
 				"loadbalancer_get",
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				expActions := []string{
 					"loadbalancer_get",
 				}
@@ -187,14 +187,14 @@ func TestGetRoles(t *testing.T) {
 		{
 			Name:  "GetRoleNotFound",
 			Input: missingRes,
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				assert.ErrorIs(t, res.Err, ErrRoleNotFound)
 			},
 		},
 		{
 			Name:  "GetSuccess",
 			Input: roleRes,
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				expActions := []string{
 					"loadbalancer_get",
 				}
@@ -243,7 +243,7 @@ func TestRoleUpdate(t *testing.T) {
 		{
 			Name:  "UpdateMissingRole",
 			Input: gidx.MustNewID(RolePrefix),
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				require.Error(t, res.Err)
 				assert.ErrorIs(t, res.Err, ErrRoleNotFound)
 			},
@@ -251,7 +251,7 @@ func TestRoleUpdate(t *testing.T) {
 		{
 			Name:  "UpdateSuccess",
 			Input: role.ID,
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				require.NoError(t, res.Err)
 				assert.Equal(t, "test2", res.Success.Name)
 				assert.Equal(t, role.Actions, res.Success.Actions)
@@ -396,14 +396,14 @@ func TestRoleDelete(t *testing.T) {
 		{
 			Name:  "DeleteMissingRole",
 			Input: gidx.MustNewID(RolePrefix),
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
 				assert.Error(t, res.Err)
 			},
 		},
 		{
 			Name:  "DeleteSuccess",
 			Input: role.ID,
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
 				assert.NoError(t, res.Err)
 				require.Empty(t, res.Success)
 			},
@@ -467,7 +467,7 @@ func TestAssignments(t *testing.T) {
 		{
 			Name:  "Success",
 			Input: role,
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Resource]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[[]types.Resource]) {
 				expAssignments := []types.Resource{
 					subjRes,
 				}
@@ -528,7 +528,7 @@ func TestUnassignments(t *testing.T) {
 		{
 			Name:  "Success",
 			Input: role,
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Resource]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[[]types.Resource]) {
 				assert.NoError(t, res.Err)
 				assert.Empty(t, res.Success)
 			},
@@ -606,7 +606,7 @@ func TestRelationships(t *testing.T) {
 				Relation: "foo",
 				Subject:  parentRes,
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Relationship]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[[]types.Relationship]) {
 				assert.ErrorIs(t, res.Err, ErrInvalidRelationship)
 			},
 		},
@@ -617,7 +617,7 @@ func TestRelationships(t *testing.T) {
 				Relation: "parent",
 				Subject:  parentRes,
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Relationship]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[[]types.Relationship]) {
 				expRels := []types.Relationship{
 					{
 						Resource: childRes,
@@ -637,7 +637,7 @@ func TestRelationships(t *testing.T) {
 				Relation: "parent",
 				Subject:  parentRes,
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Relationship]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[[]types.Relationship]) {
 				expRels := []types.Relationship{
 					{
 						Resource: child2Res,
@@ -706,7 +706,7 @@ func TestRelationshipDelete(t *testing.T) {
 				Relation: "foo",
 				Subject:  parentRes,
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Relationship]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[[]types.Relationship]) {
 				assert.ErrorIs(t, res.Err, ErrInvalidRelationship)
 			},
 		},
@@ -717,7 +717,7 @@ func TestRelationshipDelete(t *testing.T) {
 				Relation: "parent",
 				Subject:  parentRes,
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Relationship]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[[]types.Relationship]) {
 				require.NoError(t, res.Err)
 				assert.Empty(t, res.Success)
 			},
@@ -809,7 +809,7 @@ func TestSubjectActions(t *testing.T) {
 				resource: otherRes,
 				action:   "loadbalancer_update",
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[any]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[any]) {
 				assert.ErrorIs(t, res.Err, ErrActionNotAssigned)
 			},
 		},
@@ -819,7 +819,7 @@ func TestSubjectActions(t *testing.T) {
 				resource: tenRes,
 				action:   "loadbalancer_delete",
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[any]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[any]) {
 				assert.ErrorIs(t, res.Err, ErrActionNotAssigned)
 			},
 		},
@@ -829,7 +829,7 @@ func TestSubjectActions(t *testing.T) {
 				resource: tenRes,
 				action:   "bad_action",
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[any]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[any]) {
 				assert.ErrorIs(t, res.Err, ErrInvalidAction)
 			},
 		},
@@ -839,7 +839,7 @@ func TestSubjectActions(t *testing.T) {
 				resource: tenRes,
 				action:   "loadbalancer_update",
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[any]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[any]) {
 				assert.NoError(t, res.Err)
 			},
 		},

@@ -25,7 +25,7 @@ func (p *MockPermissions) ContextWithHandler(ctx context.Context) context.Contex
 }
 
 // CreateAuthRelationships implements permissions.AuthRelationshipRequestHandler.
-func (p *MockPermissions) CreateAuthRelationships(ctx context.Context, topic string, resourceID gidx.PrefixedID, relations ...events.AuthRelationshipRelation) error {
+func (p *MockPermissions) CreateAuthRelationships(_ context.Context, topic string, resourceID gidx.PrefixedID, relations ...events.AuthRelationshipRelation) error {
 	calledArgs := []interface{}{topic, resourceID}
 
 	for _, rel := range relations {
@@ -38,7 +38,7 @@ func (p *MockPermissions) CreateAuthRelationships(ctx context.Context, topic str
 }
 
 // DeleteAuthRelationships implements permissions.AuthRelationshipRequestHandler.
-func (p *MockPermissions) DeleteAuthRelationships(ctx context.Context, topic string, resourceID gidx.PrefixedID, relations ...events.AuthRelationshipRelation) error {
+func (p *MockPermissions) DeleteAuthRelationships(_ context.Context, topic string, resourceID gidx.PrefixedID, relations ...events.AuthRelationshipRelation) error {
 	calledArgs := []interface{}{topic, resourceID}
 
 	for _, rel := range relations {

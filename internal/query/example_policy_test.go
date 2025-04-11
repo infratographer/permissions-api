@@ -198,7 +198,7 @@ func TestExamplePolicy(t *testing.T) {
 
 				return ctx
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, tr testingx.TestResult[any]) {
+			CheckFn: func(ctx context.Context, t *testing.T, _ testingx.TestResult[any]) {
 				res := []types.Resource{tnnttenroot, tnnttena, tnnttenb1, tnnttenb2, tnnttenc}
 
 				for _, r := range res {
@@ -234,7 +234,7 @@ func TestExamplePolicy(t *testing.T) {
 
 				return ctx
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, tr testingx.TestResult[any]) {
+			CheckFn: func(ctx context.Context, t *testing.T, _ testingx.TestResult[any]) {
 				res := []types.Resource{tnnttena, tnnttenb1, tnnttenb2, tnnttenc}
 
 				forbidden := iamactions
@@ -284,7 +284,7 @@ func TestExamplePolicy(t *testing.T) {
 
 				return ctx
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, tr testingx.TestResult[any]) {
+			CheckFn: func(ctx context.Context, t *testing.T, _ testingx.TestResult[any]) {
 				nopermRes := tnnttenroot
 				res := []types.Resource{tnnttena, tnnttenb1, tnnttenb2, tnnttenc}
 
@@ -324,7 +324,7 @@ func TestExamplePolicy(t *testing.T) {
 		},
 		{
 			Name: "iam-admin cannot be bind on tnntten-root",
-			CheckFn: func(ctx context.Context, t *testing.T, tr testingx.TestResult[any]) {
+			CheckFn: func(ctx context.Context, t *testing.T, _ testingx.TestResult[any]) {
 				role := types.Resource{Type: "role", ID: iamadmin.ID}
 				_, err := e.CreateRoleBinding(ctx, superuser, tnnttenroot, role, t.Name(), []types.RoleBindingSubject{{SubjectResource: groupadminsubgroup}})
 				assert.Error(t, err)
@@ -333,7 +333,7 @@ func TestExamplePolicy(t *testing.T) {
 		},
 	}
 
-	testFn := func(ctx context.Context, in any) testingx.TestResult[any] {
+	testFn := func(_ context.Context, _ any) testingx.TestResult[any] {
 		return testingx.TestResult[any]{}
 	}
 

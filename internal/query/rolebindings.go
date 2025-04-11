@@ -61,9 +61,9 @@ func (e *engine) GetRoleBinding(ctx context.Context, roleBinding types.Resource)
 	rb.SubjectIDs = make([]gidx.PrefixedID, 0, len(rbRel))
 
 	for _, rel := range rbRel {
-		switch {
+		switch rel.Relation {
 		// process subject relationships
-		case rel.Relation == iapl.RolebindingSubjectRelation:
+		case iapl.RolebindingSubjectRelation:
 			subjID, err := gidx.Parse(rel.Subject.Object.ObjectId)
 			if err != nil {
 				span.RecordError(err)

@@ -78,7 +78,7 @@ func TestCreateRoleBinding(t *testing.T) {
 				role:     notfoundRole,
 				subjects: []types.RoleBindingSubject{{SubjectResource: subj}},
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.RoleBinding]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.RoleBinding]) {
 				assert.ErrorIs(t, res.Err, ErrRoleNotFound)
 			},
 		},
@@ -89,7 +89,7 @@ func TestCreateRoleBinding(t *testing.T) {
 				role:     v1role,
 				subjects: []types.RoleBindingSubject{{SubjectResource: subj}},
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.RoleBinding]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.RoleBinding]) {
 				assert.ErrorIs(t, res.Err, ErrRoleNotFound)
 			},
 		},
@@ -117,7 +117,7 @@ func TestCreateRoleBinding(t *testing.T) {
 				role:     roleRes,
 				subjects: []types.RoleBindingSubject{{SubjectResource: subj}},
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.RoleBinding]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.RoleBinding]) {
 				assert.ErrorIs(t, res.Err, ErrRoleNotFound)
 			},
 		},
@@ -203,7 +203,7 @@ func TestListRoleBindings(t *testing.T) {
 			Input: input{
 				resource: root,
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.RoleBinding]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[[]types.RoleBinding]) {
 				assert.Len(t, res.Success, 2)
 			},
 		},
@@ -213,7 +213,7 @@ func TestListRoleBindings(t *testing.T) {
 				resource: root,
 				role:     &viewerRes,
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.RoleBinding]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[[]types.RoleBinding]) {
 				assert.Len(t, res.Success, 1)
 				assert.Equal(t, viewer.ID, res.Success[0].RoleID)
 			},
@@ -224,7 +224,7 @@ func TestListRoleBindings(t *testing.T) {
 				resource: root,
 				role:     &editorRes,
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.RoleBinding]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[[]types.RoleBinding]) {
 				assert.Len(t, res.Success, 1)
 				assert.Equal(t, editor.ID, res.Success[0].RoleID)
 			},
@@ -234,7 +234,7 @@ func TestListRoleBindings(t *testing.T) {
 			Input: input{
 				resource: child,
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.RoleBinding]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[[]types.RoleBinding]) {
 				assert.Len(t, res.Success, 0)
 			},
 		},
@@ -244,7 +244,7 @@ func TestListRoleBindings(t *testing.T) {
 				resource: root,
 				role:     &notfoundRole,
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.RoleBinding]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[[]types.RoleBinding]) {
 				assert.Len(t, res.Success, 0)
 			},
 		},
@@ -289,7 +289,7 @@ func TestGetRoleBinding(t *testing.T) {
 		{
 			Name:  "GetRoleBindingSuccess",
 			Input: rbRes,
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.RoleBinding]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.RoleBinding]) {
 				assert.NoError(t, res.Err)
 				assert.Equal(t, viewer.ID, res.Success.RoleID)
 				assert.Len(t, res.Success.SubjectIDs, 1)
@@ -301,7 +301,7 @@ func TestGetRoleBinding(t *testing.T) {
 		{
 			Name:  "GetRoleBindingNotFound",
 			Input: notfoundRB,
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.RoleBinding]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.RoleBinding]) {
 				assert.ErrorContains(t, res.Err, ErrRoleBindingNotFound.Error())
 			},
 		},
@@ -358,7 +358,7 @@ func TestUpdateRoleBinding(t *testing.T) {
 				rb:   notfoundRB,
 				subj: []types.RoleBindingSubject{{SubjectResource: subj}},
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.RoleBinding]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.RoleBinding]) {
 				assert.ErrorContains(t, res.Err, ErrRoleBindingNotFound.Error())
 			},
 			Sync: true,
@@ -369,7 +369,7 @@ func TestUpdateRoleBinding(t *testing.T) {
 				rb:   rbRes,
 				subj: []types.RoleBindingSubject{{SubjectResource: invalidsubj}},
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.RoleBinding]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.RoleBinding]) {
 				assert.ErrorContains(t, res.Err, ErrInvalidArgument.Error())
 			},
 			Sync: true,
@@ -380,7 +380,7 @@ func TestUpdateRoleBinding(t *testing.T) {
 				rb:   rbRes,
 				subj: []types.RoleBindingSubject{{SubjectResource: user1}, {SubjectResource: group1}},
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.RoleBinding]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.RoleBinding]) {
 				assert.NoError(t, res.Err)
 
 				assert.Len(t, res.Success.SubjectIDs, 2)
@@ -400,7 +400,7 @@ func TestUpdateRoleBinding(t *testing.T) {
 				rb:   rbRes,
 				subj: []types.RoleBindingSubject{},
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.RoleBinding]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.RoleBinding]) {
 				assert.NoError(t, res.Err)
 				assert.Len(t, res.Success.SubjectIDs, 0)
 			},
@@ -763,7 +763,7 @@ func TestPermissions(t *testing.T) {
 		},
 	}
 
-	testFn := func(ctx context.Context, in any) testingx.TestResult[any] {
+	testFn := func(_ context.Context, _ any) testingx.TestResult[any] {
 		return testingx.TestResult[any]{}
 	}
 

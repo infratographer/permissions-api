@@ -45,6 +45,10 @@ golint: | vendor  ## Runs Go lint checks.
 	@echo Linting Go files...
 	@go tool golangci-lint run --timeout 5m
 
+fixlint:
+	@echo Fixing go imports
+	@find . -type f -iname '*.go' | xargs go tool goimports -w -local go.infratographer.com/tenant-api
+
 clean:  ## Cleans generated files.
 	@echo Cleaning...
 	@rm -f coverage.out
@@ -53,15 +57,6 @@ clean:  ## Cleans generated files.
 vendor:  ## Downloads and tidies go modules.
 	@go mod download
 	@go mod tidy
-
-.PHONY: gci-diff gci-write gci
-gci-diff: $(GO_FILES)  ## Outputs improper go import ordering.
-	@go tool gci diff -s 'standard,default,prefix(github.com/infratographer)' $^
-
-gci-write: $(GO_FILES)  ## Checks and updates all go files for proper import ordering.
-	@go tool gci write -s 'standard,default,prefix(github.com/infratographer)' $^
-
-gci: | gci-diff gci-write  ## Outputs and corrects all improper go import ordering.
 
 .PHONY: nats-account
 nats-account: ## Generates NATS user account credentials.

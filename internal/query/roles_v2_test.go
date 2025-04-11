@@ -90,7 +90,7 @@ func TestCreateRolesV2(t *testing.T) {
 				actions: []string{"action1", "action2"},
 				owner:   tenant,
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				require.Error(t, res.Err)
 			},
 		},
@@ -104,7 +104,7 @@ func TestCreateRolesV2(t *testing.T) {
 					"loadbalancer_get",
 				},
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				require.Error(t, res.Err)
 				assert.ErrorContains(t, res.Err, "not allowed on relation")
 			},
@@ -119,7 +119,7 @@ func TestCreateRolesV2(t *testing.T) {
 					"loadbalancer_get",
 				},
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				require.NoError(t, res.Err)
 
 				role := res.Success
@@ -174,21 +174,21 @@ func TestGetRoleV2(t *testing.T) {
 		{
 			Name:  "GetRoleNotFound",
 			Input: missingRes,
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				assert.ErrorIs(t, res.Err, ErrRoleNotFound)
 			},
 		},
 		{
 			Name:  "GetRoleInvalidInput",
 			Input: invalidInput,
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				assert.ErrorIs(t, res.Err, ErrInvalidType)
 			},
 		},
 		{
 			Name:  "GetRoleSuccess",
 			Input: roleRes,
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				require.NoError(t, res.Err)
 
 				resp := res.Success
@@ -247,14 +247,14 @@ func TestListRolesV2(t *testing.T) {
 		{
 			Name:  "InvalidOwner",
 			Input: invalidOwner,
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
 				assert.ErrorIs(t, res.Err, ErrInvalidType)
 			},
 		},
 		{
 			Name:  "ListParentRoles",
 			Input: root,
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
 				assert.NoError(t, res.Err)
 				assert.Len(t, res.Success, 2)
 			},
@@ -262,7 +262,7 @@ func TestListRolesV2(t *testing.T) {
 		{
 			Name:  "ListInheritedRoles",
 			Input: child,
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
 				assert.NoError(t, res.Err)
 				assert.Len(t, res.Success, 3)
 			},
@@ -270,7 +270,7 @@ func TestListRolesV2(t *testing.T) {
 		{
 			Name:  "ListNoRoles",
 			Input: orphan,
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[[]types.Role]) {
 				require.NoError(t, res.Err)
 				assert.Len(t, res.Success, 0)
 			},
@@ -322,7 +322,7 @@ func TestUpdateRolesV2(t *testing.T) {
 				actions: []string{"loadbalancer_list", "loadbalancer_get"},
 				role:    notfoundRes,
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				assert.ErrorIs(t, res.Err, ErrRoleNotFound)
 			},
 			Sync: true,
@@ -334,7 +334,7 @@ func TestUpdateRolesV2(t *testing.T) {
 				actions: []string{"loadbalancer_list", "loadbalancer_get"},
 				role:    actor,
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				require.Error(t, res.Err)
 			},
 			Sync: true,
@@ -346,7 +346,7 @@ func TestUpdateRolesV2(t *testing.T) {
 				actions: []string{"notfound"},
 				role:    roleRes,
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				assert.Equal(t, status.Code(res.Err), codes.FailedPrecondition)
 				assert.ErrorContains(t, res.Err, "not found")
 			},
@@ -358,7 +358,7 @@ func TestUpdateRolesV2(t *testing.T) {
 				actions: []string{"loadbalancer_list", "loadbalancer_get"},
 				role:    roleRes,
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				assert.NoError(t, res.Err)
 				assert.Equal(t, role.Name, res.Success.Name)
 				assert.Len(t, res.Success.Actions, len(role.Actions))
@@ -372,7 +372,7 @@ func TestUpdateRolesV2(t *testing.T) {
 				actions: []string{"loadbalancer_get", "loadbalancer_update"},
 				role:    roleRes,
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				require.NoError(t, res.Err)
 
 				assert.Equal(t, "new_name", res.Success.Name)
@@ -458,7 +458,7 @@ func TestDeleteRolesV2(t *testing.T) {
 		{
 			Name:  "DeleteRoleNotFound",
 			Input: notfoundRes,
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				assert.ErrorIs(t, res.Err, ErrRoleNotFound)
 			},
 			Sync: true,
@@ -466,14 +466,14 @@ func TestDeleteRolesV2(t *testing.T) {
 		{
 			Name:  "DeleteRoleInvalidInput",
 			Input: subj,
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				assert.Error(t, res.Err)
 			},
 		},
 		{
 			Name:  "DeleteRoleWithExistingBindings",
 			Input: roleRes,
-			CheckFn: func(ctx context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
+			CheckFn: func(_ context.Context, t *testing.T, res testingx.TestResult[types.Role]) {
 				assert.ErrorIs(t, res.Err, ErrDeleteRoleInUse)
 			},
 			Sync: true,

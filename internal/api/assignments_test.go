@@ -39,7 +39,7 @@ func TestAssignmentCreate(t *testing.T) {
 			Input: testInput{
 				path: "/api/v1/roles/permrol-abc123/assignments",
 				json: map[string]interface{}{
-					"subject_id": "bad-id",
+					"subject_id": "badid",
 				},
 			},
 			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
@@ -62,7 +62,7 @@ func TestAssignmentCreate(t *testing.T) {
 		{
 			Name: "InvalidRoleID",
 			Input: testInput{
-				path: "/api/v1/roles/bad-id/assignments",
+				path: "/api/v1/roles/badid/assignments",
 				json: map[string]interface{}{
 					"subject_id": "idntusr-abc123",
 				},
@@ -139,7 +139,7 @@ func TestAssignmentCreate(t *testing.T) {
 
 				resp := res.Success.Result()
 
-				defer resp.Body.Close()
+				defer resp.Body.Close() //nolint:errcheck
 
 				var retResp createAssignmentResponse
 
@@ -255,7 +255,7 @@ func TestAssignmentsList(t *testing.T) {
 
 				resp := res.Success.Result()
 
-				defer resp.Body.Close()
+				defer resp.Body.Close() //nolint:errcheck
 
 				var ret listAssignmentsResponse
 
@@ -324,7 +324,7 @@ func TestAssignmentDelete(t *testing.T) {
 			Input: testInput{
 				path: "/api/v1/roles/permrol-abc123/assignments",
 				json: map[string]interface{}{
-					"subject_id": "bad-id",
+					"subject_id": "badid",
 				},
 			},
 			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
@@ -347,7 +347,7 @@ func TestAssignmentDelete(t *testing.T) {
 		{
 			Name: "InvalidRoleID",
 			Input: testInput{
-				path: "/api/v1/roles/bad-id/assignments",
+				path: "/api/v1/roles/badid/assignments",
 				json: map[string]interface{}{
 					"subject_id": "idntusr-abc123",
 				},
@@ -424,7 +424,7 @@ func TestAssignmentDelete(t *testing.T) {
 
 				resp := res.Success.Result()
 
-				defer resp.Body.Close()
+				defer resp.Body.Close() //nolint:errcheck
 
 				var retResp deleteAssignmentResponse
 

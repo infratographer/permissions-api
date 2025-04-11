@@ -153,7 +153,7 @@ func TestNATS(t *testing.T) {
 
 				return context.WithValue(ctx, contextKeyEngine, &engine)
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[events.Message[events.AuthRelationshipResponse]]) {
+			CheckFn: func(_ context.Context, t *testing.T, result testingx.TestResult[events.Message[events.AuthRelationshipResponse]]) {
 				require.Error(t, result.Err)
 				require.ErrorIs(t, result.Err, events.ErrMissingAuthRelationshipRequestRelationSubjectID)
 				require.Nil(t, result.Success)
@@ -165,7 +165,7 @@ func TestNATS(t *testing.T) {
 				subject: "gooddelete.loadbalancer",
 				request: deleteMsg,
 			},
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
 				var engine mock.Engine
 				engine.Namespace = "gooddelete"
 				engine.On("DeleteRelationships").Return(nil)
@@ -187,12 +187,12 @@ func TestNATS(t *testing.T) {
 				subject: "badresource.fakeresource",
 				request: unknownResourceMsg,
 			},
-			SetupFn: func(ctx context.Context, t *testing.T) context.Context {
+			SetupFn: func(ctx context.Context, _ *testing.T) context.Context {
 				var engine mock.Engine
 
 				return context.WithValue(ctx, contextKeyEngine, &engine)
 			},
-			CheckFn: func(ctx context.Context, t *testing.T, result testingx.TestResult[events.Message[events.AuthRelationshipResponse]]) {
+			CheckFn: func(_ context.Context, t *testing.T, result testingx.TestResult[events.Message[events.AuthRelationshipResponse]]) {
 				require.NoError(t, result.Err)
 				require.NotNil(t, result.Success)
 				require.NotEmpty(t, result.Success.Message().Errors)
