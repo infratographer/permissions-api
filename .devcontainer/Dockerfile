@@ -1,9 +1,5 @@
 # [Choice] Go version (use -bullseye variants on local arm64/Apple Silicon): 1, 1.18, 1.17, 1-bullseye, 1.18-bullseye, 1.17-bullseye, 1-buster, 1.18-buster, 1.17-buster
-FROM golang:1.24-bookworm AS gosrc
-
-FROM mcr.microsoft.com/vscode/devcontainers/base:1-bookworm
-
-COPY --from=gosrc /usr/local/go /usr/local/
+FROM mcr.microsoft.com/vscode/devcontainers/go:1-1.24-bullseye
 
 RUN go version
 
@@ -22,10 +18,13 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         helm \
         uuid-runtime
 
+ARG CRDB_VERSION=v24.1.6
 # Install cockroachdb so we have the client
-RUN curl https://binaries.cockroachdb.com/cockroach-v22.1.8.linux-amd64.tgz | tar -xz \
-    && cp -i cockroach-v22.1.8.linux-amd64/cockroach /usr/local/bin/ \
+RUN curl "https://binaries.cockroachdb.com/cockroach-${CRDB_VERSION}.linux-$(go env GOARCH).tgz" | tar -xz \
+    && cp -i "cockroach-${CRDB_VERSION}.linux-$(go env GOARCH)/cockroach" /usr/local/bin/ \
     && rm -rf cockroach-v*
+
+ENV COCKROACH_BINARY=/usr/local/bin/cockroach
 
 USER vscode
 
