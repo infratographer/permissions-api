@@ -5,7 +5,7 @@ go 1.24.0
 require (
 	github.com/XSAM/otelsql v0.38.0
 	github.com/authzed/authzed-go v1.3.0
-	github.com/authzed/grpcutil v0.0.0-20240123194739-2ea1e3d2d98b
+	github.com/authzed/grpcutil v0.0.0-20250221190651-1985b19b35b8
 	github.com/cockroachdb/cockroach-go/v2 v2.4.0
 	github.com/go-jose/go-jose/v4 v4.0.4
 	github.com/hashicorp/go-cleanhttp v0.5.2
