@@ -90,7 +90,7 @@ require (
 	github.com/bombsimon/wsl/v4 v4.6.0 // indirect
 	github.com/breml/bidichk v0.3.3 // indirect
 	github.com/breml/errchkjson v0.4.1 // indirect
-	github.com/briandowns/spinner v1.23.1 // indirect
+	github.com/briandowns/spinner v1.23.2 // indirect
 	github.com/butuzov/ireturn v0.3.1 // indirect
 	github.com/butuzov/mirror v1.3.0 // indirect
 	github.com/catenacyber/perfsprint v0.9.1 // indirect
@@ -260,7 +260,7 @@ require (
 	github.com/nats-io/nats.go v1.41.1 // indirect
 	github.com/nats-io/natscli v0.2.1 // indirect
 	github.com/nats-io/nkeys v0.4.10 // indirect
-	github.com/nats-io/nsc/v2 v2.10.3-0.20250110165315-eeda721ecff6 // indirect
+	github.com/nats-io/nsc/v2 v2.10.3-0.20250410064538-0b6f851f6180 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/nishanths/exhaustive v0.12.0 // indirect
 	github.com/nishanths/predeclared v0.2.2 // indirect
