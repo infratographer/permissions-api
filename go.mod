@@ -379,4 +379,5 @@ tool (
 	github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 	github.com/nats-io/natscli/nats
 	github.com/nats-io/nsc/v2
+	golang.org/x/tools/cmd/goimports
 )

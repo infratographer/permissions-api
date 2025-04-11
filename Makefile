@@ -47,7 +47,7 @@ golint: | vendor  ## Runs Go lint checks.
 
 fixlint:
 	@echo Fixing go imports
-	@find . -type f -iname '*.go' | xargs go tool goimports -w -local go.infratographer.com/tenant-api
+	@find . -type f -iname '*.go' | xargs go tool goimports -w -local go.infratographer.com/permissions-api
 
 clean:  ## Cleans generated files.
 	@echo Cleaning...
