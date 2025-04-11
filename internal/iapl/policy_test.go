@@ -43,7 +43,7 @@ func TestPolicy(t *testing.T) {
 				ResourceTypes: []ResourceType{
 					{
 						Name:     "foo",
-						IDPrefix: "fooooooooooooooooooooo",
+						IDPrefix: "f",
 					},
 				},
 			},
