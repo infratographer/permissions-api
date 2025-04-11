@@ -1,5 +1,9 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema-pro.json
+version: 2
 
 includes:
   - from_url:
       url: https://raw.githubusercontent.com/infratographer/release/main/goreleaser/base.yml
+
+release:
+  mode: keep-existing
