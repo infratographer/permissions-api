@@ -115,8 +115,8 @@ github.com/authzed/cel-go v0.20.2 h1:GlmLecGry7Z8HU0k+hmaHHUV05ZHrsFxduXHtIePvck
 github.com/authzed/cel-go v0.20.2/go.mod h1:pJHVFWbqUHV1J+klQoZubdKswlbxcsbojda3mye9kiU=
 github.com/authzed/consistent v0.1.0 h1:tlh1wvKoRbjRhMm2P+X5WQQyR54SRoS4MyjLOg17Mp8=
 github.com/authzed/consistent v0.1.0/go.mod h1:plwHlrN/EJUCwQ+Bca0MhM1KnisPs7HEkZI5giCXrcc=
-github.com/authzed/grpcutil v0.0.0-20240123194739-2ea1e3d2d98b h1:wbh8IK+aMLTCey9sZasO7b6BWLAJnHHvb79fvWCXwxw=
-github.com/authzed/grpcutil v0.0.0-20240123194739-2ea1e3d2d98b/go.mod h1:s3qC7V7XIbiNWERv7Lfljy/Lx25/V1Qlexb0WJuA8uQ=
+github.com/authzed/grpcutil v0.0.0-20250221190651-1985b19b35b8 h1:y17oq4U8n+k1OcIGGDsjYdIdp4QywGcE7ZphIvtfEbo=
+github.com/authzed/grpcutil v0.0.0-20250221190651-1985b19b35b8/go.mod h1:Pf1ZSi41EePvx1GC1DeEJw5dn35iUcxZHqpHuG1Rpic=
 github.com/authzed/spicedb v1.37.1 h1:2JdeRnpBHkIHed88D/z0KkGXeAdyqkdWwcAYKK0NeGU=
 github.com/authzed/spicedb v1.37.1/go.mod h1:KTAntPL+DERDbAZkR6BpcLlKvUokFSpX6cXW8QwGMHc=
 github.com/authzed/zed v1.14.0 h1:uBY7f7J5B7pG/lwtuA8XSDY1i5AnMsKL7LwC/YB08ps=
