@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.2](https://github.com/infratographer/permissions-api/compare/v0.7.1...v0.7.2) (2025-04-15)
+
+
+### Bug Fixes
+
+* **chart:** update otel trace configuration ([#347](https://github.com/infratographer/permissions-api/issues/347)) ([61b9b21](https://github.com/infratographer/permissions-api/commit/61b9b21fff733b879b5651ddf8028c79db135bab))
+* **deps:** update module github.com/go-jose/go-jose/v4 to v4.1.0 ([#340](https://github.com/infratographer/permissions-api/issues/340)) ([62d175c](https://github.com/infratographer/permissions-api/commit/62d175c69facb113f65cfa1366094eb0f277bee8))
+
 ## [0.7.1](https://github.com/infratographer/permissions-api/compare/v0.7.0...v0.7.1) (2025-04-11)
 
 
