@@ -263,7 +263,7 @@ require (
 	github.com/nats-io/nats.go v1.41.1 // indirect
 	github.com/nats-io/natscli v0.2.2 // indirect
 	github.com/nats-io/nkeys v0.4.10 // indirect
-	github.com/nats-io/nsc/v2 v2.10.3-0.20250410064538-0b6f851f6180 // indirect
+	github.com/nats-io/nsc/v2 v2.10.3-0.20250415141057-4d9e789cb5c2 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/nishanths/exhaustive v0.12.0 // indirect
 	github.com/nishanths/predeclared v0.2.2 // indirect

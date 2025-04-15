@@ -709,8 +709,8 @@ github.com/nats-io/natscli v0.2.2 h1:7MhzaguUN48P6Ot3+sQ4IjYxgvU2BUSlrYhwYbJWYcw
 github.com/nats-io/natscli v0.2.2/go.mod h1:JLhkNQQZZyPayXeiaWbEu4moy1uaDJSTW7A+KthTfdw=
 github.com/nats-io/nkeys v0.4.10 h1:glmRrpCmYLHByYcePvnTBEAwawwapjCPMjy2huw20wc=
 github.com/nats-io/nkeys v0.4.10/go.mod h1:OjRrnIKnWBFl+s4YK5ChQfvHP2fxqZexrKJoVVyWB3U=
-github.com/nats-io/nsc/v2 v2.10.3-0.20250410064538-0b6f851f6180 h1:DW/HnNnTFlwP/87FWiyc8y1IqVJYobqg+CSKPxeU4g4=
-github.com/nats-io/nsc/v2 v2.10.3-0.20250410064538-0b6f851f6180/go.mod h1:1KHcfCNtoCMVkDqtbbC9KIuIuJPVm/XEWpo+E4o03fg=
+github.com/nats-io/nsc/v2 v2.10.3-0.20250415141057-4d9e789cb5c2 h1:rVdBPsNE6LlSkZowvYkpztFQ+aMUPfY0uRtwarJqHe0=
+github.com/nats-io/nsc/v2 v2.10.3-0.20250415141057-4d9e789cb5c2/go.mod h1:V7zcfDWb4hgVmRa6+uKnR+YEzL/1qYa9eANWhVQhs6Y=
 github.com/nats-io/nuid v1.0.1 h1:5iA8DT8V7q8WK2EScv2padNa/rTESc1KdnPw4TC2paw=
 github.com/nats-io/nuid v1.0.1/go.mod h1:19wcPz3Ph3q0Jbyiqsd0kePYG7A95tJPxeL+1OSON2c=
 github.com/ncruces/go-strftime v0.1.9 h1:bY0MQC28UADQmHmaF5dgpLmImcShSi2kHU9XLdhx/f4=
