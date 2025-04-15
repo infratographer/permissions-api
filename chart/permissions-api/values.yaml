@@ -155,13 +155,15 @@ config:
     enabled: false
     # provider is the OpenTelemetry tracing provider to use
     provider: stdout
-    jaeger:
-      # endpoint is the Jaeger collector to send traces to
-      endpoint: ""
-      # user is the user to use when authenticating against the Jaeger deployment
-      user: ""
-      # password is the password to use when authenticating against the Jaeger deployment
-      password: ""
+    # environment sets the OTEL deployment environment
+    environment: ""
+    # sample_ratio sets the ratio of new traces sampled
+    sample_ratio: 1.0
+    stdout:
+      # pretty_print prettifies the emitted output
+      pretty_print: false
+      # disable_timestamps sets the export stream to not include timestamps
+      disable_timestamps: false
     otlp:
       # endpoint is the OpenTelemetry Protocol (OTLP) collector endpoint to send traces to
       endpoint: ""
