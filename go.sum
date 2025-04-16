@@ -111,8 +111,8 @@ github.com/ashanbrown/forbidigo v1.6.0 h1:D3aewfM37Yb3pxHujIPSpTf6oQk9sc9WZi8ger
 github.com/ashanbrown/forbidigo v1.6.0/go.mod h1:Y8j9jy9ZYAEHXdu723cUlraTqbzjKF1MUyfOKL+AjcU=
 github.com/ashanbrown/makezero v1.2.0 h1:/2Lp1bypdmK9wDIq7uWBlDF1iMUpIIS4A+pF6C9IEUU=
 github.com/ashanbrown/makezero v1.2.0/go.mod h1:dxlPhHbDMC6N6xICzFBSK+4njQDdK8euNO0qjQMtGY4=
-github.com/authzed/authzed-go v1.3.0 h1:jKIMpYDy+6WoOwl32HRURxLZxNGm+I7ObUlTntEPcXA=
-github.com/authzed/authzed-go v1.3.0/go.mod h1:MYkXImtFAxrM/bVZvmC/WO+gZC9RLlvpCM51SLaUZb0=
+github.com/authzed/authzed-go v1.4.0 h1:0LnVg/r38rJgbljBx0m9vWHvaHYEElMaomAXyEeaiI8=
+github.com/authzed/authzed-go v1.4.0/go.mod h1:iW6QQWmTbgFfn4b6zPPzbgOUOSB93/or4VdQ+zLTjeY=
 github.com/authzed/cel-go v0.20.2 h1:GlmLecGry7Z8HU0k+hmaHHUV05ZHrsFxduXHtIePvck=
 github.com/authzed/cel-go v0.20.2/go.mod h1:pJHVFWbqUHV1J+klQoZubdKswlbxcsbojda3mye9kiU=
 github.com/authzed/consistent v0.1.0 h1:tlh1wvKoRbjRhMm2P+X5WQQyR54SRoS4MyjLOg17Mp8=
@@ -480,8 +480,8 @@ github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.0.1 h1:qnpS
 github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.0.1/go.mod h1:lXGCsh6c22WGtjr+qGHj1otzZpV/1kwTMAqkwZsnWRU=
 github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.1.0 h1:pRhl55Yx1eC7BZ1N+BBWwnKaMyD8uC+34TLdndZMAKk=
 github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.1.0/go.mod h1:XKMd7iuf/RGPSMJ/U4HP0zS2Z9Fh8Ps9a+6X26m/tmI=
-github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.1 h1:e9Rjr40Z98/clHv5Yg79Is0NtosR5LXRvdr7o/6NwbA=
-github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.1/go.mod h1:tIxuGz/9mpox++sgp9fJjHO0+q1X9/UOWd798aAm22M=
+github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.3 h1:5ZPtiqj0JL5oKWmcsq4VMaAW5ukBEgSGXEN89zeH1Jo=
+github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.3/go.mod h1:ndYquD05frm2vACXE1nsccT4oJzjhw2arTS2cpUD1PI=
 github.com/gsterjov/go-libsecret v0.0.0-20161001094733-a6f4afe4910c h1:6rhixN/i8ZofjG1Y75iExal34USq5p+wiN1tpie8IrU=
 github.com/gsterjov/go-libsecret v0.0.0-20161001094733-a6f4afe4910c/go.mod h1:NMPJylDgVpX0MLRlPy15sqSwOFv/U1GZ2m21JhFfek0=
 github.com/hamba/avro/v2 v2.13.0 h1:QY2uX2yvJTW0OoMKelGShvq4v1hqab6CxJrPwh0fnj0=
@@ -812,8 +812,8 @@ github.com/ryanrolds/sqlclosecheck v0.5.1 h1:dibWW826u0P8jNLsLN+En7+RqWWTYrjCB9f
 github.com/ryanrolds/sqlclosecheck v0.5.1/go.mod h1:2g3dUjoS6AL4huFdv6wn55WpLIDjY7ZgUR4J8HOO/XQ=
 github.com/sagikazarmark/locafero v0.7.0 h1:5MqpDsTGNDhY8sGp0Aowyf0qKsPrhewaLSsFaodPcyo=
 github.com/sagikazarmark/locafero v0.7.0/go.mod h1:2za3Cg5rMaTMoG/2Ulr9AwtFaIppKXTRYnozin4aB5k=
-github.com/samber/lo v1.49.0 h1:AGnTnQrg1jpFuwECPUSoxZCfVH5W22b605kWSry3YxM=
-github.com/samber/lo v1.49.0/go.mod h1:dO6KHFzUKXgP8LDhU0oI8d2hekjXnGOu0DB8Jecxd6o=
+github.com/samber/lo v1.49.1 h1:4BIFyVfuQSEpluc7Fua+j1NolZHiEHEpaSEKdsH0tew=
+github.com/samber/lo v1.49.1/go.mod h1:dO6KHFzUKXgP8LDhU0oI8d2hekjXnGOu0DB8Jecxd6o=
 github.com/samber/slog-common v0.17.0 h1:HdRnk7QQTa9ByHlLPK3llCBo8ZSX3F/ZyeqVI5dfMtI=
 github.com/samber/slog-common v0.17.0/go.mod h1:mZSJhinB4aqHziR0SKPqpVZjJ0JO35JfH+dDIWqaCBk=
 github.com/samber/slog-zerolog/v2 v2.6.0 h1:S7Q7fvV6HB7NSa7WnI/7ymuVkQZg5XhNXM1ltmAOvGc=

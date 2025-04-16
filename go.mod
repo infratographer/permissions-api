@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	github.com/XSAM/otelsql v0.38.0
-	github.com/authzed/authzed-go v1.3.0
+	github.com/authzed/authzed-go v1.4.0
 	github.com/authzed/grpcutil v0.0.0-20250221190651-1985b19b35b8
 	github.com/cockroachdb/cockroach-go/v2 v2.4.0
 	github.com/go-jose/go-jose/v4 v4.1.0
@@ -182,7 +182,7 @@ require (
 	github.com/gosuri/uiprogress v0.0.1 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.1.0 // indirect
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.1 // indirect
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.3 // indirect
 	github.com/gsterjov/go-libsecret v0.0.0-20161001094733-a6f4afe4910c // indirect
 	github.com/hamba/avro/v2 v2.13.0 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
@@ -293,7 +293,7 @@ require (
 	github.com/ryancurrah/gomodguard v1.4.1 // indirect
 	github.com/ryanrolds/sqlclosecheck v0.5.1 // indirect
 	github.com/sagikazarmark/locafero v0.7.0 // indirect
-	github.com/samber/lo v1.49.0 // indirect
+	github.com/samber/lo v1.49.1 // indirect
 	github.com/sanposhiho/wastedassign/v2 v2.1.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.1 // indirect
