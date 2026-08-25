@@ -1,6 +1,6 @@
 module go.infratographer.com/permissions-api
 
-go 1.24.0
+go 1.25.0
 
 require (
 	github.com/XSAM/otelsql v0.38.0
@@ -11,13 +11,13 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.2
 	github.com/hashicorp/go-retryablehttp v0.7.7
 	github.com/jackc/pgx/v5 v5.7.4
-	github.com/labstack/echo/v4 v4.13.3
+	github.com/labstack/echo/v4 v4.15.3
 	github.com/pkg/errors v0.9.1
 	github.com/pressly/goose/v3 v3.24.2
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
 	github.com/spf13/viper v1.20.1
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	go.infratographer.com/x v0.9.2
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.60.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.60.0
@@ -218,7 +218,7 @@ require (
 	github.com/kunwardeep/paralleltest v1.0.14 // indirect
 	github.com/labstack/echo-contrib v0.17.3 // indirect
 	github.com/labstack/echo-jwt/v4 v4.3.1 // indirect
-	github.com/labstack/gommon v0.4.2 // indirect
+	github.com/labstack/gommon v0.5.0 // indirect
 	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
 	github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0 // indirect
 	github.com/lasiar/canonicalheader v1.1.2 // indirect
@@ -237,7 +237,7 @@ require (
 	github.com/maratori/testpackage v1.1.1 // indirect
 	github.com/matoous/godox v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
-	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-isatty v0.0.22 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/mgechev/revive v1.9.0 // indirect
@@ -355,17 +355,20 @@ require (
 	go.opentelemetry.io/proto/otlp v1.5.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/automaxprocs v1.6.0 // indirect
-	golang.org/x/crypto v0.37.0 // indirect
+	golang.org/x/crypto v0.50.0 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20250210185358-939b2ce775ac // indirect
-	golang.org/x/mod v0.24.0 // indirect
-	golang.org/x/net v0.39.0 // indirect
+	golang.org/x/mod v0.34.0 // indirect
+	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/oauth2 v0.29.0 // indirect
-	golang.org/x/sync v0.13.0 // indirect
-	golang.org/x/sys v0.32.0 // indirect
-	golang.org/x/term v0.31.0 // indirect
-	golang.org/x/text v0.24.0 // indirect
-	golang.org/x/time v0.11.0 // indirect
-	golang.org/x/tools v0.32.0 // indirect
+	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/sys v0.43.0 // indirect
+	golang.org/x/telemetry v0.0.0-20260311193753-579e4da9a98c // indirect
+	golang.org/x/term v0.42.0 // indirect
+	golang.org/x/text v0.36.0 // indirect
+	golang.org/x/time v0.15.0 // indirect
+	golang.org/x/tools v0.43.0 // indirect
+	golang.org/x/tools/go/expect v0.1.1-deprecated // indirect
+	golang.org/x/tools/go/packages/packagestest v0.1.1-deprecated // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250303144028-a0af3efb3deb // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250324211829-b45e905df463 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
